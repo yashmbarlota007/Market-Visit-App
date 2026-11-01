@@ -131,6 +131,9 @@
          '</div>';
     };
   </script>
+  <!-- Leaflet Map CSS & JS for CEO Live Radar -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 
@@ -350,6 +353,11 @@
             </div>
 
             <div class="d-grid gap-2 mt-4">
+              
+              <!-- CEO / OWNER EXCLUSIVE RADAR BUTTON -->
+              <button class="btn btn-success py-3" id="btnCeoStaffRadar" style="display:none;" onclick="openStaffRadarModal()">
+                <b><i class="bi bi-broadcast-pin"></i> 📡 Live Staff Field Radar (Map View)</b>
+              </button>
               <button class="btn btn-dark py-3" onclick="refreshCEOStats()" id="btnRefreshCEO">
                 <b><i class="bi bi-arrow-clockwise"></i> Force Sync Data</b>
               </button>
@@ -1673,22 +1681,35 @@ function generateMorningWhatsApp() {
 </script>
 
 <!-- LIVE STAFF RADAR MODAL -->
+<!-- CEO EXCLUSIVE: LIVE STAFF RADAR MODAL WITH INTERACTIVE MAP -->
 <div class="modal fade" id="staffRadarModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered modal-lg">
-    <div class="modal-content">
-      <div class="modal-header bg-success text-white py-2">
-        <h6 class="modal-title fw-bold"><i class="bi bi-broadcast"></i> Live Field Staff GPS Radar</h6>
+    <div class="modal-content shadow-lg border-0">
+      <div class="modal-header bg-dark text-white py-3">
+        <h6 class="modal-title fw-bold text-white mb-0">
+          <i class="bi bi-broadcast text-success me-2"></i> Live Staff Field Radar & GPS Map
+        </h6>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body p-3">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <small class="text-muted">Real-time GPS tracker from 'Live Staff Tracking' sheet</small>
-          <button class="btn btn-sm btn-outline-success" onclick="refreshStaffRadarData()"><i class="bi bi-arrow-repeat"></i> Refresh</button>
+      <div class="modal-body p-3 bg-light">
+        <div class="d-flex justify-content-between align-items-center mb-2 px-1">
+          <span class="text-muted small fw-bold">Live GPS Telemetry (Updated every 45s)</span>
+          <button class="btn btn-sm btn-outline-success" onclick="refreshStaffRadarData()">
+            <i class="bi bi-arrow-repeat"></i> Refresh Radar
+          </button>
         </div>
-        <div id="staffRadarContent">Loading radar signals...</div>
+
+        <!-- Interactive OpenStreetMap / Leaflet Container -->
+        <div id="ceoLiveStaffMap" style="height: 380px; width: 100%; border-radius: 12px; border: 2px solid #0d6efd; margin-bottom: 15px; background: #e9ecef;"></div>
+
+        <!-- Staff Radar Details Table -->
+        <div id="staffRadarContent">
+          <div class="text-center py-3 text-muted"><span class="spinner-border spinner-border-sm text-success"></span> Scanning field signals...</div>
+        </div>
       </div>
     </div>
   </div>
+</div>
 </div>
 
 </body>
