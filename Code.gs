@@ -2144,9 +2144,12 @@ function updateStaffLiveLocation(staffName, lat, lng, speed, accuracy) {
   }
 }
 
-function getLiveStaffRadar() {
-  try {
-    var sheet = getOrCreateLiveTrackingSheet();
+function getLiveStaffRadar(requestingRole) {
+  var role = String(requestingRole || "").trim().toLowerCase();
+  if (role !== "owner" && role !== "ceo" && role !== "superadmin") {
+    return { success: false, error: "Access Denied: Only CEO / Owner can access Live Staff Radar." };
+  }
+  var sheet = getOrCreateLiveTrackingSheet();
     var data = sheet.getDataRange().getValues();
     var list = [];
     var now = new Date();
