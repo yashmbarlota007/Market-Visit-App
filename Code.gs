@@ -1,6 +1,46 @@
+var SPREADSHEET_ID = "1aWuHrdbwVkasyCHgt6z55X7Ob5S0tt127UZ1dKKCiL4";
+
+function getActiveSpreadsheet() {
+  var ss = null;
+  try {
+    ss = SpreadsheetApp.getActiveSpreadsheet();
+  } catch(e) {}
+  if (!ss) {
+    try {
+      ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    } catch(e) {}
+  }
+  return ss;
+}
 var DRIVE_FOLDER_ID = "1uj9sY9b74_Tzm-x_Uu6I4NqGCP2harxJ"; 
 
+function onOpen() {
+  try {
+    getOrCreateDealerLocationGpsSheet();
+    getOrCreateLiveTrackingSheet();
+    getOrCreateProxyAuditSheet();
+  } catch(e) {}
+}
+
 function doGet(e) {
+  if (e && e.parameter && e.parameter.initTabs) {
+    try {
+      var s1 = getOrCreateDealerLocationGpsSheet();
+      var s2 = getOrCreateLiveTrackingSheet();
+      var s3 = getOrCreateProxyAuditSheet();
+      var ss = getActiveSpreadsheet();
+      return ContentService.createTextOutput(JSON.stringify({
+        success: true,
+        created: [s1.getName(), s2.getName(), s3.getName()],
+        allSheets: ss.getSheets().map(function(s) { return s.getName(); })
+      })).setMimeType(ContentService.MimeType.JSON);
+    } catch(errInit) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: errInit.message
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
   try { getOrCreateDealerLocationGpsSheet(); getOrCreateLiveTrackingSheet(); } catch(eInit) {}
 
   var template = HtmlService.createTemplateFromFile('Index');
@@ -30,7 +70,9 @@ function testDriveUpload() {
 }
 
 function getSheetSafely(targetName) {
-  var sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
+  var ss = getActiveSpreadsheet();
+  if (!ss) return null;
+  var sheets = ss.getSheets();
   
   for (var i = 0; i < sheets.length; i++) {
     if (sheets[i].getName().trim().toLowerCase() === targetName.trim().toLowerCase()) {
@@ -1827,7 +1869,7 @@ var DEFAULT_GEOFENCE_RADIUS_METERS = 50;
 var HQ_COORDS = { lat: 19.088889, lon: 74.733667 };
 
 function getOrCreateDealerLocationGpsSheet() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = getActiveSpreadsheet();
   var sheet = getSheetSafely("Dealer Location GPS");
   if (!sheet) {
     sheet = ss.insertSheet("Dealer Location GPS");
@@ -1908,7 +1950,7 @@ function syncDealersToGpsSheet(targetSheet) {
 }
 
 function getOrCreateLiveTrackingSheet() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = getActiveSpreadsheet();
   var sheet = getSheetSafely("Live Staff Tracking");
   if (!sheet) {
     sheet = ss.insertSheet("Live Staff Tracking");
@@ -1932,7 +1974,7 @@ function getOrCreateLiveTrackingSheet() {
 }
 
 function getOrCreateProxyAuditSheet() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = getActiveSpreadsheet();
   var sheet = getSheetSafely("Proxy Audit Log");
   if (!sheet) {
     sheet = ss.insertSheet("Proxy Audit Log");
@@ -2128,4 +2170,10 @@ function getLiveStaffRadar() {
   } catch(e) {
     return { success: false, error: e.message };
   }
+}
+
+function testOpenById() {
+  var ss = SpreadsheetApp.openById("1aWuHrdbwVkasyCHgt6z55X7Ob5S0tt127UZ1dKKCiL4");
+  var sheets = ss.getSheets().map(function(s) { return s.getName(); });
+  return sheets;
 }
