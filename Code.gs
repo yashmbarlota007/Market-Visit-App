@@ -2149,7 +2149,8 @@ function getLiveStaffRadar(requestingRole) {
   if (role !== "owner" && role !== "ceo" && role !== "superadmin") {
     return { success: false, error: "Access Denied: Only CEO / Owner can access Live Staff Radar." };
   }
-  var sheet = getOrCreateLiveTrackingSheet();
+  try {
+    var sheet = getOrCreateLiveTrackingSheet();
     var data = sheet.getDataRange().getValues();
     var list = [];
     var now = new Date();
@@ -2175,8 +2176,3 @@ function getLiveStaffRadar(requestingRole) {
   }
 }
 
-function testOpenById() {
-  var ss = SpreadsheetApp.openById("1aWuHrdbwVkasyCHgt6z55X7Ob5S0tt127UZ1dKKCiL4");
-  var sheets = ss.getSheets().map(function(s) { return s.getName(); });
-  return sheets;
-}
