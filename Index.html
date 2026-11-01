@@ -1,0 +1,1695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Yash Marketing</title>
+  
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  
+  <style>
+    body { 
+      background-color: #f4f7f6; 
+      font-family: 'Segoe UI', sans-serif; 
+    }
+    .page-section { 
+      display: none; 
+    }
+    .active-section { 
+      display: block; 
+      animation: fadeIn 0.5s; 
+    }
+    @keyframes fadeIn { 
+      from { opacity: 0; } 
+      to { opacity: 1; } 
+    }
+    .card { 
+      border-radius: 15px; 
+      border: none; 
+      margin-top: 20px; 
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .card-header { 
+      background: #0d6efd; 
+      color: white; 
+      border-radius: 15px 15px 0 0 !important; 
+      text-align: center;
+    }
+    #previewImg { 
+      max-width: 100%; 
+      border-radius: 10px; 
+      display: none; 
+      margin-top: 10px; 
+      border: 2px solid #0d6efd;
+    }
+    .stock-title { 
+      font-size: 14px; 
+      font-weight: bold; 
+      color: #495057; 
+      border-bottom: 2px solid #dee2e6; 
+      margin-bottom: 10px; 
+      padding-bottom: 5px; 
+      margin-top: 15px;
+    }
+    .stock-label { 
+      font-size: 12px; 
+      color: #6c757d;
+    }
+    .clickable-card { 
+      cursor: pointer; 
+      transition: transform 0.2s; 
+    }
+    .clickable-card:active { 
+      transform: scale(0.95); 
+    }
+    .dealer-row:hover { 
+      background-color: #f8f9fa; 
+      cursor: pointer; 
+    }
+    .inc-box { 
+      background: #ffffff; 
+      border-left: 5px solid #198754; 
+      border-radius: 8px; 
+      padding: 15px; 
+      margin-bottom: 15px; 
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08); 
+    }
+    .inc-val { 
+      font-size: 1.8rem; 
+      font-weight: 900; 
+      color: #198754; 
+    }
+    .inc-title { 
+      font-size: 0.8rem; 
+      font-weight: bold; 
+      color: #6c757d; 
+      text-transform: uppercase; 
+      letter-spacing: 1px; 
+    }
+    .focus-brand-banner { 
+      background: linear-gradient(90deg, #ff8a00, #e52e71); 
+      color: white; 
+      border-radius: 10px; 
+      padding: 15px; 
+      font-weight: bold; 
+      text-align: center; 
+      margin-bottom: 15px; 
+      box-shadow: 0 4px 10px rgba(229, 46, 113, 0.3);
+    }
+    .scheme-pill { 
+      background: rgba(255,255,255,0.2); 
+      border: 1px solid rgba(255,255,255,0.5); 
+      padding: 5px 10px; 
+      border-radius: 20px; 
+      font-size: 0.85rem; 
+      display: inline-block; 
+      margin: 3px; 
+      font-weight: 900; 
+    }
+    .general-scheme-card { 
+      background: #eef2f5; 
+      border: 1px dashed #ced4da; 
+      border-radius: 10px; 
+      padding: 10px; 
+      text-align: center; 
+      margin-bottom: 20px;
+    }
+  </style>
+  
+  <script>
+    window.onerror = function(message, source, lineno, colno, error) {
+       var stack = error && error.stack ? error.stack : "No stack trace available";
+       document.body.innerHTML = 
+         '<div style="padding: 20px; font-family: sans-serif; color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 5px; margin: 20px;">' +
+           '<h4 style="font-weight: bold;">Critical Application Error</h4>' +
+           '<p>The app encountered a fatal javascript syntax error.</p>' +
+           '<hr>' +
+           '<p><strong>Error:</strong> ' + message + '</p>' +
+           '<p><strong>Line:</strong> ' + lineno + '</p>' +
+           '<pre style="font-size: 10px; overflow-x: auto; background: #fff; padding: 10px;">' + stack + '</pre>' +
+         '</div>';
+    };
+  </script>
+</head>
+<body>
+
+<!-- Global List Modal -->
+<div class="modal fade" id="listModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-dark text-white py-2">
+        <h6 class="modal-title mb-0" id="listModalTitle">List View</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0" id="listModalBody"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Details Modal -->
+<div class="modal fade" id="detailModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white py-2">
+        <h6 class="modal-title mb-0">X-Ray Visit Detail</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3" id="detailModalBody"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Dealer Financial Modal -->
+<div class="modal fade" id="dealerModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white py-2">
+        <h6 class="modal-title mb-0"><i class="bi bi-shop"></i> Dealer Analytics</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3" id="dealerModalBody"></div>
+    </div>
+  </div>
+</div>
+
+<!-- EOD WhatsApp Report Modal -->
+<div class="modal fade" id="eodModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header bg-success text-white py-3">
+        <h5 class="modal-title mb-0 fw-bold"><i class="bi bi-whatsapp"></i> Generate EOD Report</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3">
+        <p class="text-muted small mb-2">Review your day's performance before submitting to the group.</p>
+        <textarea id="eodPreviewText" class="form-control" rows="15" readonly style="font-family: monospace; font-size: 13px; background-color: #f8f9fa;"></textarea>
+      </div>
+      <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-success fw-bold px-4" id="btnSendWhatsApp" onclick="sendToWhatsApp()">
+          <i class="bi bi-send-fill"></i> Share to WhatsApp
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DIAGNOSTIC AUDIT MODAL -->
+<div class="modal fade" id="auditModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header bg-danger text-white py-3">
+        <h5 class="modal-title mb-0 fw-bold"><i class="bi bi-bug-fill"></i> Diagnostic System Audit</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3">
+        <p class="text-muted small mb-2">This log reveals exactly how the system is currently mapping areas and orders.</p>
+        <textarea id="auditText" class="form-control text-light bg-dark" rows="20" readonly style="font-family: monospace; font-size: 12px;"></textarea>
+      </div>
+      <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal">Close Audit</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLEEPING GIANTS MODAL -->
+<div class="modal fade" id="giantsModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header bg-warning text-dark py-3">
+        <h5 class="modal-title mb-0 fw-bold"><i class="bi bi-alarm-fill"></i> Sleeping Giants (Churn Alert)</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3" id="giantsModalBody">
+        <div class="text-center p-4">Loading retention data...</div>
+      </div>
+      <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Interactive Earnings Ledger Modal -->
+<div class="modal fade" id="ledgerModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header bg-success text-white py-3">
+        <h5 class="modal-title mb-0 fw-bold" id="ledgerModalTitle"><i class="bi bi-wallet2"></i> Ledger Detail</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-2 bg-light" id="ledgerModalBody">
+         <!-- Dynamic Generation -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container pb-5">
+  <div class="row justify-content-center">
+    <div class="col-md-6 col-12">
+
+      <!-- Login Screen -->
+      <div id="loginScreen" class="page-section">
+        <div class="card">
+          <div class="card-header py-3">
+            <h4><i class="bi bi-person-circle"></i> Staff Login</h4>
+          </div>
+          <div class="card-body p-4">
+            <div class="mb-3">
+              <label class="form-label">Employee ID</label>
+              <input type="text" id="loginEmpId" class="form-control" placeholder="E.g. YM001">
+            </div>
+            <div class="mb-4">
+              <label class="form-label">Password</label>
+              <input type="password" id="loginPass" class="form-control" placeholder="Password">
+            </div>
+            <button class="btn btn-primary w-100 py-2" id="loginBtn" onclick="doLogin()">Login</button>
+            <div id="loginError" class="text-danger mt-2 text-center fw-bold"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CEO / Accountant / MIS / CRM God's Eye View Screen -->
+      <div id="ceoScreen" class="page-section">
+        <div class="card border-dark shadow">
+          <div class="card-header bg-dark text-white py-3">
+            <h4><i class="bi bi-eye-fill"></i> God's Eye View</h4>
+          </div>
+          <div class="card-body p-3">
+
+            <!-- MORNING BRIEFING GENERATOR -->
+            <div class="p-3 bg-dark bg-opacity-10 rounded border border-secondary mb-3 shadow-sm">
+              <h6 class="fw-bold text-dark mb-2"><i class="bi bi-rocket-takeoff-fill text-primary"></i> Generate Morning Briefing</h6>
+              <div class="input-group">
+                <select class="form-select border-secondary fw-bold" id="briefingArea">
+                  <option value="">Select Area for Today...</option>
+                  <!-- Options will be populated dynamically -->
+                </select>
+                <button class="btn btn-primary fw-bold" onclick="generateMorningWhatsApp()">
+                  <i class="bi bi-whatsapp"></i> Build
+                </button>
+              </div>
+            </div>
+
+            <!-- Dynamic Filter Controls -->
+            <div class="p-3 bg-light rounded border mb-3">
+              <label class="form-label text-dark fw-bold mb-1" style="font-size:12px;">SELECT TIMEFRAME:</label>
+              <select class="form-select border-primary fw-bold" id="ceoFilter" onchange="refreshCEOStats()">
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="thisWeek">This Week</option>
+                <option value="lastWeek">Last Week</option>
+                <option value="thisMonth">This Month</option>
+                <option value="lastMonth">Last Month</option>
+                <option value="custom">Custom Date Range...</option>
+              </select>
+              
+              <div id="customDateRow" class="row g-2 mt-2" style="display:none;">
+                <div class="col-6">
+                  <small class="text-muted" style="font-size:10px;">START DATE</small>
+                  <input type="date" id="ceoStartDate" class="form-control form-control-sm" onchange="refreshCEOStats()">
+                </div>
+                <div class="col-6">
+                  <small class="text-muted" style="font-size:10px;">END DATE</small>
+                  <input type="date" id="ceoEndDate" class="form-control form-control-sm" onchange="refreshCEOStats()">
+                </div>
+              </div>
+            </div>
+
+            <h6 class="mb-2 fw-bold text-dark border-bottom pb-1"><i class="bi bi-graph-up-arrow text-primary"></i> Filtered Network Output</h6>
+            
+            <div class="row g-2 mb-3 text-center">
+              <div class="col-4">
+                <div class="p-2 bg-primary bg-opacity-10 rounded border border-primary clickable-card" onclick="showGlobalList()">
+                  <h4 class="text-primary fw-bold mb-0" id="vTotal">0</h4>
+                  <small class="text-dark fw-bold" style="font-size: 10px;">TOTAL VISITS</small>
+                </div>
+              </div>
+              <div class="col-4">
+                <div class="p-2 bg-success bg-opacity-10 rounded border border-success">
+                  <h4 class="text-success fw-bold mb-0" id="sTotal">₹0</h4>
+                  <small class="text-dark fw-bold" style="font-size: 10px;">GROSS SALES</small>
+                </div>
+              </div>
+              <div class="col-4">
+                <div class="p-2 bg-warning bg-opacity-10 rounded border border-warning clickable-card" onclick="showGlobalList()">
+                  <h4 class="text-dark fw-bold mb-0" id="cTotal">0</h4>
+                  <small class="text-dark fw-bold" style="font-size: 10px;">COLLECTIONS</small>
+                </div>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <h6 class="fw-bold border-bottom pb-1"><i class="bi bi-trophy-fill text-warning"></i> Team Leaderboard (Sorted by Sales)</h6>
+              <div id="leaderboardList" class="mt-2">
+                <div class="p-2 text-muted text-center border rounded">Select filter to load data...</div>
+              </div>
+            </div>
+
+            <div class="d-grid gap-2 mt-4">
+              <button class="btn btn-dark py-3" onclick="refreshCEOStats()" id="btnRefreshCEO">
+                <b><i class="bi bi-arrow-clockwise"></i> Force Sync Data</b>
+              </button>
+              
+              <button class="btn btn-warning py-3" onclick="openSleepingGiants()" id="btnGiants">
+                <b><i class="bi bi-alarm-fill"></i> At-Risk Accounts</b>
+              </button>
+              
+              <button class="btn btn-outline-danger" onclick="runDiagnostic()">
+                <i class="bi bi-bug"></i> Run System Audit
+              </button>
+
+              <button class="btn btn-outline-secondary" onclick="logout()">
+                <i class="bi bi-power"></i> Logout
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Agent Dashboard Screen -->
+      <div id="dashboardScreen" class="page-section">
+        <div class="card shadow-lg border-0 bg-white">
+          <div class="card-header py-3 bg-dark">
+            <h4 class="text-white mb-0"><i class="bi bi-speedometer2 text-warning"></i> Agent Dashboard</h4>
+          </div>
+          <div class="card-body p-3">
+            <h5 class="mb-3 text-center border-bottom pb-2">Welcome, <span id="dashName" class="text-primary fw-bold"></span></h5>
+
+            <div id="incentiveLoader" class="text-center p-4 text-muted">
+              <span class="spinner-border spinner-border-sm"></span> Syncing Live Targets & Earnings...
+            </div>
+
+            <div id="incentiveDashboard" style="display:none;">
+              <div id="focusedBrandBanner" class="focus-brand-banner">
+                <div class="small text-uppercase mb-2">HOT Active Brand Incentives HOT</div>
+                <div class="mb-1" id="fBrandName"></div>
+              </div>
+
+              <div class="general-scheme-card">
+                <div class="text-muted small fw-bold mb-2">OTHER ACTIVE SCHEMES</div>
+                <div class="d-flex justify-content-around">
+                  <div>
+                    <span class="fs-5 text-dark fw-bold">₹<span id="uiVisitRate">0</span></span><br>
+                    <small class="text-muted">Per Visit</small>
+                  </div>
+                  <div class="border-start border-secondary"></div>
+                  <div>
+                    <span class="fs-5 text-dark fw-bold">₹<span id="uiPcRate">0</span></span><br>
+                    <small class="text-muted">General / Pc</small>
+                  </div>
+                  <div class="border-start border-secondary"></div>
+                  <div>
+                    <span class="fs-5 text-dark fw-bold">₹<span id="uiThousandRate">0</span></span><br>
+                    <small class="text-muted">Per ₹1k Sale</small>
+                  </div>
+                </div>
+              </div>
+              
+              <h6 class="fw-bold text-secondary mb-3"><i class="bi bi-wallet2 text-success"></i> My Earnings <small class="text-muted fw-normal">(Click for Ledger)</small></h6>
+
+              <!-- Daily Threshold Progress Bar -->
+              <div class="mb-3 px-2">
+                <div class="d-flex justify-content-between small fw-bold mb-1">
+                  <span class="text-dark">Daily Visit Target (Min 12)</span>
+                  <span id="visitTrackerText" class="text-primary">0 / 12</span>
+                </div>
+                <div class="progress" style="height: 10px;">
+                  <div id="visitProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 0%"></div>
+                </div>
+              </div>
+
+              <div class="row g-2 mb-3">
+                <div class="col-12">
+                  <div class="inc-box text-center clickable-card" style="background:#f8fff9; cursor: pointer;" onclick="openLedger('today', 'Today')">
+                    <div class="inc-title">Earned Today</div>
+                    <div class="inc-val" style="font-size:2.5rem;" id="incToday">₹0</div>
+                    <div class="text-muted fw-bold mt-1">
+                      <i class="bi bi-shop text-primary"></i> <span id="visToday" class="text-dark fs-5">0</span> Visits Completed
+                    </div>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div class="inc-box text-center border-primary clickable-card" style="cursor: pointer;" onclick="openLedger('thisWeek', 'This Week')">
+                    <div class="inc-title">This Week</div>
+                    <div class="inc-val text-primary fs-4" id="incWeek">₹0</div>
+                    <div class="text-muted small fw-bold mt-1"><i class="bi bi-shop"></i> <span id="visWeek">0</span> Visits</div>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div class="inc-box text-center border-warning clickable-card" style="cursor: pointer;" onclick="openLedger('yesterday', 'Yesterday')">
+                    <div class="inc-title">Yesterday</div>
+                    <div class="inc-val text-warning fs-4" id="incYest">₹0</div>
+                    <div class="text-muted small fw-bold mt-1"><i class="bi bi-shop"></i> <span id="visYest">0</span> Visits</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="d-flex justify-content-between p-3 bg-dark rounded border mb-4">
+                <div class="text-center w-50 border-end border-secondary clickable-card" style="cursor: pointer;" onclick="openLedger('thisMonth', 'This Month')">
+                  <div class="small text-secondary fw-bold">EARNED THIS MONTH</div>
+                  <div class="fs-4 fw-bold text-white" id="incMonth">₹0</div>
+                </div>
+                <div class="text-center w-50 clickable-card" style="cursor: pointer;" onclick="openLedger('lastMonth', 'Last Month')">
+                  <div class="small text-secondary fw-bold">LAST MONTH</div>
+                  <div class="fs-4 fw-bold text-white" id="incLastMonth">₹0</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="d-grid gap-3 mt-4">
+              <button class="btn btn-primary py-3 shadow fs-5" onclick="openVisitForm()">
+                <b><i class="bi bi-geo-alt-fill"></i> Punch Store Visit</b>
+              </button>
+              <button class="btn btn-success py-3 shadow fs-5 text-white" id="btnEOD" onclick="generateEOD()">
+                <b><i class="bi bi-file-earmark-bar-graph"></i> Generate EOD Report</b>
+              </button>
+              <button class="btn btn-outline-danger mt-2 fw-bold" onclick="logout()">
+                <i class="bi bi-power"></i> Secure Logout
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Visit Form Screen -->
+      <div id="visitScreen" class="page-section">
+        <div class="card">
+          <div class="card-header py-3">
+            <h5 class="mb-0"><i class="bi bi-geo-alt"></i> Store Visit Entry</h5>
+            <button type="button" class="btn btn-sm btn-light float-start mt-n4" style="margin-top: -25px;" onclick="backToDashboard()">Back</button>
+          </div>
+          
+          <div class="card-body p-3">
+            <form id="visitForm" onsubmit="event.preventDefault(); submitData();">
+              <input type="hidden" id="staffName" name="staffName">
+              
+              <div class="mb-3">
+                <label class="form-label">1. Area & Dealer <span class="text-danger">*</span></label>
+                <select class="form-select mb-2" id="area" onchange="loadDealers()" required></select>
+                <select class="form-select" id="dealerName" onchange="checkDealerDetails()" required>
+                  <option value="">Select Area First</option>
+                </select>
+                
+                <!-- DEALER LOCATION GPS & 50m GEOFENCE CARD -->
+                <div id="dealerGpsLockCard" class="mt-2" style="display:none;"></div>
+                <div id="geofenceAlertBox" class="mt-2 py-2 px-3 rounded small fw-bold" style="display:none;"></div>
+                <div class="alert alert-danger mt-2 py-1" id="duesAlert" style="display:none; font-size:14px;"></div>
+                <a href="#" target="_blank" class="btn btn-sm btn-success mt-1" id="navBtn" style="display:none;">
+                  <i class="bi bi-map"></i> Start Navigation
+                </a>
+              </div>
+              
+              <div class="mb-3">
+                <label class="form-label">2. Task <span class="text-danger">*</span></label>
+                <select class="form-select" id="task" required>
+                  <option value="">-- Select Task --</option>
+                  <option value="Sales Visit">Sales Visit</option>
+                  <option value="Payment Collection">Payment Collection</option>
+                </select>
+              </div>
+              
+              <div class="mb-3 p-2 bg-light rounded border">
+                <label class="form-label text-primary"><b>3. Stock Check <span class="text-danger">*</span></b></label>
+
+                <div class="stock-title text-danger">BOAT Accessories</div>
+                <div class="row g-2">
+                  <div class="col-6">
+                    <label class="stock-label">Airpods</label>
+                    <select class="form-select form-select-sm stock-input" id="bAirpods" required>
+                      <option value="">- Select -</option>
+                      <option>0 (Nil)</option>
+                      <option>1-5 (Low)</option>
+                      <option>5-10 (Medium)</option>
+                      <option>10+ (High)</option>
+                    </select>
+                  </div>
+                  <div class="col-6">
+                    <label class="stock-label">Neckband</label>
+                    <select class="form-select form-select-sm stock-input" id="bNeckband" required>
+                      <option value="">- Select -</option>
+                      <option>0 (Nil)</option>
+                      <option>1-5 (Low)</option>
+                      <option>5-10 (Medium)</option>
+                      <option>10+ (High)</option>
+                    </select>
+                  </div>
+                  <div class="col-6">
+                    <label class="stock-label">Powerbank</label>
+                    <select class="form-select form-select-sm stock-input" id="bPowerbank" required>
+                      <option value="">- Select -</option>
+                      <option>0 (Nil)</option>
+                      <option>1-5 (Low)</option>
+                      <option>5-10 (Medium)</option>
+                      <option>10+ (High)</option>
+                    </select>
+                  </div>
+                  <div class="col-6">
+                    <label class="stock-label">Smartwatch</label>
+                    <select class="form-select form-select-sm stock-input" id="bSmartwatch" required>
+                      <option value="">- Select -</option>
+                      <option>0 (Nil)</option>
+                      <option>1-5 (Low)</option>
+                      <option>5-10 (Medium)</option>
+                      <option>10+ (High)</option>
+                    </select>
+                  </div>
+                  <div class="col-6">
+                    <label class="stock-label">Headphones</label>
+                    <select class="form-select form-select-sm stock-input" id="bHeadphones" required>
+                      <option value="">- Select -</option>
+                      <option>0 (Nil)</option>
+                      <option>1-5 (Low)</option>
+                      <option>5-10 (Medium)</option>
+                      <option>10+ (High)</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div class="stock-title" style="color: #6f42c1;">GoBoult Accessories</div>
+                <div class="row g-2">
+                  <div class="col-6">
+                    <label class="stock-label">Airpods</label>
+                    <select class="form-select form-select-sm stock-input" id="gAirpods" required>
+                      <option value="">- Select -</option>
+                      <option>0 (Nil)</option>
+                      <option>1-5 (Low)</option>
+                      <option>5-10 (Medium)</option>
+                      <option>10+ (High)</option>
+                    </select>
+                  </div>
+                  <div class="col-6">
+                    <label class="stock-label">Neckband</label>
+                    <select class="form-select form-select-sm stock-input" id="gNeckband" required>
+                      <option value="">- Select -</option>
+                      <option>0 (Nil)</option>
+                      <option>1-5 (Low)</option>
+                      <option>5-10 (Medium)</option>
+                      <option>10+ (High)</option>
+                    </select>
+                  </div>
+                  <div class="col-6">
+                    <label class="stock-label">Powerbank</label>
+                    <select class="form-select form-select-sm stock-input" id="gPowerbank" required>
+                      <option value="">- Select -</option>
+                      <option>0 (Nil)</option>
+                      <option>1-5 (Low)</option>
+                      <option>5-10 (Medium)</option>
+                      <option>10+ (High)</option>
+                    </select>
+                  </div>
+                  <div class="col-6">
+                    <label class="stock-label">Smartwatch</label>
+                    <select class="form-select form-select-sm stock-input" id="gSmartwatch" required>
+                      <option value="">- Select -</option>
+                      <option>0 (Nil)</option>
+                      <option>1-5 (Low)</option>
+                      <option>5-10 (Medium)</option>
+                      <option>10+ (High)</option>
+                    </select>
+                  </div>
+                  <div class="col-6">
+                    <label class="stock-label">Headphones</label>
+                    <select class="form-select form-select-sm stock-input" id="gHeadphones" required>
+                      <option value="">- Select -</option>
+                      <option>0 (Nil)</option>
+                      <option>1-5 (Low)</option>
+                      <option>5-10 (Medium)</option>
+                      <option>10+ (High)</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div class="stock-title text-info">Portronics</div>
+                <div class="row g-2">
+                  <div class="col-6">
+                    <label class="stock-label">Neckband</label>
+                    <select class="form-select form-select-sm stock-input" id="pNeckband" required>
+                      <option value="">- Select -</option>
+                      <option>0 (Nil)</option>
+                      <option>1-5 (Low)</option>
+                      <option>5-10 (Medium)</option>
+                      <option>10+ (High)</option>
+                    </select>
+                  </div>
+                  <div class="col-6">
+                    <label class="stock-label">Powerbank</label>
+                    <select class="form-select form-select-sm stock-input" id="pPowerbank" required>
+                      <option value="">- Select -</option>
+                      <option>0 (Nil)</option>
+                      <option>1-5 (Low)</option>
+                      <option>5-10 (Medium)</option>
+                      <option>10+ (High)</option>
+                    </select>
+                  </div>
+                  <div class="col-6">
+                    <label class="stock-label">Headphones</label>
+                    <select class="form-select form-select-sm stock-input" id="pHeadphones" required>
+                      <option value="">- Select -</option>
+                      <option>0 (Nil)</option>
+                      <option>1-5 (Low)</option>
+                      <option>5-10 (Medium)</option>
+                      <option>10+ (High)</option>
+                    </select>
+                  </div>
+                  <div class="col-6">
+                    <label class="stock-label">Cable & Charger</label>
+                    <select class="form-select form-select-sm stock-input" id="pCable" required>
+                      <option value="">- Select -</option>
+                      <option>0 (Nil)</option>
+                      <option>1-5 (Low)</option>
+                      <option>5-10 (Medium)</option>
+                      <option>10+ (High)</option>
+                    </select>
+                  </div>
+                  <div class="col-12">
+                    <label class="stock-label">Other Accessories</label>
+                    <select class="form-select form-select-sm stock-input" id="pOther" required>
+                      <option value="">- Select -</option>
+                      <option>0 (Nil)</option>
+                      <option>1-5 (Low)</option>
+                      <option>5-10 (Medium)</option>
+                      <option>10+ (High)</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div class="stock-title text-success">Velocity</div>
+                <div class="row g-2">
+                  <div class="col-6">
+                    <label class="stock-label">Airpods</label>
+                    <select class="form-select form-select-sm stock-input" id="vAirpods" required>
+                      <option value="">- Select -</option>
+                      <option>0 (Nil)</option>
+                      <option>1-5 (Low)</option>
+                      <option>5-10 (Medium)</option>
+                      <option>10+ (High)</option>
+                    </select>
+                  </div>
+                  <div class="col-6">
+                    <label class="stock-label">Neckband</label>
+                    <select class="form-select form-select-sm stock-input" id="vNeckband" required>
+                      <option value="">- Select -</option>
+                      <option>0 (Nil)</option>
+                      <option>1-5 (Low)</option>
+                      <option>5-10 (Medium)</option>
+                      <option>10+ (High)</option>
+                    </select>
+                  </div>
+                  <div class="col-6">
+                    <label class="stock-label">Cable</label>
+                    <select class="form-select form-select-sm stock-input" id="vCable" required>
+                      <option value="">- Select -</option>
+                      <option>0 (Nil)</option>
+                      <option>1-5 (Low)</option>
+                      <option>5-10 (Medium)</option>
+                      <option>10+ (High)</option>
+                    </select>
+                  </div>
+                  <div class="col-6">
+                    <label class="stock-label">Charger</label>
+                    <select class="form-select form-select-sm stock-input" id="vCharger" required>
+                      <option value="">- Select -</option>
+                      <option>0 (Nil)</option>
+                      <option>1-5 (Low)</option>
+                      <option>5-10 (Medium)</option>
+                      <option>10+ (High)</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div class="stock-title text-warning">MMC & PD (Storage)</div>
+                <div class="row g-2">
+                  <div class="col-6">
+                    <label class="stock-label">Memory Card</label>
+                    <select class="form-select form-select-sm stock-input" id="mCard" required>
+                      <option value="">- Select -</option>
+                      <option>0 (Nil)</option>
+                      <option>1-5 (Low)</option>
+                      <option>5-10 (Medium)</option>
+                      <option>10+ (High)</option>
+                    </select>
+                  </div>
+                  <div class="col-6">
+                    <label class="stock-label">Pen Drive</label>
+                    <select class="form-select form-select-sm stock-input" id="pDrive" required>
+                      <option value="">- Select -</option>
+                      <option>0 (Nil)</option>
+                      <option>1-5 (Low)</option>
+                      <option>5-10 (Medium)</option>
+                      <option>10+ (High)</option>
+                    </select>
+                  </div>
+                  <div class="col-6">
+                    <label class="stock-label">External SSD</label>
+                    <select class="form-select form-select-sm stock-input" id="eSsd" required>
+                      <option value="">- Select -</option>
+                      <option>0 (Nil)</option>
+                      <option>1-5 (Low)</option>
+                      <option>5-10 (Medium)</option>
+                      <option>10+ (High)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="mb-3">
+                <label class="form-label">4. Sales Feedback <span class="text-danger">*</span></label>
+                <textarea class="form-control" id="feedback" rows="2" placeholder="Sales badhane ke liye kya kar sakte hai?" required></textarea>
+              </div>
+              
+              <div class="mb-3">
+                <label class="form-label">5. Capture Selfie <span class="text-danger">*</span></label>
+                <input type="file" class="form-control" id="cameraInput" accept="image/*" capture="user" onchange="compressImage(event)" required>
+                <img id="previewImg" src="">
+                <input type="hidden" id="compressedPhotoData">
+              </div>
+              
+              <div class="mb-4">
+                <label class="form-label">6. GPS Location <span class="text-danger">*</span></label>
+                <div class="input-group">
+                  <input type="text" class="form-control bg-light" id="location" readonly required placeholder="Must Fetch GPS">
+                  <button class="btn btn-outline-primary" type="button" onclick="getLocation()">
+                    <i class="bi bi-crosshair"></i> Fetch GPS
+                  </button>
+                </div>
+                <small id="gpsStatus" class="text-danger fw-bold"></small>
+              </div>
+              
+              <div id="uploadErrorAlert" class="alert alert-danger" style="display:none; font-size:14px;"></div>
+              
+              <button type="submit" class="btn btn-primary w-100 py-3" id="submitBtn">
+                <b><i class="bi bi-cloud-arrow-up"></i> Submit & Upload</b>
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+var portalEmpId = "";
+var portalRole = "";
+try {
+  portalEmpId = "<?= typeof empId !== 'undefined' ? empId : '' ?>";
+  portalRole = "<?= typeof role !== 'undefined' ? role : '' ?>";
+} catch(e) {}
+
+var currentUser = "";
+var dealerGPSCoords = "";
+var masterData = null;
+var currentAreaDealers = []; 
+var globalEODMessage = ""; 
+var globalDashboardData = null; 
+
+function makeSafePayload(obj) {
+  if (!obj) return "";
+  return encodeURIComponent(JSON.stringify(obj)).replace(/'/g, "%27").replace(/"/g, "%22");
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+  var savedName = localStorage.getItem("yashApp_staffName");
+  var savedRole = localStorage.getItem("yashApp_staffRole");
+  
+  if (portalEmpId && portalEmpId.trim() !== "") {
+    document.getElementById('loginEmpId').value = portalEmpId;
+    document.getElementById('loginPass').value = "SSO_BYPASS";
+    doLogin();
+  } else if (savedName) {
+    currentUser = savedName;
+    document.getElementById('staffName').value = currentUser;
+    
+    // ACCOUNTANT, MIS & CRM KO DIRECTLY CEO (GOD'S EYE) SCREEN DIKHAYEIN TAAKI WO MORNING BRIEFING BANA SAKE
+    if (savedRole === "Owner" || savedRole === "Accountant" || savedRole === "MIS" || savedRole === "CRM") { 
+      showScreen('ceoScreen'); 
+      refreshCEOStats(); 
+    } else { 
+      loadStaffDashboard(currentUser); 
+    }
+  } else { 
+    showScreen('loginScreen'); 
+  }
+});
+
+function showScreen(screenId) {
+  var sections = document.querySelectorAll('.page-section');
+  for (var i = 0; i < sections.length; i++) {
+    sections[i].classList.remove('active-section');
+  }
+  document.getElementById(screenId).classList.add('active-section');
+}
+
+function doLogin() {
+  var empId = document.getElementById('loginEmpId').value;
+  var pass = document.getElementById('loginPass').value;
+  var btn = document.getElementById('loginBtn');
+  
+  if (!empId || !pass) {
+    return alert("Employee ID aur Password daliye");
+  }
+  
+  btn.innerText = "Checking...";
+  
+  google.script.run.withSuccessHandler(function(res) {
+    if (res.success) {
+      currentUser = res.name;
+      
+      if (pass !== "SSO_BYPASS") {
+        localStorage.setItem("yashApp_staffName", currentUser);
+        localStorage.setItem("yashApp_staffEmpId", res.empId);
+        localStorage.setItem("yashApp_staffRole", res.role); 
+      }
+      
+      document.getElementById('staffName').value = currentUser;
+      
+      // ACCOUNTANT, MIS & CRM KO DIRECTLY CEO (GOD'S EYE) SCREEN DIKHAYEIN
+      if (res.role === "Owner" || res.role === "Accountant" || res.role === "MIS" || res.role === "CRM") { 
+        showScreen('ceoScreen'); 
+        refreshCEOStats(); 
+      } else { 
+        loadStaffDashboard(currentUser); 
+      }
+    } else { 
+      document.getElementById('loginError').innerText = res.message; 
+      btn.innerText = "Login"; 
+    }
+  }).verifyLogin(empId, pass);
+}
+
+function loadStaffDashboard(name) {
+  document.getElementById('dashName').innerText = name.split(" ")[0]; 
+  showScreen('dashboardScreen'); 
+  loadAreasInBackground();
+  
+  google.script.run.withSuccessHandler(function(res) {
+    globalDashboardData = res; 
+    document.getElementById('incentiveLoader').style.display = 'none';
+    document.getElementById('incentiveDashboard').style.display = 'block';
+    
+    if (res.rules) {
+      var brandHtml = "";
+      
+      for (var b in res.rules.brandRates) {
+         brandHtml += '<span class="scheme-pill">' + b + ': &#8377;' + res.rules.brandRates[b] + '/pc</span> ';
+      }
+      
+      if (brandHtml !== "") {
+         document.getElementById('fBrandName').innerHTML = brandHtml;
+         document.getElementById('focusedBrandBanner').style.display = 'block';
+      } else {
+         document.getElementById('focusedBrandBanner').style.display = 'none';
+      }
+      
+      document.getElementById('uiVisitRate').innerText = res.rules.visitRate;
+      document.getElementById('uiPcRate').innerText = res.rules.pcRate;
+      document.getElementById('uiThousandRate').innerText = res.rules.thousandRate;
+    }
+
+    var currentVisits = res.today.visitTracker || res.today.visits || 0;
+    document.getElementById('visitTrackerText').innerText = currentVisits + " / 12";
+    var progressPct = Math.min((currentVisits / 12) * 100, 100);
+    var pBar = document.getElementById('visitProgressBar');
+    pBar.style.width = progressPct + "%";
+    pBar.className = progressPct >= 100 ? "progress-bar bg-success" : "progress-bar progress-bar-striped progress-bar-animated bg-primary";
+
+    document.getElementById('incToday').innerText = "₹" + res.today.incentive;
+    document.getElementById('visToday').innerText = res.today.visits;
+    document.getElementById('incYest').innerText = "₹" + res.yesterday.incentive;
+    document.getElementById('visYest').innerText = res.yesterday.visits;
+    document.getElementById('incWeek').innerText = "₹" + res.thisWeek.incentive;
+    document.getElementById('visWeek').innerText = res.thisWeek.visits;
+    document.getElementById('incMonth').innerText = "₹" + res.thisMonth.incentive;
+    document.getElementById('incLastMonth').innerText = "₹" + res.lastMonth.incentive;
+
+  }).getStaffDashboardData(name);
+}
+
+function openLedger(bucketKey, title) {
+  if (!globalDashboardData) return;
+  var ledgerArray = globalDashboardData[bucketKey].ledger;
+  
+  document.getElementById('ledgerModalTitle').innerHTML = '<i class="bi bi-wallet2"></i> ' + title + ' Ledger';
+  
+  var html = "";
+  if (ledgerArray.length === 0) {
+    html = '<div class="text-center p-4 text-muted fw-bold">No incentive earned in this period.</div>';
+  } else {
+    ledgerArray.sort(function(a, b) { return b.amount - a.amount; });
+    
+    ledgerArray.forEach(function(l) {
+      var isVisit = l.type === "Visit Bonus";
+      var icon = isVisit ? '<i class="bi bi-person-walking text-primary"></i>' : '<i class="bi bi-bag-check-fill text-success"></i>';
+      var headerText = isVisit ? "Daily Consistency Bonus" : l.shop;
+      
+      html += '<div class="card mb-2 border-0 shadow-sm">' +
+                '<div class="card-body p-3">' +
+                  '<div class="d-flex justify-content-between align-items-center mb-2 border-bottom pb-2">' +
+                    '<h6 class="mb-0 fw-bold text-dark text-truncate" style="max-width: 70%;">' + icon + ' ' + headerText + '</h6>' +
+                    '<h5 class="mb-0 fw-bold text-success">₹' + l.amount + '</h5>' +
+                  '</div>' +
+                  '<div class="text-muted" style="font-size: 12px; line-height: 1.4;">' + l.desc + '</div>' +
+                '</div>' +
+              '</div>';
+    });
+  }
+  
+  document.getElementById('ledgerModalBody').innerHTML = html;
+  new bootstrap.Modal(document.getElementById('ledgerModal')).show();
+}
+
+function generateEOD() {
+  var btn = document.getElementById('btnEOD');
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Compiling Metrics...';
+  btn.disabled = true;
+
+  google.script.run.withSuccessHandler(function(encodedReport) {
+    globalEODMessage = decodeURIComponent(encodedReport);
+    document.getElementById('eodPreviewText').value = globalEODMessage;
+    new bootstrap.Modal(document.getElementById('eodModal')).show();
+    
+    btn.innerHTML = '<b><i class="bi bi-file-earmark-bar-graph"></i> Generate EOD Report</b>';
+    btn.disabled = false;
+  }).withFailureHandler(function(err) {
+    alert("Error generating EOD: " + err.message);
+    
+    btn.innerHTML = '<b><i class="bi bi-file-earmark-bar-graph"></i> Generate EOD Report</b>';
+    btn.disabled = false;
+  }).generateWhatsAppEOD(currentUser);
+}
+
+function sendToWhatsApp() {
+  if (!globalEODMessage) {
+    return;
+  }
+  var waUrl = "https://wa.me/?text=" + encodeURIComponent(globalEODMessage);
+  window.open(waUrl, '_blank');
+}
+
+function logout() { 
+  localStorage.clear(); 
+  location.reload(); 
+}
+
+function refreshCEOStats() {
+  var filter = document.getElementById('ceoFilter').value;
+  var customRow = document.getElementById('customDateRow');
+  var startStr = document.getElementById('ceoStartDate').value;
+  var endStr = document.getElementById('ceoEndDate').value;
+  
+  if (filter === 'custom') {
+     customRow.style.display = 'flex';
+     if (!startStr || !endStr) return; 
+  } else {
+     customRow.style.display = 'none';
+  }
+
+  var btn = document.getElementById('btnRefreshCEO');
+  if (btn) { 
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Syncing God\'s Eye...'; 
+    btn.disabled = true; 
+  }
+  
+  google.script.run.withFailureHandler(function(err) {
+    alert("Backend Error: " + err.message);
+    if (btn) { 
+      btn.innerHTML = '<b><i class="bi bi-arrow-clockwise"></i> Force Sync Data</b>'; 
+      btn.disabled = false; 
+    }
+  }).withSuccessHandler(function(res) {
+    masterData = res; 
+    
+    document.getElementById('vTotal').innerText = res.metrics.totalVisits;
+    document.getElementById('sTotal').innerText = "₹" + (res.metrics.totalSales / 1000).toFixed(1) + "k";
+    document.getElementById('cTotal').innerText = res.metrics.totalCollections;
+    
+    var boardHtml = '<div class="accordion accordion-flush" id="staffAccordion">';
+    
+    if (!res.leaderboard || res.leaderboard.length === 0) {
+      boardHtml += '<div class="text-center p-3 text-muted border rounded">No data found for this period.</div>';
+    } else {
+      res.leaderboard.forEach(function(staff, index) {
+        var badge = index === 0 ? '<span class="badge bg-success ms-2" style="font-size:10px;">TOP</span>' : '';
+        var collapseId = 'collapse' + index;
+        var areasHtml = '<div class="text-muted small p-2">No Orders or Visits in this timeframe</div>';
+        
+        if (staff.areas && Object.keys(staff.areas).length > 0) {
+          areasHtml = '<div class="accordion accordion-flush border-top" id="areaAcc' + index + '">';
+          var aIdx = 0;
+          
+          for (var areaName in staff.areas) {
+            var areaData = staff.areas[areaName];
+            var areaColId = 'areaCol_' + index + '_' + aIdx;
+            var dealersHtml = "";
+            
+            for (var dName in areaData.dealers) {
+              var dData = areaData.dealers[dName];
+              var safePayload = makeSafePayload({ dealer: dName, data: dData });
+              
+              dealersHtml += '<div class="d-flex justify-content-between p-2 border-bottom dealer-row" onclick="openDealerModal(\'' + safePayload + '\')">' +
+                '<div class="text-truncate" style="max-width:200px;">' +
+                  '<i class="bi bi-shop text-primary"></i> <span class="fw-bold text-dark" style="font-size:13px;">' + dName + '</span><br>' +
+                  '<small class="text-muted ms-3">' + dData.visits + ' Visits | ' + dData.orders.length + ' Orders</small>' +
+                '</div>' +
+                '<div class="text-end">' +
+                  '<div class="text-success fw-bold" style="font-size:13px;">&#8377;' + dData.sales.toLocaleString('en-IN') + '</div>' +
+                  '<span class="badge bg-light text-dark border mt-1" style="font-size:10px;"><i class="bi bi-eye"></i> View</span>' +
+                '</div>' +
+              '</div>';
+            }
+
+            areasHtml += '<div class="accordion-item">' +
+              '<h2 class="accordion-header" id="ah_' + areaColId + '">' +
+                '<button class="accordion-button collapsed py-2 px-3 bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#' + areaColId + '">' +
+                  '<i class="bi bi-geo-alt-fill text-danger me-2"></i> ' +
+                  '<span class="fw-bold text-dark text-truncate" style="font-size:13px; max-width: 130px;">' + areaName + '</span> ' +
+                  '<span class="badge bg-success ms-auto me-2">&#8377;' + areaData.sales.toLocaleString('en-IN') + '</span>' +
+                  '<span class="badge bg-secondary">' + areaData.visits + '</span>' +
+                '</button>' +
+              '</h2>' +
+              '<div id="' + areaColId + '" class="accordion-collapse collapse" data-bs-parent="#areaAcc' + index + '">' +
+                '<div class="accordion-body p-0">' + dealersHtml + '</div>' +
+              '</div>' +
+            '</div>';
+            aIdx++;
+          }
+          areasHtml += '</div>';
+        }
+
+        boardHtml += '<div class="accordion-item border rounded mb-2 shadow-sm">' +
+          '<h2 class="accordion-header" id="heading' + index + '">' +
+            '<button class="accordion-button collapsed p-2" type="button" data-bs-toggle="collapse" data-bs-target="#' + collapseId + '">' +
+              '<div class="w-100">' +
+                '<div class="fw-bold text-dark mb-2" style="font-size: 15px;">' + staff.name + ' ' + badge + '</div>' +
+                '<div class="d-flex justify-content-between pe-3">' +
+                  '<div class="text-center border rounded p-1 flex-fill me-1 bg-primary bg-opacity-10 border-primary">' +
+                    '<div style="font-size:9px;" class="fw-bold text-primary">VISITS</div>' +
+                    '<div class="fw-bold fs-5 text-primary">' + staff.visits + '</div>' +
+                  '</div>' +
+                  '<div class="text-center border rounded p-1 flex-fill me-1 bg-success bg-opacity-10 border-success">' +
+                    '<div style="font-size:9px;" class="fw-bold text-success">SALES</div>' +
+                    '<div class="fw-bold fs-6 text-success">&#8377;' + staff.sales.toLocaleString('en-IN') + '</div>' +
+                  '</div>' +
+                  '<div class="text-center border rounded p-1 flex-fill bg-dark bg-opacity-10 border-dark">' +
+                    '<div style="font-size:9px;" class="fw-bold text-dark">STRIKE</div>' +
+                    '<div class="fw-bold fs-5 text-dark">' + staff.strike + '%</div>' +
+                  '</div>' +
+                '</div>' +
+              '</div>' +
+            '</button>' +
+          '</h2>' +
+          '<div id="' + collapseId + '" class="accordion-collapse collapse" data-bs-parent="#staffAccordion">' +
+            '<div class="accordion-body p-0">' + areasHtml + '</div>' +
+          '</div>' +
+        '</div>';
+      });
+    }
+    
+    boardHtml += '</div>';
+    document.getElementById('leaderboardList').innerHTML = boardHtml;
+    
+    if (btn) { 
+      btn.innerHTML = '<b><i class="bi bi-arrow-clockwise"></i> Force Sync Data</b>'; 
+      btn.disabled = false; 
+    }
+  }).getCEOStats(filter, startStr, endStr);
+}
+
+function openSleepingGiants() {
+  var btn = document.getElementById('btnGiants');
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Scanning...';
+  btn.disabled = true;
+  
+  new bootstrap.Modal(document.getElementById('giantsModal')).show();
+
+  google.script.run.withFailureHandler(function(err) {
+    document.getElementById('giantsModalBody').innerHTML = "<div class='alert alert-danger'>Error: " + err.message + "</div>";
+    btn.innerHTML = '<b><i class="bi bi-alarm-fill"></i> At-Risk Accounts</b>';
+    btn.disabled = false;
+  }).withSuccessHandler(function(giants) {
+    var html = "";
+    if (giants.length === 0) {
+      html = '<div class="text-center p-3 text-success fw-bold"><i class="bi bi-check-circle-fill"></i> Excellent! All previous buyers have placed orders in the last 30 days.</div>';
+    } else {
+      html = '<div class="alert alert-warning py-2 mb-3 small fw-bold"><i class="bi bi-exclamation-triangle"></i> These dealers bought in the past, but have &#8377;0 sales in the last 30 days. Contact them immediately.</div>';
+      
+      giants.forEach(function(g) {
+        html += '<div class="border rounded p-2 mb-2 bg-light shadow-sm">' +
+          '<div class="d-flex justify-content-between align-items-center border-bottom pb-1 mb-1">' +
+            '<div class="fw-bold text-dark text-truncate" style="max-width:200px;">' + g.shop + '</div>' +
+            '<span class="badge bg-danger">' + g.daysInactive + ' Days Cold</span>' +
+          '</div>' +
+          '<div class="row g-1 text-center">' +
+            '<div class="col-4">' +
+              '<small class="text-muted" style="font-size:9px;">STAFF</small><br>' +
+              '<span class="fw-bold" style="font-size:11px;">' + g.staff.split(' ')[0] + '</span>' +
+            '</div>' +
+            '<div class="col-4 border-start border-end">' +
+              '<small class="text-muted" style="font-size:9px;">LAST ORDER</small><br>' +
+              '<span class="fw-bold text-dark" style="font-size:11px;">' + g.lastOrderStr + '</span>' +
+            '</div>' +
+            '<div class="col-4">' +
+              '<small class="text-muted" style="font-size:9px;">LOST VALUE</small><br>' +
+              '<span class="fw-bold text-success" style="font-size:11px;">&#8377;' + g.totalSales.toLocaleString('en-IN') + '</span>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      });
+    }
+    
+    document.getElementById('giantsModalBody').innerHTML = html;
+    btn.innerHTML = '<b><i class="bi bi-alarm-fill"></i> At-Risk Accounts</b>';
+    btn.disabled = false;
+  }).getSleepingGiantsData();
+}
+
+function runDiagnostic() {
+  document.getElementById('auditText').value = "Running deep system diagnostic... Please wait a few seconds.";
+  new bootstrap.Modal(document.getElementById('auditModal')).show();
+  
+  google.script.run.withFailureHandler(function(err) {
+    document.getElementById('auditText').value = "❌ ERROR RUNNING AUDIT: " + err.message;
+  }).withSuccessHandler(function(res) {
+    document.getElementById('auditText').value = res;
+  }).runSystemAudit();
+}
+
+function openDealerModal(logStrEnc) {
+  var obj = JSON.parse(decodeURIComponent(logStrEnc));
+  var dName = obj.dealer;
+  var dData = obj.data;
+  
+  var html = '<div class="mb-3 border-bottom pb-2">' +
+      '<h5 class="fw-bold text-dark mb-0">' + dName + '</h5>' +
+      '<div class="text-success fw-bold mt-1">Total Sales: &#8377;' + dData.sales.toLocaleString('en-IN') + '</div>' +
+    '</div>';
+
+  if (dData.orders.length > 0) {
+    html += '<h6 class="fw-bold border-bottom pb-1 text-success"><i class="bi bi-cart-check"></i> Recent Orders</h6>';
+    
+    dData.orders.forEach(function(o) {
+      var formattedItems = o.items.replace(/\|/g, '<br>');
+      html += '<div class="p-2 bg-light border rounded mb-2">' +
+           '<div class="d-flex justify-content-between">' +
+             '<small class="text-muted">' + o.date + '</small>' +
+             '<span class="fw-bold text-success">&#8377;' + o.amount.toLocaleString('en-IN') + '</span>' +
+           '</div>' +
+           '<small class="d-block mt-1 text-dark" style="font-size:11px;">' + formattedItems + '</small>' +
+        '</div>';
+    });
+  } else {
+    html += '<div class="text-muted small mb-3">No orders found in this timeframe.</div>';
+  }
+
+  if (dData.logs.length > 0) {
+    var recentVisit = dData.logs[dData.logs.length - 1]; 
+    html += '<h6 class="fw-bold border-bottom pb-1 text-primary mt-3"><i class="bi bi-person-walking"></i> Latest Visit Details</h6>';
+    
+    html += '<div class="row mb-3 g-2 mt-1">' +
+        '<div class="col-6">' +
+          '<div class="p-2 bg-light rounded border">' +
+            '<small class="text-muted d-block" style="font-size:10px;">STAFF</small>' +
+            '<span class="fw-bold" style="font-size:13px;">' + recentVisit.staff + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="col-6">' +
+          '<div class="p-2 bg-light rounded border">' +
+            '<small class="text-muted d-block" style="font-size:10px;">TASK</small>' +
+            '<span class="fw-bold text-primary" style="font-size:13px;">' + recentVisit.task + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="col-6">' +
+          '<div class="p-2 bg-light rounded border">' +
+            '<small class="text-muted d-block" style="font-size:10px;">DATE</small>' +
+            '<span class="fw-bold" style="font-size:13px;">' + recentVisit.date + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="col-6">' +
+          '<div class="p-2 bg-light rounded border">' +
+            '<small class="text-muted d-block" style="font-size:10px;">TIME</small>' +
+            '<span class="fw-bold" style="font-size:13px;">' + recentVisit.time + '</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    var stockHtml = "";
+    var brands = [
+      { name: "BOAT", keys: ['bAirpods', 'bNeckband', 'bPowerbank', 'bSmartwatch', 'bHeadphones'], color: 'danger' },
+      { name: "GoBoult", keys: ['gAirpods', 'gNeckband', 'gPowerbank', 'gSmartwatch', 'gHeadphones'], color: 'purple' },
+      { name: "Portronics", keys: ['pNeckband', 'pPowerbank', 'pHeadphones', 'pCable', 'pOther'], color: 'info' },
+      { name: "Velocity", keys: ['vAirpods', 'vNeckband', 'vCable', 'vCharger'], color: 'success' },
+      { name: "Storage", keys: ['mCard', 'pDrive', 'eSsd'], color: 'warning' }
+    ];
+
+    brands.forEach(function(b) {
+      var itemsFound = false;
+      var bHtml = '<div class="mb-2">' +
+          '<span class="badge bg-' + b.color + ' w-100 text-start py-2">' + b.name + '</span>' +
+          '<ul class="list-group list-group-flush border mb-2">';
+          
+      b.keys.forEach(function(k) {
+        if (recentVisit.stock[k]) {
+          itemsFound = true;
+          bHtml += '<li class="list-group-item d-flex justify-content-between py-1 px-2" style="font-size:12px;">' +
+              '<span>' + k.substring(1).toUpperCase() + '</span>' +
+              '<span class="fw-bold">' + recentVisit.stock[k] + '</span>' +
+            '</li>';
+        }
+      });
+      bHtml += '</ul></div>';
+      if (itemsFound) stockHtml += bHtml;
+    });
+
+    if (stockHtml === "") {
+      stockHtml = '<div class="text-muted small">No stock data submitted.</div>';
+    }
+    
+    html += '<h6 class="fw-bold border-bottom pb-1"><i class="bi bi-box-seam text-secondary"></i> Stock Matrix</h6>' + stockHtml;
+    html += '<h6 class="fw-bold border-bottom pb-1 mt-3"><i class="bi bi-chat-left-text text-secondary"></i> Market Feedback</h6><div class="p-2 bg-light rounded border fst-italic text-dark mb-3" style="font-size:13px;">"' + recentVisit.feedback + '"</div>';
+    
+    if (recentVisit.photo) {
+      html += '<h6 class="fw-bold border-bottom pb-1"><i class="bi bi-camera text-secondary"></i> Field Identity</h6><a href="' + recentVisit.photo + '" target="_blank"><img src="' + recentVisit.photo + '" class="img-fluid rounded border border-primary mt-2 shadow-sm" alt="Selfie"></a>';
+    }
+  } else {
+    html += '<div class="text-muted small mt-3">No physical visits logged in this timeframe.</div>';
+  }
+
+  document.getElementById('dealerModalBody').innerHTML = html;
+  new bootstrap.Modal(document.getElementById('dealerModal')).show();
+}
+
+function showGlobalList() {
+  if (!masterData || !masterData.globalLogs) {
+    return alert("Please sync data first.");
+  }
+  
+  var listLogs = masterData.globalLogs;
+  document.getElementById('listModalTitle').innerText = "Filtered Records (" + listLogs.length + ")";
+  
+  var html = "";
+  
+  if (listLogs.length === 0) {
+    html = '<div class="p-4 text-center text-muted">No data found for this period.</div>';
+  } else {
+    listLogs.slice().reverse().forEach(function(log) {
+      var targetLogStr = makeSafePayload(log);
+      var taskColor = log.task === "Payment Collection" ? "text-danger" : "text-primary";
+      
+      html += '<div class="d-flex justify-content-between p-3 border-bottom dealer-row" onclick="openDetailModal(\'' + targetLogStr + '\')">' +
+          '<div>' +
+            '<div class="fw-bold text-dark" style="font-size:14px;">' + log.dealer + '</div>' +
+            '<div class="text-muted" style="font-size:12px;">' +
+              '<i class="bi bi-person-fill"></i> ' + log.staff.split(" ")[0] + ' | ' + log.date +
+            '</div>' +
+          '</div>' +
+          '<div class="text-end">' +
+            '<div class="' + taskColor + ' fw-bold" style="font-size:11px;">' + log.task + '</div>' +
+            '<span class="badge bg-primary mt-1"><i class="bi bi-eye"></i> View</span>' +
+          '</div>' +
+        '</div>';
+    });
+  }
+  
+  document.getElementById('listModalBody').innerHTML = html;
+  new bootstrap.Modal(document.getElementById('listModal')).show();
+}
+
+function openDetailModal(logStrEnc) {
+  var log = JSON.parse(decodeURIComponent(logStrEnc));
+  
+  var stockHtml = "";
+  var brands = [
+    { name: "BOAT", keys: ['bAirpods', 'bNeckband', 'bPowerbank', 'bSmartwatch', 'bHeadphones'], color: 'danger' },
+    { name: "GoBoult", keys: ['gAirpods', 'gNeckband', 'gPowerbank', 'gSmartwatch', 'gHeadphones'], color: 'purple' },
+    { name: "Portronics", keys: ['pNeckband', 'pPowerbank', 'pHeadphones', 'pCable', 'pOther'], color: 'info' },
+    { name: "Velocity", keys: ['vAirpods', 'vNeckband', 'vCable', 'vCharger'], color: 'success' },
+    { name: "Storage", keys: ['mCard', 'pDrive', 'eSsd'], color: 'warning' }
+  ];
+
+  brands.forEach(function(b) {
+    var itemsFound = false;
+    var bHtml = '<div class="mb-2">' +
+        '<span class="badge bg-' + b.color + ' w-100 text-start py-2">' + b.name + '</span>' +
+        '<ul class="list-group list-group-flush border mb-2">';
+        
+    b.keys.forEach(function(k) {
+      if (log.stock[k]) {
+        itemsFound = true;
+        bHtml += '<li class="list-group-item d-flex justify-content-between py-1 px-2" style="font-size:12px;">' +
+            '<span>' + k.substring(1).toUpperCase() + '</span>' +
+            '<span class="fw-bold">' + log.stock[k] + '</span>' +
+          '</li>';
+      }
+    });
+    bHtml += '</ul></div>';
+    if (itemsFound) stockHtml += bHtml;
+  });
+  
+  if (stockHtml === "") {
+    stockHtml = '<div class="text-muted small">No stock data submitted.</div>';
+  }
+
+  var imgHtml = log.photo 
+    ? '<a href="' + log.photo + '" target="_blank"><img src="' + log.photo + '" class="img-fluid rounded border border-primary mt-2 shadow-sm" alt="Selfie"></a>' 
+    : '<div class="badge bg-danger mt-2">No Photo Provided</div>';
+  
+  var html = '<div class="mb-3 border-bottom pb-2">' +
+      '<h5 class="fw-bold text-dark mb-0">' + log.dealer + '</h5>' +
+      '<div class="text-muted small"><i class="bi bi-geo-alt-fill text-danger"></i> ' + log.area + '</div>' +
+    '</div>' +
+    '<div class="row mb-3 g-2">' +
+      '<div class="col-6">' +
+        '<div class="p-2 bg-light rounded border">' +
+          '<small class="text-muted d-block" style="font-size:10px;">STAFF</small>' +
+          '<span class="fw-bold" style="font-size:13px;">' + log.staff + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="col-6">' +
+        '<div class="p-2 bg-light rounded border">' +
+          '<small class="text-muted d-block" style="font-size:10px;">TASK</small>' +
+          '<span class="fw-bold text-primary" style="font-size:13px;">' + log.task + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="col-6">' +
+        '<div class="p-2 bg-light rounded border">' +
+          '<small class="text-muted d-block" style="font-size:10px;">DATE</small>' +
+          '<span class="fw-bold" style="font-size:13px;">' + log.date + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="col-6">' +
+        '<div class="p-2 bg-light rounded border">' +
+          '<small class="text-muted d-block" style="font-size:10px;">TIME</small>' +
+          '<span class="fw-bold" style="font-size:13px;">' + log.time + '</span>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<h6 class="fw-bold border-bottom pb-1"><i class="bi bi-box-seam text-secondary"></i> Stock Matrix</h6>' +
+    stockHtml +
+    '<h6 class="fw-bold border-bottom pb-1 mt-3"><i class="bi bi-chat-left-text text-secondary"></i> Market Feedback</h6>' +
+    '<div class="p-2 bg-light rounded border fst-italic text-dark mb-3" style="font-size:13px;">"' + log.feedback + '"</div>' +
+    '<h6 class="fw-bold border-bottom pb-1"><i class="bi bi-camera text-secondary"></i> Field Identity</h6>' +
+    imgHtml;
+  
+  document.getElementById('detailModalBody').innerHTML = html;
+  new bootstrap.Modal(document.getElementById('detailModal')).show();
+}
+
+function loadAreasInBackground() {
+  google.script.run.withSuccessHandler(function(areas) {
+    var sel = document.getElementById('area');
+    sel.innerHTML = '<option value="">-- Select Area --</option>';
+    areas.forEach(function(a) {
+      sel.innerHTML += '<option value="' + a + '">' + a + '</option>';
+    });
+  }).getAreas();
+}
+
+function openVisitForm() { showScreen('visitScreen'); }
+function backToDashboard() { showScreen('dashboardScreen'); }
+
+function loadDealers() {
+  var area = document.getElementById('area').value;
+  var sel = document.getElementById('dealerName');
+  var alertBox = document.getElementById('duesAlert');
+  
+  sel.innerHTML = '<option value="">Loading Dealers...</option>';
+  alertBox.style.display = 'none'; 
+  
+  if (area) {
+    google.script.run.withSuccessHandler(function(dealers) {
+      currentAreaDealers = dealers; 
+      sel.innerHTML = '<option value="">-- Select Dealer --</option>';
+      dealers.forEach(function(d) { 
+        // HTML break hone se rokne ke liye DOM createElement ka use
+        var opt = document.createElement('option');
+        opt.value = d.name;
+        opt.textContent = d.name;
+        sel.appendChild(opt);
+      });
+    }).getDealersByArea(area);
+  }
+}
+
+function checkDealerDetails() {
+  var dealerName = document.getElementById('dealerName').value;
+  var alertBox = document.getElementById('duesAlert'); 
+  var nav = document.getElementById('navBtn');
+  
+  if (!dealerName) { 
+    alertBox.style.display = 'none'; 
+    nav.style.display = 'none'; 
+    return; 
+  }
+  
+  var dealer = currentAreaDealers.find(function(d) {
+    return d.name === dealerName;
+  });
+  
+  if (dealer) {
+    // Backend se aayi value ko strictly number me convert karna
+    var billAmt = parseFloat(dealer.billPending) || 0;
+    var cashAmt = parseFloat(dealer.cashPending) || 0;
+    
+    // Agar bill ya cash zero nahi hai (positive ya negative kuch bhi ho)
+    if (billAmt !== 0 || cashAmt !== 0) { 
+      var msg = "⚠️ <b>Pending Dues:</b><br>";
+      
+      // Amount ko properly format karke dikhana
+      if (billAmt !== 0) {
+        msg += "📄 Bill: &#8377;" + Math.abs(billAmt).toLocaleString('en-IN') + (billAmt < 0 ? " (Cr)<br>" : " <br>");
+      }
+      if (cashAmt !== 0) {
+        msg += "💵 Cash: &#8377;" + Math.abs(cashAmt).toLocaleString('en-IN') + (cashAmt < 0 ? " (Cr)" : "");
+      }
+      
+      alertBox.innerHTML = msg; 
+      alertBox.className = "alert alert-warning mt-2 py-2 text-dark border-warning shadow-sm"; 
+      alertBox.style.display = 'block'; 
+    } else { 
+      alertBox.innerHTML = "✅ <b>No Pending Dues</b>"; 
+      alertBox.className = "alert alert-success mt-2 py-1"; 
+      alertBox.style.display = 'block';
+    }
+    
+    if (dealer.gps) { 
+      dealerGPSCoords = dealer.gps; 
+      nav.href = "https://www.google.com/maps/dir/?api=1&destination=" + dealer.gps; 
+      nav.style.display = 'inline-block'; 
+    } else { 
+      nav.style.display = 'none'; 
+      dealerGPSCoords = ""; 
+    }
+  }
+}
+
+function getLocation() {
+  var stat = document.getElementById('gpsStatus'); 
+  stat.innerText = "Fetching location (Wait up to 30 sec)...";
+  
+  navigator.geolocation.getCurrentPosition(function(pos) {
+    document.getElementById('location').value = pos.coords.latitude + "," + pos.coords.longitude;
+    stat.innerText = "GPS Locked ✔️"; 
+    stat.className = "text-success fw-bold mt-1 d-block";
+  }, function(err) {
+    stat.innerText = "GPS Error: " + err.message; 
+    stat.className = "text-danger fw-bold mt-1 d-block";
+  }, {
+    enableHighAccuracy: true, 
+    timeout: 30000, 
+    maximumAge: 15000
+  });
+}
+
+function compressImage(event) {
+  var file = event.target.files[0]; 
+  if (!file) return;
+  
+  var reader = new FileReader(); 
+  reader.readAsDataURL(file);
+  reader.onload = function(e) {
+    var img = new Image(); 
+    img.src = e.target.result;
+    img.onload = function() {
+      var canvas = document.createElement('canvas'); 
+      var ctx = canvas.getContext('2d');
+      var MAX_WIDTH = 500; 
+      var scaleSize = MAX_WIDTH / img.width;
+      
+      canvas.width = MAX_WIDTH; 
+      canvas.height = img.height * scaleSize;
+      
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      
+      var compressedBase64 = canvas.toDataURL('image/jpeg', 0.5); 
+      document.getElementById('compressedPhotoData').value = compressedBase64;
+      
+      var preview = document.getElementById('previewImg'); 
+      preview.src = compressedBase64; 
+      preview.style.display = 'block';
+    }
+  }
+}
+
+function submitData() {
+  if (!document.getElementById('compressedPhotoData').value) { 
+    alert("❌ Selfie capture karna mandatory hai!"); 
+    return; 
+  }
+  if (!document.getElementById('location').value) { 
+    alert("❌ GPS location fetch karna mandatory hai!"); 
+    return; 
+  }
+
+  document.getElementById('uploadErrorAlert').style.display = 'none';
+  document.getElementById('submitBtn').innerHTML = '<span class="spinner-border spinner-border-sm"></span> Uploading Data & Photo...';
+  document.getElementById('submitBtn').disabled = true;
+
+  var formData = {
+    staffName: document.getElementById('staffName').value, 
+    area: document.getElementById('area').value, 
+    dealerName: document.getElementById('dealerName').value,
+    task: document.getElementById('task').value, 
+    location: document.getElementById('location').value, 
+    photoData: document.getElementById('compressedPhotoData').value, 
+    feedback: document.getElementById('feedback').value,
+    bAirpods: document.getElementById('bAirpods').value, 
+    bNeckband: document.getElementById('bNeckband').value, 
+    bPowerbank: document.getElementById('bPowerbank').value, 
+    bSmartwatch: document.getElementById('bSmartwatch').value, 
+    bHeadphones: document.getElementById('bHeadphones').value,
+    gAirpods: document.getElementById('gAirpods').value, 
+    gNeckband: document.getElementById('gNeckband').value, 
+    gPowerbank: document.getElementById('gPowerbank').value, 
+    gSmartwatch: document.getElementById('gSmartwatch').value, 
+    gHeadphones: document.getElementById('gHeadphones').value,
+    pNeckband: document.getElementById('pNeckband').value, 
+    pPowerbank: document.getElementById('pPowerbank').value, 
+    pHeadphones: document.getElementById('pHeadphones').value, 
+    pCable: document.getElementById('pCable').value, 
+    pOther: document.getElementById('pOther').value,
+    vAirpods: document.getElementById('vAirpods').value, 
+    vNeckband: document.getElementById('vNeckband').value, 
+    vCable: document.getElementById('vCable').value, 
+    vCharger: document.getElementById('vCharger').value,
+    mCard: document.getElementById('mCard').value, 
+    pDrive: document.getElementById('pDrive').value, 
+    eSsd: document.getElementById('eSsd').value
+  };
+
+  google.script.run
+  .withFailureHandler(function(error) {
+    document.getElementById('uploadErrorAlert').innerText = "❌ Error: " + error.message; 
+    document.getElementById('uploadErrorAlert').style.display = 'block';
+    document.getElementById('submitBtn').innerHTML = '<b><i class="bi bi-cloud-arrow-up"></i> Submit & Upload</b>'; 
+    document.getElementById('submitBtn').disabled = false;
+  })
+  .withSuccessHandler(function(res) {
+    var stockLabels = {
+      bAirpods: "BOAT Airpods", bNeckband: "BOAT Neckband", bPowerbank: "BOAT Powerbank", bSmartwatch: "BOAT Smartwatch", bHeadphones: "BOAT Headphones",
+      gAirpods: "GoBoult Airpods", gNeckband: "GoBoult Neckband", gPowerbank: "GoBoult Powerbank", gSmartwatch: "GoBoult Smartwatch", gHeadphones: "GoBoult Headphones",
+      pNeckband: "Portronics Neckband", pPowerbank: "Portronics Powerbank", pHeadphones: "Portronics Headphones", pCable: "Portronics Cable", pOther: "Portronics Other",
+      vAirpods: "Velocity Airpods", vNeckband: "Velocity Neckband", vCable: "Velocity Cable", vCharger: "Velocity Charger",
+      mCard: "Storage Memory Card", pDrive: "Storage Pen Drive", eSsd: "Storage External SSD"
+    };
+
+    var outOfStockItems = [];
+    for (var key in stockLabels) { 
+      if (formData[key] === "0 (Nil)") { outOfStockItems.push(stockLabels[key]); } 
+    }
+
+    var alertMessage = "✅ " + res;
+    if (outOfStockItems.length > 0) {
+      alertMessage += "\n\n⚠️ STOCK OUT REMINDER ⚠️\nDealer ke pass in items ka stock '0' hai. Kripya inki ORDER zaroor nikalein:\n\n👉 " + outOfStockItems.join("\n👉 ");
+    }
+    
+    alert(alertMessage);
+    
+    document.getElementById('visitForm').reset(); 
+    document.getElementById('previewImg').style.display = 'none'; 
+    document.getElementById('compressedPhotoData').value = ""; 
+    document.getElementById('gpsStatus').innerText = "";
+    var inputs = document.querySelectorAll('.stock-input');
+    for (var i = 0; i < inputs.length; i++) {
+        inputs[i].value = "";
+    } 
+    document.getElementById('submitBtn').innerHTML = '<b><i class="bi bi-cloud-arrow-up"></i> Submit & Upload</b>'; 
+    document.getElementById('submitBtn').disabled = false;
+    
+    loadStaffDashboard(document.getElementById('staffName').value);
+  }).saveFormRecord(formData);
+}
+
+function populateBriefingAreas() {
+  google.script.run.withSuccessHandler(function(areas) {
+    var sel = document.getElementById('briefingArea');
+    sel.innerHTML = '<option value="">Select Area for Today...</option>';
+    areas.forEach(function(a) {
+      sel.innerHTML += '<option value="' + a + '">' + a + '</option>';
+    });
+  }).getAreas();
+}
+
+var originalRefreshCEO = refreshCEOStats;
+refreshCEOStats = function() {
+  originalRefreshCEO();
+  if (document.getElementById('briefingArea').options.length <= 1) {
+    populateBriefingAreas();
+  }
+};
+
+function generateMorningWhatsApp() {
+  var area = document.getElementById('briefingArea').value;
+  if (!area) {
+    alert("Please select an area first.");
+    return;
+  }
+  
+  var btn = event.currentTarget;
+  var originalHtml = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+  btn.disabled = true;
+  
+  google.script.run.withFailureHandler(function(err) {
+    alert("Error building briefing: " + err.message);
+    btn.innerHTML = originalHtml;
+    btn.disabled = false;
+  }).withSuccessHandler(function(encodedReport) {
+    var waUrl = "https://wa.me/?text=" + encodedReport;
+    window.open(waUrl, '_blank');
+    btn.innerHTML = originalHtml;
+    btn.disabled = false;
+  }).generateMorningBriefing(area);
+}
+
+</script>
+
+<!-- LIVE STAFF RADAR MODAL -->
+<div class="modal fade" id="staffRadarModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white py-2">
+        <h6 class="modal-title fw-bold"><i class="bi bi-broadcast"></i> Live Field Staff GPS Radar</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <small class="text-muted">Real-time GPS tracker from 'Live Staff Tracking' sheet</small>
+          <button class="btn btn-sm btn-outline-success" onclick="refreshStaffRadarData()"><i class="bi bi-arrow-repeat"></i> Refresh</button>
+        </div>
+        <div id="staffRadarContent">Loading radar signals...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
