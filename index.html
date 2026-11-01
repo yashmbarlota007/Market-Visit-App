@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Yash Marketing - Market Visit OS</title>
+  
+  <!-- Tailwind CSS & Inter Font -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet CSS & JS for Live Radar Map (100% Free OpenStreetMap) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #0b1120; color: #f8fafc; }
+    .glass-card { background: rgba(19, 28, 49, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    .radar-pulse {
+      box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+      animation: pulse 1.8s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    }
+    #map { height: 380px; width: 100%; border-radius: 1rem; z-index: 10; }
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="min-h-screen pb-12 select-none">
+
+  <!-- TOP APP BAR -->
+  <header class="glass-card sticky top-0 z-40 border-b border-slate-800 px-4 py-3">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-black text-white text-base shadow-lg shadow-blue-500/30">
+          📍
+        </div>
+        <div>
+          <h1 class="text-sm font-black tracking-tight text-white flex items-center gap-2">
+            MARKET VISIT OS
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 font-bold border border-blue-500/30">YASH MARKETING</span>
+          </h1>
+          <p id="liveGPSStatus" class="text-[11px] text-slate-400 font-medium flex items-center gap-1.5 mt-0.5">
+            <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span> Initializing GPS Beacon...
+          </p>
+        </div>
+      </div>
+
+      <!-- User Profile & Mode Switch -->
+      <div class="flex items-center gap-2">
+        <div class="text-right hidden sm:block">
+          <div id="displayUserName" class="text-xs font-bold text-white">Guest</div>
+          <div id="displayUserRole" class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Staff</div>
+        </div>
+        <button id="btnLogout" onclick="logout()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-3 py-1.5 rounded-lg border border-slate-700 transition">
+          Exit
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- LOGIN MODAL / SCREEN (If not SSO) -->
+  <div id="loginScreen" class="fixed inset-0 bg-[#070b14]/95 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="glass-card w-full max-w-sm rounded-3xl p-6 border border-slate-800 shadow-2xl text-center">
+      <div class="w-14 h-14 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-4 shadow-xl shadow-blue-500/20">
+        🛡️
+      </div>
+      <h2 class="text-xl font-black text-white mb-1">Market Visit Portal</h2>
+      <p class="text-xs text-slate-400 mb-6">Staff Live Tracking & 50m Anti-Proxy Verification</p>
+
+      <div class="space-y-4 text-left">
+        <div>
+          <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Employee ID</label>
+          <input type="text" id="loginEmpId" placeholder="e.g. SALES01 / OWNER" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm font-bold uppercase focus:outline-none focus:border-blue-500">
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Security PIN</label>
+          <input type="password" id="loginPin" placeholder="Enter PIN" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm font-bold focus:outline-none focus:border-blue-500">
+        </div>
+
+        <button onclick="handleLogin()" id="btnLoginSubmit" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black py-3.5 rounded-xl shadow-lg shadow-blue-500/25 transition active:scale-95 text-sm mt-2">
+          Verify & Enter
+        </button>
+      </div>
+      <p id="loginError" class="text-xs font-bold text-red-400 mt-4 hidden"></p>
+    </div>
+  </div>
+
+  <!-- NAVIGATION TABS -->
+  <div class="max-w-6xl mx-auto px-4 mt-4">
+    <div class="flex gap-2 overflow-x-auto pb-1 hide-scrollbar">
+      <button onclick="switchTab('punch')" id="tabPunch" class="px-4 py-2 rounded-xl text-xs font-black transition whitespace-nowrap bg-blue-600 text-white shadow-lg shadow-blue-600/30">
+        📍 Visit Punch & Geofence
+      </button>
+      <button onclick="switchTab('radar')" id="tabRadar" class="px-4 py-2 rounded-xl text-xs font-black transition whitespace-nowrap bg-slate-800 text-slate-400 hover:bg-slate-700">
+        📡 Live Staff Radar (Owner)
+      </button>
+      <button onclick="switchTab('dealers')" id="tabDealers" class="px-4 py-2 rounded-xl text-xs font-black transition whitespace-nowrap bg-slate-800 text-slate-400 hover:bg-slate-700">
+        🔒 Dealer Location Lock
+      </button>
+      <button onclick="switchTab('history')" id="tabHistory" class="px-4 py-2 rounded-xl text-xs font-black transition whitespace-nowrap bg-slate-800 text-slate-400 hover:bg-slate-700">
+        📑 Visits & Audit Logs
+      </button>
+    </div>
+  </div>
+
+  <!-- MAIN CONTAINER -->
+  <main class="max-w-6xl mx-auto px-4 mt-4 space-y-6">
+
+    <!-- ============================================================= -->
+    <!-- TAB 1: VISIT PUNCH & 50m GEOFENCE VERIFICATION (STAFF VIEW) -->
+    <!-- ============================================================= -->
+    <section id="viewPunch" class="space-y-4">
+
+      <!-- Live GPS Telemetry Pill -->
+      <div class="glass-card rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 border border-slate-800">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-xl radar-pulse">
+            📡
+          </div>
+          <div>
+            <div class="text-xs font-black text-white flex items-center gap-2">
+              REAL-TIME SATELLITE FIX
+              <span id="gpsAccuracyBadge" class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-mono font-bold">±0m</span>
+            </div>
+            <div id="gpsCoordsText" class="text-[11px] font-mono text-slate-400 mt-0.5">Searching high accuracy coordinates...</div>
+          </div>
+        </div>
+        <button onclick="refreshGPSLocation(true)" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold px-3 py-1.5 rounded-xl text-slate-300 transition flex items-center gap-1.5">
+          <span>🔄</span> Re-Sync GPS
+        </button>
+      </div>
+
+      <!-- Main Punch Form Card -->
+      <div class="glass-card rounded-3xl p-5 md:p-6 border border-slate-800 shadow-xl space-y-5">
+        <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
+          <h2 class="text-base font-black text-white flex items-center gap-2">
+            <span>🏪</span> Select Target Dealer / Store
+          </h2>
+          <span class="text-[11px] font-bold text-slate-400">Strict 50m Guard</span>
+        </div>
+
+        <!-- Dealer Selection & Search -->
+        <div>
+          <label class="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Choose Dealer for Check-In</label>
+          <select id="dealerSelect" onchange="onDealerSelected()" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-4 py-3.5 text-white text-sm font-bold focus:outline-none focus:border-blue-500">
+            <option value="">-- Choose Dealer from Master List --</option>
+          </select>
+        </div>
+
+        <!-- Selected Dealer Geofence & Location Lock Status Card -->
+        <div id="dealerStatusCard" class="hidden rounded-2xl p-4 border transition-all">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 id="cardDealerName" class="text-base font-black text-white">Dealer Name</h3>
+              <p id="cardDealerAddress" class="text-xs text-slate-400 mt-0.5">Address, City</p>
+            </div>
+            <div id="cardLockBadge" class="text-xs font-black px-3 py-1 rounded-xl">Status</div>
+          </div>
+
+          <!-- Live Geofence Distance Radar -->
+          <div class="mt-4 pt-3 border-t border-slate-700/60 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Current Distance to Store:</span>
+              <div id="cardDistanceDisplay" class="text-xl font-black mt-0.5">-- meters</div>
+            </div>
+            <div id="cardLockActionContainer" class="flex gap-2">
+              <!-- Dynamically populated lock button or geofence status -->
+            </div>
+          </div>
+        </div>
+
+        <!-- ANTI-PROXY VERIFICATION BANNER -->
+        <div id="geofenceAlertBox" class="hidden rounded-2xl p-4 border text-center font-bold text-sm">
+          <!-- Populated by script -->
+        </div>
+
+        <!-- Check-in Details (Unlocked ONLY when within 50 meters) -->
+        <div id="punchFormFields" class="hidden space-y-4 pt-2 border-t border-slate-800">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Purpose of Visit</label>
+              <select id="visitPurpose" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm font-bold focus:outline-none focus:border-blue-500">
+                <option value="Routine Visit">Routine Visit / Relationship Building</option>
+                <option value="Order Booking">Order Booking / Catalog Pitch</option>
+                <option value="Payment Collection">Payment Collection / Ledger Follow-up</option>
+                <option value="Stock Audit">Stock Audit / Shelf Inspection</option>
+                <option value="Replacement & Warranty">Replacement & Warranty Claim</option>
+                <option value="New Dealer Prospect">New Dealer Onboarding</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Next Follow-up Date</label>
+              <input type="date" id="visitNextDate" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm font-bold focus:outline-none focus:border-blue-500">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Order Value Booked (₹)</label>
+              <input type="number" id="visitOrderValue" placeholder="0 if no order" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm font-bold focus:outline-none focus:border-blue-500">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Payment Collected (₹)</label>
+              <input type="number" id="visitPayment" placeholder="0 if no collection" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm font-bold focus:outline-none focus:border-blue-500">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Discussion Notes & Feedback</label>
+            <textarea id="visitNotes" rows="2" placeholder="Enter key discussion points, requirements, or issues raised..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-blue-500"></textarea>
+          </div>
+
+          <!-- Store Front Camera Selfie / Photo Proof -->
+          <div>
+            <label class="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Store Front Proof (Camera Required)</label>
+            <input type="file" id="storePhotoInput" accept="image/*" capture="environment" class="hidden" onchange="handleStorePhotoUpload(event)">
+            
+            <div class="flex items-center gap-3">
+              <button type="button" onclick="document.getElementById('storePhotoInput').click()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-5 py-3 rounded-xl transition flex items-center gap-2">
+                <span>📸</span> Capture Store Photo
+              </button>
+              <span id="photoStatusText" class="text-xs font-medium text-slate-400">No photo taken yet</span>
+            </div>
+            <div id="photoPreviewContainer" class="hidden mt-3">
+              <img id="photoPreviewImg" src="" alt="Proof" class="h-28 rounded-xl border border-slate-700 object-cover shadow-lg">
+            </div>
+          </div>
+
+          <!-- Final Submit Button -->
+          <button id="btnSubmitPunch" onclick="submitVisitPunch()" class="w-full mt-4 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black py-4 rounded-2xl shadow-xl shadow-emerald-600/30 transition active:scale-95 text-base flex items-center justify-center gap-2">
+            <span>✅</span> Submit Verified 50m Visit Punch
+          </button>
+        </div>
+      </div>
+
+      <!-- Today's Visits Completed by this Staff -->
+      <div class="glass-card rounded-3xl p-5 border border-slate-800 shadow-xl space-y-3">
+        <h3 class="text-sm font-black text-white flex items-center gap-2">
+          <span>📋</span> Today's Completed Market Visits
+        </h3>
+        <div id="todayVisitsList" class="space-y-2.5">
+          <div class="text-center py-6 text-slate-500 text-xs">No visits punched yet today.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <!-- TAB 2: LIVE STAFF RADAR (OWNER COMMAND CENTER) -->
+    <!-- ============================================================= -->
+    <section id="viewRadar" class="hidden space-y-4">
+      <div class="glass-card rounded-3xl p-5 md:p-6 border border-slate-800 shadow-xl space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-base font-black text-white flex items-center gap-2">
+              <span>📡</span> Live Field Staff Radar
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Real-time GPS tracking of on-ground sales personnel</p>
+          </div>
+          <button onclick="refreshLiveRadarFeed()" class="text-xs bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-2 rounded-xl transition flex items-center gap-1.5 shadow-md shadow-blue-500/25">
+            <span>🔄</span> Scan Active Signals
+          </button>
+        </div>
+
+        <!-- Interactive Leaflet Map -->
+        <div class="relative overflow-hidden rounded-2xl border border-slate-700 shadow-inner">
+          <div id="map"></div>
+        </div>
+
+        <!-- Live Staff Cards Grid -->
+        <div class="mt-4">
+          <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Active Field Personnel List</h3>
+          <div id="staffRadarCards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div class="p-6 text-center text-slate-500 text-xs col-span-full">Scanning active pings...</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <!-- TAB 3: DEALER LOCATION LOCK MANAGEMENT -->
+    <!-- ============================================================= -->
+    <section id="viewDealers" class="hidden space-y-4">
+      <div class="glass-card rounded-3xl p-5 md:p-6 border border-slate-800 shadow-xl space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-base font-black text-white flex items-center gap-2">
+              <span>🔒</span> Dealer GPS Geofence Lock Registry
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Lock store coordinates to prevent proxy attendance</p>
+          </div>
+          <input type="text" id="dealerSearchInput" onkeyup="filterDealersList()" placeholder="Search dealer name, city..." class="bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-xs font-bold text-white focus:outline-none focus:border-blue-500">
+        </div>
+
+        <div id="dealersListContainer" class="space-y-3 max-h-[65vh] overflow-y-auto pr-1">
+          <!-- Populated by script -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <!-- TAB 4: VISITS & PROXY AUDIT LOGS -->
+    <!-- ============================================================= -->
+    <section id="viewHistory" class="hidden space-y-4">
+      <div class="glass-card rounded-3xl p-5 md:p-6 border border-slate-800 shadow-xl space-y-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-base font-black text-white flex items-center gap-2">
+              <span>📑</span> Market Visit Records & Anti-Proxy Audit
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Tamper-proof record with verified distance and photo proof</p>
+          </div>
+          <button onclick="fetchVisitsHistory()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-3 py-1.5 rounded-xl border border-slate-700 transition">
+            Refresh
+          </button>
+        </div>
+
+        <div class="overflow-x-auto rounded-2xl border border-slate-800">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-900/90 text-slate-400 uppercase font-bold text-[10px] tracking-wider border-b border-slate-800">
+              <tr>
+                <th class="p-3">Time</th>
+                <th class="p-3">Staff</th>
+                <th class="p-3">Dealer</th>
+                <th class="p-3">Verified Dist.</th>
+                <th class="p-3">Purpose</th>
+                <th class="p-3">Order / Collected</th>
+                <th class="p-3">Photo Proof</th>
+              </tr>
+            </thead>
+            <tbody id="visitHistoryTableBody" class="divide-y divide-slate-800 text-slate-300">
+              <tr><td colspan="7" class="p-6 text-center text-slate-500">Loading visit logs...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- JAVASCRIPT APPLICATION CORE -->
+  <script>
+    // Universal Hybrid Bridge: Works on both Vercel & GAS HtmlService
+    const IS_GAS = (typeof google !== 'undefined' && google.script && google.script.run);
+    const API_URL = "https://script.google.com/macros/s/AKfycbxEqsfxcoZR0lp6X4TFfmZNgTwV1NL1bU7T5nUzL6CeraBSWgtbdBAMXBtigRSDy4nj/exec";
+
+    let currentUser = null;
+    let dealersList = [];
+    let currentCoords = { lat: 0, lng: 0, accuracy: 0, speed: 0 };
+    let watchId = null;
+    let leafletMap = null;
+    let mapMarkers = [];
+    let capturedPhotoBase64 = "";
+
+    // -------------------------------------------------------------
+    // INITIALIZATION & SSO DETECTOR
+    // -------------------------------------------------------------
+    window.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlEmpId = urlParams.get('empId');
+      const urlRole = urlParams.get('role');
+
+      // Check stored session or SSO
+      const savedUser = localStorage.getItem('ym_mv_user');
+      if (urlEmpId) {
+        // Direct SSO from Master App
+        currentUser = { empId: urlEmpId.toUpperCase(), name: urlEmpId, role: urlRole || 'Sales Boy' };
+        localStorage.setItem('ym_mv_user', JSON.stringify(currentUser));
+        bootApp();
+      } else if (savedUser) {
+        currentUser = JSON.parse(savedUser);
+        bootApp();
+      } else {
+        document.getElementById('loginScreen').style.display = 'flex';
+      }
+    });
+
+    function handleLogin() {
+      const empId = document.getElementById('loginEmpId').value.trim().toUpperCase();
+      const pin = document.getElementById('loginPin').value.trim();
+      const errEl = document.getElementById('loginError');
+
+      if (!empId || !pin) {
+        errEl.innerText = "Please enter Employee ID and PIN";
+        errEl.classList.remove('hidden');
+        return;
+      }
+
+      errEl.classList.add('hidden');
+      document.getElementById('btnLoginSubmit').innerText = "Verifying...";
+
+      callBackend('login', { empId: empId, pin: pin }).then(res => {
+        document.getElementById('btnLoginSubmit').innerText = "Verify & Enter";
+        if (res && res.success && res.user) {
+          currentUser = res.user;
+          localStorage.setItem('ym_mv_user', JSON.stringify(currentUser));
+          bootApp();
+        } else {
+          errEl.innerText = res.error || "Authentication failed.";
+          errEl.classList.remove('hidden');
+        }
+      }).catch(err => {
+        document.getElementById('btnLoginSubmit').innerText = "Verify & Enter";
+        errEl.innerText = "Connection error: " + err.message;
+        errEl.classList.remove('hidden');
+      });
+    }
+
+    function logout() {
+      localStorage.removeItem('ym_mv_user');
+      if (watchId) navigator.geolocation.clearWatch(watchId);
+      window.location.reload();
+    }
+
+    function bootApp() {
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('displayUserName').innerText = currentUser.name || currentUser.empId;
+      document.getElementById('displayUserRole').innerText = currentUser.role || 'Sales Boy';
+
+      // Start Real-Time Geolocation Beacon
+      startLiveGPSBeacon();
+
+      // Load Bootstrap Data (Dealers, Lock States, Today Visits)
+      loadBootstrapData();
+
+      // Show/Hide Owner Tab based on role
+      if (currentUser.role !== 'Owner' && currentUser.role !== 'Admin') {
+        document.getElementById('tabRadar').innerText = "📡 Live Radar";
+      }
+    }
+
+    // -------------------------------------------------------------
+    // REAL-TIME GPS TRACKING & BEACON ENGINE
+    // -------------------------------------------------------------
+    function startLiveGPSBeacon() {
+      const statusEl = document.getElementById('liveGPSStatus');
+      const badgeEl = document.getElementById('gpsAccuracyBadge');
+      const coordsEl = document.getElementById('gpsCoordsText');
+
+      if (!navigator.geolocation) {
+        statusEl.innerHTML = '<span class="text-red-400">❌ Geolocation not supported by browser</span>';
+        return;
+      }
+
+      const options = { enableHighAccuracy: true, timeout: 30000, maximumAge: 10000 };
+
+      function handlePos(pos) {
+        currentCoords.lat = pos.coords.latitude;
+        currentCoords.lng = pos.coords.longitude;
+        currentCoords.accuracy = Math.round(pos.coords.accuracy || 0);
+        currentCoords.speed = Math.round((pos.coords.speed || 0) * 3.6); // km/h
+
+        statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span> <span class="text-emerald-400 font-bold">Field GPS Active</span>';
+        badgeEl.innerText = '±' + currentCoords.accuracy + 'm';
+        coordsEl.innerText = 'Lat: ' + currentCoords.lat.toFixed(6) + ', Lng: ' + currentCoords.lng.toFixed(6) + ' | ' + currentCoords.speed + ' km/h';
+
+        // Recompute distance to currently selected dealer
+        updateDealerDistanceCalculation();
+
+        // Broadcast Live Beacon to Google Sheets (every 45s)
+        broadcastBeacon();
+      }
+
+      function handleErr(err) {
+        statusEl.innerHTML = '<span class="text-amber-400">⚠️ GPS Signal Searching (' + err.message + ')</span>';
+      }
+
+      watchId = navigator.geolocation.watchPosition(handlePos, handleErr, options);
+      navigator.geolocation.getCurrentPosition(handlePos, handleErr, options);
+
+      // Heartbeat periodic ping
+      setInterval(() => {
+        if (currentCoords.lat !== 0) broadcastBeacon();
+      }, 45000);
+    }
+
+    function refreshGPSLocation(notify = false) {
+      if (notify) alert("Acquiring fresh high-accuracy satellite coordinates...");
+      navigator.geolocation.getCurrentPosition(pos => {
+        currentCoords.lat = pos.coords.latitude;
+        currentCoords.lng = pos.coords.longitude;
+        currentCoords.accuracy = Math.round(pos.coords.accuracy || 0);
+        updateDealerDistanceCalculation();
+        if (notify) alert("GPS Synchronized! Accuracy: ±" + currentCoords.accuracy + "m");
+      }, err => {
+        if (notify) alert("GPS Error: " + err.message);
+      }, { enableHighAccuracy: true, timeout: 25000 });
+    }
+
+    let lastBeaconTime = 0;
+    function broadcastBeacon() {
+      const now = Date.now();
+      if (now - lastBeaconTime < 25000 || currentCoords.lat === 0 || !currentUser) return;
+      lastBeaconTime = now;
+
+      callBackend('updateLiveBeacon', {
+        empId: currentUser.empId,
+        staffName: currentUser.name || currentUser.empId,
+        lat: currentCoords.lat,
+        lng: currentCoords.lng,
+        accuracy: currentCoords.accuracy,
+        speed: currentCoords.speed
+      }).catch(() => {});
+    }
+
+    // -------------------------------------------------------------
+    // HAVERSINE DISTANCE COMPUTATION (Radial Meters)
+    // -------------------------------------------------------------
+    function calculateHaversineMeters(lat1, lon1, lat2, lon2) {
+      const R = 6371000;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return Math.round(R * c);
+    }
+
+    // -------------------------------------------------------------
+    // LOAD BOOTSTRAP DATA (Dealers, Visits)
+    // -------------------------------------------------------------
+    function loadBootstrapData() {
+      callBackend('getBootstrapData', { empId: currentUser.empId, role: currentUser.role }).then(res => {
+        if (res && res.success) {
+          dealersList = res.dealers || [];
+          populateDealerDropdown();
+          renderDealersListTab();
+          renderTodayVisits(res.todayVisits || []);
+        }
+      }).catch(err => console.error("Bootstrap load error:", err));
+    }
+
+    function populateDealerDropdown() {
+      const select = document.getElementById('dealerSelect');
+      select.innerHTML = '<option value="">-- Choose Dealer from Master List --</option>';
+
+      dealersList.forEach(d => {
+        const lockIcon = d.isLocked ? "🔒" : "⚠️ UNLOCKED";
+        const opt = document.createElement('option');
+        opt.value = d.dealerId;
+        opt.innerText = lockIcon + ' ' + d.shopName + ' (' + (d.city || 'Local') + ')';
+        select.appendChild(opt);
+      });
+    }
+
+    // -------------------------------------------------------------
+    // DEALER SELECTION & GEOFENCE RADAR ENFORCEMENT
+    // -------------------------------------------------------------
+    function onDealerSelected() {
+      const dealerId = document.getElementById('dealerSelect').value;
+      const card = document.getElementById('dealerStatusCard');
+      const punchFields = document.getElementById('punchFormFields');
+      const alertBox = document.getElementById('geofenceAlertBox');
+
+      if (!dealerId) {
+        card.classList.add('hidden');
+        punchFields.classList.add('hidden');
+        alertBox.classList.add('hidden');
+        return;
+      }
+
+      const dealer = dealersList.find(d => d.dealerId === dealerId);
+      if (!dealer) return;
+
+      card.classList.remove('hidden');
+      document.getElementById('cardDealerName').innerText = dealer.shopName;
+      document.getElementById('cardDealerAddress').innerText = (dealer.address || '') + (dealer.city ? ', ' + dealer.city : '') + ' • Phone: ' + (dealer.phone || 'N/A');
+
+      updateDealerDistanceCalculation();
+    }
+
+    function updateDealerDistanceCalculation() {
+      const dealerId = document.getElementById('dealerSelect').value;
+      if (!dealerId) return;
+
+      const dealer = dealersList.find(d => d.dealerId === dealerId);
+      if (!dealer) return;
+
+      const lockBadge = document.getElementById('cardLockBadge');
+      const distEl = document.getElementById('cardDistanceDisplay');
+      const actionContainer = document.getElementById('cardLockActionContainer');
+      const alertBox = document.getElementById('geofenceAlertBox');
+      const punchFields = document.getElementById('punchFormFields');
+
+      if (!dealer.isLocked) {
+        // Dealer Location is UNLOCKED
+        lockBadge.className = "text-xs font-black px-3 py-1 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30";
+        lockBadge.innerText = "⚠️ LOCATION UNLOCKED";
+        distEl.innerHTML = '<span class="text-amber-400 text-sm">Coordinates not set yet</span>';
+
+        actionContainer.innerHTML = `
+          <button onclick="lockCurrentDealerLocation('${dealer.dealerId}')" class="bg-blue-600 hover:bg-blue-500 text-white font-black text-xs px-4 py-2 rounded-xl transition shadow-lg shadow-blue-600/30">
+            🔒 Lock This Dealer's GPS Now
+          </button>
+        `;
+
+        alertBox.className = "rounded-2xl p-4 border bg-amber-950/40 border-amber-600 text-amber-300";
+        alertBox.innerHTML = "⚠️ This dealer store coordinates are not locked yet. When you reach the store front, click <b>'Lock This Dealer GPS Now'</b> to permanently set the geofence.";
+        alertBox.classList.remove('hidden');
+        punchFields.classList.add('hidden');
+        return;
+      }
+
+      // Dealer is LOCKED - Check Distance
+      lockBadge.className = "text-xs font-black px-3 py-1 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+      lockBadge.innerText = "🔒 VERIFIED 50M GEOFENCE";
+
+      if (currentCoords.lat === 0) {
+        distEl.innerHTML = '<span class="text-slate-400 text-sm">Locking GPS satellites...</span>';
+        return;
+      }
+
+      const dist = calculateHaversineMeters(dealer.lat, dealer.lng, currentCoords.lat, currentCoords.lng);
+      distEl.innerText = dist + " meters";
+
+      // Owner can re-lock or adjust if needed
+      if (currentUser.role === 'Owner') {
+        actionContainer.innerHTML = `
+          <button onclick="lockCurrentDealerLocation('${dealer.dealerId}')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs px-3 py-1.5 rounded-xl border border-slate-700">
+            Re-Lock GPS
+          </button>
+        `;
+      } else {
+        actionContainer.innerHTML = "";
+      }
+
+      // 50-METER GEOFENCE GUARD EVALUATION
+      if (dist <= 50) {
+        //  ALLOWED INSIDE 50 METERS
+        distEl.className = "text-xl font-black mt-0.5 text-emerald-400";
+        alertBox.className = "rounded-2xl p-4 border bg-emerald-950/40 border-emerald-500 text-emerald-300";
+        alertBox.innerHTML = "✅ <b>GEOFENCE MATCHED!</b> You are within " + dist + " meters of " + dealer.shopName + ". Camera check-in unlocked.";
+        alertBox.classList.remove('hidden');
+        punchFields.classList.remove('hidden');
+      } else {
+        // ❌ STRICT ANTI-PROXY LOCKOUT (> 50 METERS)
+        distEl.className = "text-xl font-black mt-0.5 text-red-400";
+        alertBox.className = "rounded-2xl p-4 border bg-red-950/50 border-red-600 text-red-300";
+        alertBox.innerHTML = `
+          <div class="text-base font-black text-red-200">⛔ PROXY CHECK-IN PREVENTED</div>
+          <div class="text-xs font-medium text-red-300 mt-1">
+            You are <b>${dist} meters</b> away from this store. Check-in is strictly restricted to within <b>50 meters</b> of the dealer's verified location.
+          </div>
+        `;
+        alertBox.classList.remove('hidden');
+        punchFields.classList.add('hidden');
+      }
+    }
+
+    // -------------------------------------------------------------
+    // LOCK DEALER GPS COORDINATES
+    // -------------------------------------------------------------
+    function lockCurrentDealerLocation(dealerId) {
+      if (currentCoords.lat === 0) {
+        alert("Please wait until high accuracy GPS fix is established.");
+        return;
+      }
+
+      const dealer = dealersList.find(d => d.dealerId === dealerId);
+      const conf = confirm("Are you standing at " + (dealer ? dealer.shopName : "the store") + " front right now?\n\nCurrent GPS coordinates will be locked as this dealer's official location (50m radius).");
+      if (!conf) return;
+
+      callBackend('lockDealerLocation', {
+        dealerId: dealerId,
+        lat: currentCoords.lat,
+        lng: currentCoords.lng,
+        radius: 50,
+        lockedBy: currentUser.name || currentUser.empId
+      }).then(res => {
+        if (res && res.success) {
+          alert(" Dealer location permanently locked at (" + currentCoords.lat.toFixed(5) + ", " + currentCoords.lng.toFixed(5) + ")!");
+          loadBootstrapData();
+        } else {
+          alert("Lock Failed: " + (res.error || "Unknown error"));
+        }
+      }).catch(err => alert("Error: " + err.message));
+    }
+
+    // -------------------------------------------------------------
+    // PHOTO CAPTURE & COMPRESSION (Zero Network Lag)
+    // -------------------------------------------------------------
+    function handleStorePhotoUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      document.getElementById('photoStatusText').innerText = "Compressing photo matrix...";
+      const reader = new FileReader();
+
+      reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const maxDim = 1000;
+
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          capturedPhotoBase64 = canvas.toDataURL('image/jpeg', 0.75);
+          document.getElementById('photoPreviewImg').src = capturedPhotoBase64;
+          document.getElementById('photoPreviewContainer').classList.remove('hidden');
+          document.getElementById('photoStatusText').innerText = " Photo Captured (Ready)";
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // -------------------------------------------------------------
+    // SUBMIT VISIT PUNCH
+    // -------------------------------------------------------------
+    function submitVisitPunch() {
+      const dealerId = document.getElementById('dealerSelect').value;
+      if (!dealerId) return alert("Please select a dealer.");
+
+      const btn = document.getElementById('btnSubmitPunch');
+      btn.disabled = true;
+      btn.innerText = "⏳ Verifying 50m Perimeter & Uploading...";
+
+      const payload = {
+        dealerId: dealerId,
+        empId: currentUser.empId,
+        staffName: currentUser.name || currentUser.empId,
+        lat: currentCoords.lat,
+        lng: currentCoords.lng,
+        photo: capturedPhotoBase64,
+        purpose: document.getElementById('visitPurpose').value,
+        notes: document.getElementById('visitNotes').value.trim(),
+        orderValue: Number(document.getElementById('visitOrderValue').value) || 0,
+        paymentCollected: Number(document.getElementById('visitPayment').value) || 0,
+        nextVisitDate: document.getElementById('visitNextDate').value
+      };
+
+      callBackend('recordVisitPunch', payload).then(res => {
+        btn.disabled = false;
+        btn.innerHTML = "<span>✅</span> Submit Verified 50m Visit Punch";
+
+        if (res && res.success) {
+          alert("🎉 " + res.message);
+          // Reset form fields
+          document.getElementById('visitNotes').value = "";
+          document.getElementById('visitOrderValue').value = "";
+          document.getElementById('visitPayment').value = "";
+          capturedPhotoBase64 = "";
+          document.getElementById('photoPreviewContainer').classList.add('hidden');
+          document.getElementById('photoStatusText').innerText = "No photo taken yet";
+          // Reload bootstrap data to show today's updated visit
+          loadBootstrapData();
+        } else {
+          alert("❌ Punch Rejected: " + (res.error || "Unknown error"));
+        }
+      }).catch(err => {
+        btn.disabled = false;
+        btn.innerHTML = "<span>✅</span> Submit Verified 50m Visit Punch";
+        alert("Submission Failed: " + err.message);
+      });
+    }
+
+    function renderTodayVisits(visits) {
+      const container = document.getElementById('todayVisitsList');
+      if (!visits || visits.length === 0) {
+        container.innerHTML = '<div class="text-center py-6 text-slate-500 text-xs">No visits punched yet today.</div>';
+        return;
+      }
+
+      let html = "";
+      visits.forEach(v => {
+        const time = new Date(v.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        html += `
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-sm">
+                ✓
+              </div>
+              <div>
+                <div class="text-sm font-bold text-white">${v.dealerName}</div>
+                <div class="text-[11px] text-slate-400 font-medium">${time} • ${v.purpose} • <span class="text-emerald-400 font-semibold">${v.distanceMeters}m from store</span></div>
+              </div>
+            </div>
+            <div class="text-right">
+              ${v.orderValue > 0 ? `<div class="text-xs font-black text-emerald-400">₹${Number(v.orderValue).toLocaleString('en-IN')}</div>` : ''}
+              <div class="text-[10px] text-slate-500 font-mono">${v.visitId}</div>
+            </div>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    // -------------------------------------------------------------
+    // LIVE RADAR TAB (OWNER COMMAND CENTER)
+    // -------------------------------------------------------------
+    function initLeafletMap() {
+      if (leafletMap) return;
+      const defaultCenter = [19.088889, 74.733667]; // Ahmednagar / HQ
+      leafletMap = L.map('map').setView(defaultCenter, 13);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(leafletMap);
+    }
+
+    function refreshLiveRadarFeed() {
+      initLeafletMap();
+      const container = document.getElementById('staffRadarCards');
+      container.innerHTML = '<div class="p-6 text-center text-slate-500 text-xs col-span-full">Scanning active pings...</div>';
+
+      callBackend('getLiveRadar', {}).then(res => {
+        if (!res || !res.success) return;
+        const radar = res.radar || [];
+
+        // Clear existing markers
+        mapMarkers.forEach(m => leafletMap.removeLayer(m));
+        mapMarkers = [];
+
+        if (radar.length === 0) {
+          container.innerHTML = '<div class="p-6 text-center text-slate-500 text-xs col-span-full">No active field staff pings registered.</div>';
+          return;
+        }
+
+        let html = "";
+        const bounds = [];
+
+        radar.forEach(staff => {
+          const isLive = staff.status === 'LIVE';
+          const badgeClass = isLive ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-slate-800 text-slate-500 border-slate-700";
+
+          html += `
+            <div class="glass-card rounded-2xl p-4 border border-slate-800 space-y-3">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h4 class="text-sm font-black text-white">${staff.staffName}</h4>
+                  <p class="text-[11px] text-slate-400 font-mono mt-0.5">${staff.empId}</p>
+                </div>
+                <span class="text-[10px] font-black px-2.5 py-1 rounded-full border ${badgeClass}">
+                  ${isLive ? '🟢 LIVE (' + staff.diffMinutes + 'm ago)' : '⚪ OFFLINE'}
+                </span>
+              </div>
+
+              <div class="text-[11px] text-slate-400 space-y-1 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/80">
+                <div>📏 <b>${staff.distKm} km</b> from HQ</div>
+                <div>⚡ Speed: <b>${staff.speed} km/h</b></div>
+                <div>📍 Lat: ${staff.lat.toFixed(5)}, Lng: ${staff.lng.toFixed(5)}</div>
+              </div>
+
+              <a href="${staff.mapsUrl}" target="_blank" class="block text-center text-xs bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-xl transition shadow-md shadow-blue-600/20">
+                🗺️ Open in Google Maps
+              </a>
+            </div>
+          `;
+
+          if (staff.lat && staff.lng) {
+            bounds.push([staff.lat, staff.lng]);
+            const marker = L.marker([staff.lat, staff.lng]).addTo(leafletMap);
+            marker.bindPopup(`<b>${staff.staffName}</b><br>Speed: ${staff.speed} km/h<br>${staff.distKm} km from HQ`);
+            mapMarkers.push(marker);
+          }
+        });
+
+        container.innerHTML = html;
+        if (bounds.length > 0 && leafletMap) {
+          leafletMap.fitBounds(bounds, { padding: [40, 40] });
+        }
+      }).catch(err => console.error("Radar feed error:", err));
+    }
+
+    // -------------------------------------------------------------
+    // DEALERS LIST TAB
+    // -------------------------------------------------------------
+    function renderDealersListTab() {
+      const container = document.getElementById('dealersListContainer');
+      const search = (document.getElementById('dealerSearchInput').value || '').toLowerCase();
+
+      const filtered = dealersList.filter(d =>
+        d.shopName.toLowerCase().includes(search) ||
+        (d.city && d.city.toLowerCase().includes(search)) ||
+        (d.contactPerson && d.contactPerson.toLowerCase().includes(search))
+      );
+
+      if (filtered.length === 0) {
+        container.innerHTML = '<div class="text-center py-8 text-slate-500 text-xs">No matching dealers found.</div>';
+        return;
+      }
+
+      let html = "";
+      filtered.forEach(d => {
+        const isLocked = d.isLocked;
+        html += `
+          <div class="glass-card rounded-2xl p-4 border border-slate-800 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-black text-white">${d.shopName}</span>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${isLocked ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}">
+                  ${isLocked ? '🔒 50m Locked' : '⚠️ Unlocked'}
+                </span>
+              </div>
+              <p class="text-xs text-slate-400 mt-1">${d.address || 'Address not set'} • Contact: ${d.contactPerson || 'N/A'} (${d.phone || 'N/A'})</p>
+              ${isLocked ? `<p class="text-[10px] text-slate-500 font-mono mt-0.5">Coords: ${d.lat.toFixed(5)}, ${d.lng.toFixed(5)} • Locked By: ${d.lockedBy || 'Staff'}</p>` : ''}
+            </div>
+
+            <div class="flex gap-2">
+              <button onclick="lockCurrentDealerLocation('${d.dealerId}')" class="text-xs bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1.5 rounded-xl transition">
+                ${isLocked ? 'Re-Lock Current GPS' : 'Lock GPS Location'}
+              </button>
+            </div>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    function filterDealersList() {
+      renderDealersListTab();
+    }
+
+    // -------------------------------------------------------------
+    // VISITS & AUDIT HISTORY TAB
+    // -------------------------------------------------------------
+    function fetchVisitsHistory() {
+      const tbody = document.getElementById('visitHistoryTableBody');
+      tbody.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-slate-500">Loading visit logs...</td></tr>';
+
+      callBackend('getVisitHistory', {}).then(res => {
+        if (!res || !res.success) return;
+        const visits = res.visits || [];
+
+        if (visits.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-slate-500">No visit records found.</td></tr>';
+          return;
+        }
+
+        let html = "";
+        visits.forEach(v => {
+          const d = new Date(v.timestamp);
+          const dateStr = d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const photoThumb = v.photoUrl && v.photoUrl.indexOf('http') === 0
+            ? `<a href="${v.photoUrl}" target="_blank" class="text-blue-400 font-bold hover:underline">View Photo</a>`
+            : '<span class="text-slate-500">None</span>';
+
+          html += `
+            <tr class="hover:bg-slate-900/50 transition">
+              <td class="p-3 font-mono text-[11px]">${dateStr}</td>
+              <td class="p-3 font-bold text-white">${v.staffName}</td>
+              <td class="p-3">${v.dealerName}</td>
+              <td class="p-3"><span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">✓ ${v.distanceMeters}m</span></td>
+              <td class="p-3">${v.purpose}</td>
+              <td class="p-3 font-mono">₹${Number(v.orderValue || 0).toLocaleString('en-IN')} / ₹${Number(v.paymentCollected || 0).toLocaleString('en-IN')}</td>
+              <td class="p-3">${photoThumb}</td>
+            </tr>
+          `;
+        });
+        tbody.innerHTML = html;
+      }).catch(err => console.error("History fetch error:", err));
+    }
+
+    // -------------------------------------------------------------
+    // TAB SWITCHER
+    // -------------------------------------------------------------
+    function switchTab(tab) {
+      ['punch', 'radar', 'dealers', 'history'].forEach(t => {
+        document.getElementById('view' + t.charAt(0).toUpperCase() + t.slice(1)).classList.add('hidden');
+        document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).className = "px-4 py-2 rounded-xl text-xs font-black transition whitespace-nowrap bg-slate-800 text-slate-400 hover:bg-slate-700";
+      });
+
+      document.getElementById('view' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.remove('hidden');
+      document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).className = "px-4 py-2 rounded-xl text-xs font-black transition whitespace-nowrap bg-blue-600 text-white shadow-lg shadow-blue-600/30";
+
+      if (tab === 'radar') {
+        setTimeout(() => refreshLiveRadarFeed(), 100);
+      } else if (tab === 'dealers') {
+        renderDealersListTab();
+      } else if (tab === 'history') {
+        fetchVisitsHistory();
+      }
+    }
+
+    // -------------------------------------------------------------
+    // UNIVERSAL BACKEND CALLER (GAS & VERCEL FETCH BRIDGE)
+    // -------------------------------------------------------------
+    function callBackend(action, data) {
+      if (IS_GAS) {
+        return new Promise((resolve, reject) => {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject)
+            .handleApiRequest(action, data);
+        });
+      } else {
+        const payload = Object.assign({}, data, { action: action });
+        return fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload)
+        }).then(r => r.json());
+      }
+    }
+  </script>
+</body>
+</html>
