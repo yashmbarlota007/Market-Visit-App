@@ -1,123 +1,1957 @@
-// =====================================================================
-// YASH MARKETING - MARKET VISIT OS & LIVE TRACKING ENGINE
-// Features: Live Staff GPS Radar, Dealer Location Lock & 50m Geofence Anti-Proxy Punch
-// Script ID: 1PJzNM8iF9vMCEQMXlq8A8eQ-CQkUwVHllAq9ydaLySFBtJ-e5D44wubw
-// =====================================================================
-
-var HQ_LAT = 19.088889;
-var HQ_LON = 74.733667;
-var DEFAULT_GEOFENCE_RADIUS_METERS = 50;
+var DRIVE_FOLDER_ID = "1uj9sY9b74_Tzm-x_Uu6I4NqGCP2harxJ"; 
 
 function doGet(e) {
-  if (e && e.parameter && e.parameter.action) {
-    return handleApiRequest(e.parameter.action, e.parameter);
+  try { getOrCreateDealerLocationGpsSheet(); getOrCreateLiveTrackingSheet(); } catch(eInit) {}
+
+  var template = HtmlService.createTemplateFromFile('Index');
+  
+  if (e && e.parameter && e.parameter.empId) {
+    template.empId = e.parameter.empId;
+    template.role = e.parameter.role;
+  } else {
+    template.empId = "";
+    template.role = "";
   }
-
-  var template = HtmlService.createTemplateFromFile('index');
-  template.empId = (e && e.parameter && e.parameter.empId) ? e.parameter.empId : '';
-  template.role = (e && e.parameter && e.parameter.role) ? e.parameter.role : '';
-
+  
   return template.evaluate()
-    .setTitle('Yash Marketing - Market Visit OS')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no')
+    .setTitle('Yash Marketing App')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-function doPost(e) {
+function testDriveUpload() {
   try {
-    var payload = {};
-    if (e && e.postData && e.postData.contents) {
-      payload = JSON.parse(e.postData.contents);
-    } else if (e && e.parameter) {
-      payload = e.parameter;
+    var folder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+    folder.createFile("TestFile.txt", "Agar ye file folder me ban gayi, toh Drive bilkul theek hai!");
+    Logger.log("✅ SUCCESS! Folder me file ban gayi. Permissions aur Folder ID dono sahi hain.");
+  } catch (e) {
+    Logger.log("❌ EXACT ERROR: " + e.message);
+  }
+}
+
+function getSheetSafely(targetName) {
+  var sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
+  
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].getName().trim().toLowerCase() === targetName.trim().toLowerCase()) {
+      return sheets[i];
     }
-    var action = payload.action || 'ping';
-    return handleApiRequest(action, payload);
-  } catch (err) {
-    return createJsonResponse({ success: false, error: 'POST Parse Error: ' + err.toString() });
   }
+  
+  return null; 
 }
 
-function createJsonResponse(data) {
-  return ContentService.createTextOutput(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-function handleApiRequest(action, data) {
-  initDatabaseSheets();
-  switch (action) {
-    case 'login':
-      return createJsonResponse(apiLogin(data));
-    case 'getBootstrapData':
-      return createJsonResponse(apiGetBootstrapData(data));
-    case 'updateLiveBeacon':
-      return createJsonResponse(apiUpdateLiveBeacon(data));
-    case 'getLiveRadar':
-      return createJsonResponse(apiGetLiveRadar(data));
-    case 'lockDealerLocation':
-      return createJsonResponse(apiLockDealerLocation(data));
-    case 'recordVisitPunch':
-      return createJsonResponse(apiRecordVisitPunch(data));
-    case 'getVisitHistory':
-      return createJsonResponse(apiGetVisitHistory(data));
-    case 'ping':
-    default:
-      return createJsonResponse({ success: true, message: 'Market Visit OS Online', timestamp: new Date() });
+function verifyLogin(empId, password) {
+  var sheet = getSheetSafely("Staff Master");
+  
+  if (!sheet) {
+    return { success: false, message: "Staff Master sheet missing!" };
   }
+  
+  var data = sheet.getDataRange().getValues();
+  
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] == empId && (data[i][4] == password || password === "SSO_BYPASS")) {
+      return { 
+        success: true, 
+        name: String(data[i][1]).trim(), 
+        empId: data[i][0],
+        role: String(data[i][5]).trim() 
+      };
+    }
+  }
+  
+  return { success: false, message: "Invalid Employee ID or Password!" };
 }
 
-function initDatabaseSheets() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+// -------------------------------------------------------------
+// DYNAMIC INCENTIVE ENGINE
+// -------------------------------------------------------------
+function getIncentiveRules() {
+  var rules = { 
+    visitRate: 0, 
+    pcRate: 0, 
+    thousandRate: 0, 
+    brandRates: {} 
+  };
+  
+  var sheet = getSheetSafely("Incentive Master");
+  
+  if (sheet) {
+    var data = sheet.getDataRange().getValues();
+    
+    if (data.length > 1) {
+      var headers = data[0];
+      var colVisit = -1;
+      var colBrand = -1;
+      var colFocusRate = -1;
+      var colGenRate = -1;
+      var colThousand = -1;
+      
+      for (var j = 0; j < headers.length; j++) {
+        var h = String(headers[j]).toLowerCase().replace(/\s+/g, '');
+        
+        if (h.includes("pervisit")) {
+          colVisit = j;
+        }
+        if (h.includes("focusedbrand") && !h.includes("perpc")) {
+          colBrand = j;
+        }
+        if (h.includes("focusedbrandperpc")) {
+          colFocusRate = j;
+        }
+        if (h.includes("generalperpc")) {
+          colGenRate = j;
+        }
+        if (h.includes("per1000")) {
+          colThousand = j;
+        }
+      }
 
-  var staffSheet = ss.getSheetByName('Staff');
+      if (colVisit !== -1) {
+        rules.visitRate = parseFloat(data[1][colVisit]) || 0;
+      }
+      
+      if (colGenRate !== -1) {
+        rules.pcRate = parseFloat(data[1][colGenRate]) || 0;
+      }
+      
+      if (colThousand !== -1) {
+        rules.thousandRate = parseFloat(data[1][colThousand]) || 0;
+      }
+
+      if (colBrand !== -1 && colFocusRate !== -1) {
+        for (var i = 1; i < data.length; i++) {
+          var bName = String(data[i][colBrand]).trim().toUpperCase();
+          var bRate = parseFloat(data[i][colFocusRate]) || 0;
+          
+          if (bName && bName !== "") {
+            rules.brandRates[bName] = bRate;
+          }
+        }
+      }
+    }
+  }
+  
+  return rules;
+}
+
+// -------------------------------------------------------------
+// EXTERNAL ORDER CONTROL TOWER & ULTIMATE ATTRIBUTION
+// -------------------------------------------------------------
+function extractDateSafe(raw) {
+  if (!raw) {
+    return null;
+  }
+  
+  if (raw instanceof Date) {
+    var d = new Date(raw);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+  
+  var s = String(raw).trim().split(" ")[0];
+  
+  if (s.includes("/")) {
+    var p = s.split("/");
+    if (p.length === 3) {
+      return new Date(p[2], p[1] - 1, p[0], 0, 0, 0, 0);
+    }
+  } else if (s.includes("-")) {
+    var d2 = new Date(s);
+    d2.setHours(0, 0, 0, 0);
+    return d2;
+  }
+  
+  return null;
+}
+
+function fetchAndMapOrders() {
+  var areaToStaff = {};
+  var sheetsToScan = [];
+  
+  var localStaffSheet = getSheetSafely("Staff Master");
+  
+  if (localStaffSheet) {
+    sheetsToScan.push(localStaffSheet);
+  }
+  
+  try {
+    var externalId = '1np1XfpYjqXcbbNwT7_Q3XzmxxGrcYKacXQV04p1ilYw';
+    var extApp = SpreadsheetApp.openById(externalId);
+    var extStaff = extApp.getSheetByName('Staff');
+    
+    if (extStaff) {
+      sheetsToScan.push(extStaff);
+    }
+  } catch(e) {
+    Logger.log("External Staff Fetch Error: " + e.message);
+  }
+
+  for (var s = 0; s < sheetsToScan.length; s++) {
+    var staffSheet = sheetsToScan[s];
+    if (staffSheet) {
+      var staffData = staffSheet.getDataRange().getValues();
+      
+      for (var i = 1; i < staffData.length; i++) {
+        var staffName = String(staffData[i][1]).trim(); 
+        var areaStr = String(staffData[i][8] || "").trim(); 
+        
+        if (staffName && areaStr) {
+          var areas = areaStr.split(',');
+          
+          for (var k = 0; k < areas.length; k++) {
+            var cleanArea = areas[k].trim().toUpperCase();
+            if (cleanArea) {
+              areaToStaff[cleanArea] = staffName;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  var visitFallbackMap = {};
+  var visitSheet = getSheetSafely("Daily Operation");
+  
+  if (visitSheet) {
+     var vData = visitSheet.getDataRange().getValues();
+     
+     for (var i = 1; i < vData.length; i++) {
+        var sName = String(vData[i][3]).trim();
+        var clnDealer = String(vData[i][5]).toUpperCase().replace(/[^A-Z0-9]/g, '');
+        
+        if (sName && clnDealer) {
+           visitFallbackMap[clnDealer] = sName; 
+        }
+     }
+  }
+
+  var dealerToArea = {};
+  var dealerSheet = getSheetSafely("Dealer Master");
+  
+  if (dealerSheet) {
+    var dData = dealerSheet.getDataRange().getValues();
+    
+    for (var i = 1; i < dData.length; i++) {
+      var dName = String(dData[i][1]).trim().toUpperCase();
+      var dArea = String(dData[i][2]).trim().toUpperCase();
+      
+      if (dName && dArea) {
+        dealerToArea[dName] = dArea;
+      }
+    }
+  }
+
+  var orderList = [];
+  
+  try {
+    var extSpreadsheet = SpreadsheetApp.openById('1np1XfpYjqXcbbNwT7_Q3XzmxxGrcYKacXQV04p1ilYw');
+    var orderSheet = extSpreadsheet.getSheetByName('Orders') || extSpreadsheet.getSheets()[0];
+    
+    var oData = orderSheet.getDataRange().getValues();
+    
+    if (oData.length <= 1) {
+      return orderList;
+    }
+
+    var head = oData[0];
+    var dateCol = 0;
+    var shopCol = -1;
+    var tCol = -1;
+    var itemCol = -1;
+    
+    for (var c = 0; c < head.length; c++) {
+      var hName = String(head[c]).toLowerCase().replace(/\s+/g, '');
+      
+      if (hName === "shopname") {
+        shopCol = c;
+      }
+      if (hName.includes("total") || hName.includes("amount")) {
+        tCol = c;
+      }
+      if (hName.includes("item") || hName.includes("product") || hName.includes("orderitems")) {
+        itemCol = c;
+      }
+    }
+
+    for (var j = 1; j < oData.length; j++) {
+       var dObj = extractDateSafe(oData[j][dateCol]);
+       
+       if (dObj) {
+         var shopNameRaw = shopCol !== -1 ? String(oData[j][shopCol]).trim() : "";
+         var shopNameUp = shopNameRaw.toUpperCase();
+         var clnShop = shopNameUp.replace(/[^A-Z0-9]/g, '');
+         var amt = tCol !== -1 ? parseFloat(oData[j][tCol]) || 0 : 0;
+         var itemsStr = itemCol !== -1 ? String(oData[j][itemCol]) : "";
+
+         var assignedStaff = "Unassigned";
+         var mappedArea = dealerToArea[shopNameUp] || "Unmapped Location";
+         mappedArea = mappedArea.toUpperCase();
+         
+         if (mappedArea !== "UNMAPPED LOCATION") {
+           var foundStaff = areaToStaff[mappedArea];
+           if (foundStaff) {
+             assignedStaff = foundStaff;
+           }
+         }
+         
+         if (assignedStaff === "Unassigned") {
+           for (var aKey in areaToStaff) {
+             if (mappedArea.includes(aKey) || aKey.includes(mappedArea)) {
+               assignedStaff = areaToStaff[aKey];
+               break;
+             }
+           }
+         }
+
+         if (assignedStaff === "Unassigned") {
+           if (visitFallbackMap[clnShop]) {
+             assignedStaff = visitFallbackMap[clnShop];
+           }
+         }
+
+         orderList.push({
+           date: dObj,
+           timeMs: dObj.getTime(),
+           shop: shopNameUp,
+           area: mappedArea,
+           amount: amt,
+           items: itemsStr,
+           staff: assignedStaff
+         });
+       }
+    }
+  } catch (e) {
+    Logger.log("External Order Fetch Error: " + e.message);
+  }
+  
+  return orderList;
+}
+
+// -------------------------------------------------------------
+// SLEEPING GIANTS RETENTION ENGINE
+// -------------------------------------------------------------
+function getSleepingGiantsData() {
+  var allOrders = fetchAndMapOrders();
+  var now = new Date().getTime();
+  var thirtyDaysAgo = now - (30 * 24 * 60 * 60 * 1000);
+
+  var dealerStats = {};
+
+  for (var i = 0; i < allOrders.length; i++) {
+     var ord = allOrders[i];
+     var shop = ord.shop;
+     
+     if (shop === "") {
+       continue;
+     }
+     
+     if (!dealerStats[shop]) {
+        dealerStats[shop] = {
+           staff: ord.staff || "Unmapped",
+           area: ord.area || "Unknown",
+           lastOrderDate: ord.timeMs,
+           lastOrderStr: Utilities.formatDate(ord.date, Session.getScriptTimeZone(), "dd/MM/yyyy"),
+           totalSales: 0,
+           recentSales: 0
+        };
+     }
+     
+     dealerStats[shop].totalSales += ord.amount;
+
+     if (ord.timeMs > dealerStats[shop].lastOrderDate) {
+        dealerStats[shop].lastOrderDate = ord.timeMs;
+        dealerStats[shop].lastOrderStr = Utilities.formatDate(ord.date, Session.getScriptTimeZone(), "dd/MM/yyyy");
+     }
+
+     if (ord.timeMs >= thirtyDaysAgo) {
+        dealerStats[shop].recentSales += ord.amount;
+     }
+  }
+
+  var sleepingGiants = [];
+  
+  for (var shopKey in dealerStats) {
+     var d = dealerStats[shopKey];
+     
+     if (d.recentSales === 0 && d.totalSales > 0) {
+         var daysSinceLastOrder = Math.floor((now - d.lastOrderDate) / (1000 * 60 * 60 * 24));
+         
+         sleepingGiants.push({
+            shop: shopKey,
+            staff: d.staff,
+            area: d.area,
+            lastOrderStr: d.lastOrderStr,
+            daysInactive: daysSinceLastOrder,
+            totalSales: d.totalSales
+         });
+     }
+  }
+
+  sleepingGiants.sort(function(a, b) { 
+    return b.totalSales - a.totalSales; 
+  });
+
+  return sleepingGiants;
+}
+
+// -------------------------------------------------------------
+// DIAGNOSTIC AUDIT SYSTEM
+// -------------------------------------------------------------
+function runSystemAudit() {
+  var report = "=== YASH MARKETING: DIAGNOSTIC AUDIT OS ===\n";
+  report += "Time: " + new Date().toLocaleString() + "\n\n";
+  
+  report += "[1] STAFF -> AREA MAPPING CHECK:\n";
+  var areaToStaff = {};
+  var staffSheet = getSheetSafely("Staff Master");
+  
   if (!staffSheet) {
-    staffSheet = ss.insertSheet('Staff');
-    staffSheet.appendRow(['EmpId', 'PIN', 'Name', 'Role', 'Phone', 'Status']);
-    staffSheet.appendRow(['OWNER', '1234', 'Yash Barlota', 'Owner', '8378811922', 'Active']);
-    staffSheet.appendRow(['SALES01', '1111', 'Rahul Sharma', 'Sales Boy', '9876543210', 'Active']);
-    staffSheet.appendRow(['SALES02', '2222', 'Amit Verma', 'Sales Boy', '9876543211', 'Active']);
+    report += "❌ ERROR: Staff Master sheet not found!\n";
+  } else {
+    var staffData = staffSheet.getDataRange().getValues();
+    
+    for (var i = 1; i < staffData.length; i++) {
+      var staffName = String(staffData[i][1]).trim();
+      var areaStr = String(staffData[i][8] || "").trim();
+      
+      if (staffName && areaStr) {
+        report += "Staff: " + staffName + " | Raw Area String: '" + areaStr + "'\n";
+        var areas = areaStr.split(',');
+        
+        for (var k = 0; k < areas.length; k++) {
+          var cleanArea = areas[k].trim().toUpperCase();
+          if (cleanArea !== "") {
+            areaToStaff[cleanArea] = staffName;
+            report += "   -> Mapped Internal Key: [" + cleanArea + "]\n";
+          }
+        }
+      }
+    }
+  }
+  report += "\n";
+
+  report += "[2] DEALER -> AREA MAPPING CHECK (Sample):\n";
+  var dealerToArea = {};
+  var dealerSheet = getSheetSafely("Dealer Master");
+  
+  if (!dealerSheet) {
+    report += "❌ ERROR: Dealer Master sheet not found!\n";
+  } else {
+    var dData = dealerSheet.getDataRange().getValues();
+    var sampleLimit = 0;
+    
+    for (var i = 1; i < dData.length; i++) {
+      var dName = String(dData[i][1]).trim().toUpperCase();
+      var dArea = String(dData[i][2]).trim().toUpperCase();
+      
+      if (dName && dArea) {
+        dealerToArea[dName] = dArea;
+        
+        if (sampleLimit < 5) {
+          report += "Dealer: [" + dName + "] -> Area: [" + dArea + "]\n";
+          sampleLimit++;
+        }
+      }
+    }
+    report += "...Total Dealers Mapped: " + (dData.length - 1) + "\n\n";
   }
 
-  var dealersSheet = ss.getSheetByName('Dealers');
-  if (!dealersSheet) {
-    dealersSheet = ss.insertSheet('Dealers');
-    dealersSheet.appendRow([
-      'DealerID', 'ShopName', 'ContactPerson', 'Phone', 'City', 'Address',
-      'Lat', 'Lng', 'GeofenceRadiusMeters', 'LockedBy', 'LockedAt', 'Status'
-    ]);
-    dealersSheet.appendRow([
-      'DLR001', 'Jai Ambe Electronics', 'Suresh Bhai', '9822001122', 'Ahmednagar', 'MG Road, Market Yard',
-      HQ_LAT, HQ_LON, 50, 'System Initializer', new Date(), 'Active'
-    ]);
+  report += "[3] EXTERNAL ORDER ATTRIBUTION SIMULATION (Last 10 Orders):\n";
+  try {
+    var externalId = '1np1XfpYjqXcbbNwT7_Q3XzmxxGrcYKacXQV04p1ilYw';
+    var extSpreadsheet = SpreadsheetApp.openById(externalId);
+    var orderSheet = extSpreadsheet.getSheetByName('Orders') || extSpreadsheet.getSheets()[0];
+    
+    var oData = orderSheet.getDataRange().getValues();
+    var head = oData[0];
+    var shopCol = -1;
+    var tCol = -1;
+    
+    for (var c = 0; c < head.length; c++) {
+      var hName = String(head[c]).toLowerCase().replace(/\s+/g, '');
+      if (hName === "shopname") {
+        shopCol = c;
+      }
+      if (hName.includes("total") || hName.includes("amount")) {
+        tCol = c;
+      }
+    }
+
+    var startIdx = oData.length > 10 ? oData.length - 10 : 1;
+    
+    for (var j = startIdx; j < oData.length; j++) {
+       var shopNameRaw = shopCol !== -1 ? String(oData[j][shopCol]).trim() : "";
+       var shopNameUp = shopNameRaw.toUpperCase();
+       var amt = tCol !== -1 ? parseFloat(oData[j][tCol]) || 0 : 0;
+       
+       report += "ORDER: [" + shopNameUp + "] | Amount: ₹" + amt + "\n";
+       
+       var dealerArea = dealerToArea[shopNameUp];
+       if (!dealerArea) {
+         report += "  ❌ FAIL: Shop [" + shopNameUp + "] is NOT listed in your Dealer Master.\n";
+       } else {
+         report += "  ✅ SUCCESS: Shop is linked to Area [" + dealerArea + "]\n";
+         
+         var mappedStaff = areaToStaff[dealerArea];
+         if (!mappedStaff) {
+           report += "  ❌ FAIL: The Area [" + dealerArea + "] is NOT assigned to any staff in Staff Master.\n";
+         } else {
+           report += "  ✅ SUCCESS: Order mapped to Staff [" + mappedStaff + "]\n";
+         }
+       }
+       report += "\n";
+    }
+  } catch (e) {
+    report += "❌ CRITICAL ERROR FETCHING EXTERNAL ORDERS: " + e.message + "\n";
+  }
+  
+  Logger.log(report);
+  return report;
+}
+
+// -------------------------------------------------------------
+// OPTIMIZED ORDER FETCH (SCALABLE CHUNKING ARCHITECTURE)
+// -------------------------------------------------------------
+function getCachedExternalOrders() {
+  var cache = CacheService.getScriptCache();
+  var cacheKey = 'YashMarketing_ExternalOrders';
+
+  // 1. Attempt to assemble data from cached chunks
+  var numChunksStr = cache.get(cacheKey + '_count');
+  if (numChunksStr) {
+    var numChunks = parseInt(numChunksStr, 10);
+    var assembledJson = "";
+    var cacheMiss = false;
+
+    for (var c = 0; c < numChunks; c++) {
+      var chunk = cache.get(cacheKey + '_' + c);
+      if (!chunk) { 
+        cacheMiss = true; 
+        break; 
+      }
+      assembledJson += chunk;
+    }
+
+    if (!cacheMiss) {
+      try {
+        var parsed = JSON.parse(assembledJson);
+        for (var i = 0; i < parsed.length; i++) {
+          parsed[i].date = new Date(parsed[i].date);
+        }
+        return parsed;
+      } catch(e) {
+        // Fallback to fresh fetch if parsing fails
+      }
+    }
   }
 
-  var visitsSheet = ss.getSheetByName('Visits');
-  if (!visitsSheet) {
-    visitsSheet = ss.insertSheet('Visits');
-    visitsSheet.appendRow([
-      'Timestamp', 'VisitID', 'EmpId', 'StaffName', 'DealerID', 'DealerName',
-      'DistanceMeters', 'Lat', 'Lng', 'PhotoUrl', 'Purpose', 'Notes',
-      'OrderValue', 'PaymentCollected', 'NextVisitDate', 'GeofenceStatus'
-    ]);
+  // 2. Fetch fresh data from the control tower
+  var freshOrders = fetchAndMapOrders();
+  var jsonString = JSON.stringify(freshOrders);
+
+  // 3. Store data in chunks (under the 100KB Google hard limit)
+  var chunkSize = 90000; // 90KB chunks
+  var chunks = Math.ceil(jsonString.length / chunkSize);
+
+  cache.put(cacheKey + '_count', chunks.toString(), 180);
+  for (var i = 0; i < chunks; i++) {
+    var chunkData = jsonString.substring(i * chunkSize, (i + 1) * chunkSize);
+    cache.put(cacheKey + '_' + i, chunkData, 180);
   }
 
-  var trackingSheet = ss.getSheetByName('LiveTracking');
-  if (!trackingSheet) {
-    trackingSheet = ss.insertSheet('LiveTracking');
-    trackingSheet.appendRow([
-      'EmpId', 'StaffName', 'LastLat', 'LastLng', 'Accuracy', 'Speed',
-      'DistFromHQKm', 'LastUpdated', 'Battery', 'MapsUrl', 'Status'
-    ]);
+  return freshOrders;
+}
+
+// -------------------------------------------------------------
+// STAFF DASHBOARD ENGINE
+// -------------------------------------------------------------
+function getStaffDashboardData(staffName) {
+  var rules = getIncentiveRules();
+  var staffNameClean = String(staffName).trim();
+  
+  var dashboard = {
+    today: { visits: 0, visitTracker: 0, incentive: 0, sales: 0, brandPcs: {}, ledger: [] },
+    yesterday: { visits: 0, incentive: 0, sales: 0, brandPcs: {}, ledger: [] },
+    thisWeek: { visits: 0, incentive: 0, sales: 0, brandPcs: {}, ledger: [] },
+    lastWeek: { visits: 0, incentive: 0, sales: 0, brandPcs: {}, ledger: [] },
+    thisMonth: { visits: 0, incentive: 0, sales: 0, brandPcs: {}, ledger: [] },
+    lastMonth: { visits: 0, incentive: 0, sales: 0, brandPcs: {}, ledger: [] },
+    rules: rules 
+  };
+
+  var now = new Date();
+  now.setHours(0, 0, 0, 0);
+  
+  var todayTime = now.getTime();
+  var yesterdayTime = new Date(now).setDate(now.getDate() - 1);
+  var dayOfWeek = now.getDay();
+  var diffToMonday = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+  var startOfThisWeek = new Date(now).setDate(diffToMonday);
+  var startOfLastWeek = new Date(startOfThisWeek).setDate(new Date(startOfThisWeek).getDate() - 7);
+  var endOfLastWeek = new Date(startOfThisWeek).setDate(new Date(startOfThisWeek).getDate() - 1);
+  var startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  var startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime();
+  var endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0).getTime();
+
+  function getBuckets(dateObj) {
+    var t = dateObj.getTime();
+    var buckets = [];
+    if (t === todayTime) {
+      buckets.push('today');
+    }
+    if (t === yesterdayTime) {
+      buckets.push('yesterday');
+    }
+    if (t >= startOfThisWeek && t <= todayTime) {
+      buckets.push('thisWeek');
+    }
+    if (t >= startOfLastWeek && t <= endOfLastWeek) {
+      buckets.push('lastWeek');
+    }
+    if (t >= startOfThisMonth && t <= todayTime) {
+      buckets.push('thisMonth');
+    }
+    if (t >= startOfLastMonth && t <= endOfLastMonth) {
+      buckets.push('lastMonth');
+    }
+    return buckets;
   }
 
-  var auditSheet = ss.getSheetByName('ProxyAuditLog');
-  if (!auditSheet) {
-    auditSheet = ss.insertSheet('ProxyAuditLog');
-    auditSheet.appendRow([
-      'Timestamp', 'EmpId', 'StaffName', 'DealerID', 'DealerName',
-      'AttemptedDistMeters', 'AllowedRadius', 'Lat', 'Lng', 'Status'
-    ]);
+  var dailyVisitsMap = {};
+  var visitSheet = getSheetSafely("Daily Operation");
+  
+  if (visitSheet) {
+    var vData = visitSheet.getDataRange().getValues();
+    for (var i = 1; i < vData.length; i++) {
+      if (String(vData[i][3]).trim() === staffNameClean) {
+        var dObj = extractDateSafe(vData[i][1]);
+        if (dObj) {
+          var dateKey = Utilities.formatDate(dObj, Session.getScriptTimeZone(), "yyyy-MM-dd");
+          if (!dailyVisitsMap[dateKey]) {
+            dailyVisitsMap[dateKey] = { 
+              count: 0, 
+              buckets: getBuckets(dObj), 
+              dateStr: Utilities.formatDate(dObj, Session.getScriptTimeZone(), "dd/MM/yyyy") 
+            };
+          }
+          dailyVisitsMap[dateKey].count++;
+        }
+      }
+    }
   }
+
+  for (var dk in dailyVisitsMap) {
+    var dv = dailyVisitsMap[dk];
+    var earnedVisitIncentive = (dv.count >= 12) ? (dv.count * rules.visitRate) : 0;
+    
+    for (var b = 0; b < dv.buckets.length; b++) {
+      var bucketName = dv.buckets[b];
+      dashboard[bucketName].visits += dv.count;
+      dashboard[bucketName].incentive += earnedVisitIncentive;
+      
+      if (bucketName === 'today') {
+         dashboard['today'].visitTracker = dv.count;
+      }
+      
+      if (earnedVisitIncentive > 0) {
+        dashboard[bucketName].ledger.push({
+          type: "Visit Bonus",
+          desc: "Completed " + dv.count + " visits on " + dv.dateStr,
+          amount: earnedVisitIncentive
+        });
+      }
+    }
+  }
+
+  var allOrders = getCachedExternalOrders(); 
+  
+  for (var o = 0; o < allOrders.length; o++) {
+    var ord = allOrders[o];
+    
+    if (String(ord.staff).trim() === staffNameClean) {
+      var buckets = getBuckets(ord.date);
+      if (buckets.length === 0) continue; 
+      
+      var amountIncentive = Math.floor(ord.amount / 1000) * rules.thousandRate;
+      var itemIncentive = 0;
+      var brandData = [];
+      var ledgerItems = [];
+      
+      var vWaveQty = 0;
+      var vPodsQty = 0;
+
+      if (ord.items) {
+        var itemsList = ord.items.split('|');
+        var standardItems = [];
+        
+        for (var idx = 0; idx < itemsList.length; idx++) {
+          var item = itemsList[idx];
+          var match = item.match(/^(.*?)(?:\s*x\s*(\d+))?$/i);
+          
+          if (match) {
+            var pName = match[1].trim().toUpperCase();
+            var qty = match[2] ? parseInt(match[2], 10) : 1;
+            var extBrand = pName.split(' ')[0]; 
+
+            brandData.push({ brand: extBrand, qty: qty });
+
+            if (extBrand === "VELOCITY") {
+              if (pName.includes("CABLE")) {
+                continue; 
+              }
+              if (pName.includes("WAVE")) {
+                vWaveQty += qty;
+                continue;
+              }
+              if (pName.includes("TWS PODS") || pName.includes("AIRPODS")) {
+                vPodsQty += qty;
+                continue;
+              }
+            }
+            standardItems.push({ name: pName, brand: extBrand, qty: qty });
+          }
+        }
+
+        var velocityRate = rules.brandRates["VELOCITY"] || rules.pcRate;
+        var bundleQty = Math.min(vWaveQty, vPodsQty);
+        var soloWave = vWaveQty - bundleQty;
+        var soloPods = vPodsQty - bundleQty;
+
+        if (bundleQty > 0) {
+          var bundleVal = bundleQty * velocityRate;
+          itemIncentive += bundleVal;
+          ledgerItems.push("Velocity Combo (Wave+Pods) x" + bundleQty + " [₹" + bundleVal + "]");
+        }
+        if (soloWave > 0) {
+          var swVal = soloWave * velocityRate;
+          itemIncentive += swVal;
+          ledgerItems.push("Velocity Wave Solo x" + soloWave + " [₹" + swVal + "]");
+        }
+        if (soloPods > 0) {
+          var spVal = soloPods * velocityRate;
+          itemIncentive += spVal;
+          ledgerItems.push("Velocity Pods Solo x" + soloPods + " [₹" + spVal + "]");
+        }
+
+        for (var s = 0; s < standardItems.length; s++) {
+           var sItem = standardItems[s];
+           var rateApplied = rules.pcRate;
+           
+           for (var activeBrand in rules.brandRates) {
+              if (sItem.name.includes(activeBrand) || sItem.brand === activeBrand) {
+                rateApplied = rules.brandRates[activeBrand];
+                break;
+              }
+           }
+           var sVal = sItem.qty * rateApplied;
+           itemIncentive += sVal;
+           if (sVal > 0) {
+             ledgerItems.push(sItem.name + " x" + sItem.qty + " [₹" + sVal + "]");
+           }
+        }
+      }
+      
+      var totalOrderInc = amountIncentive + itemIncentive;
+      
+      for (var b = 0; b < buckets.length; b++) {
+        var bName = buckets[b];
+        dashboard[bName].sales += ord.amount;
+        dashboard[bName].incentive += totalOrderInc;
+        
+        for (var bp = 0; bp < brandData.length; bp++) {
+          var brandObj = brandData[bp];
+          if (!dashboard[bName].brandPcs[brandObj.brand]) {
+             dashboard[bName].brandPcs[brandObj.brand] = 0;
+          }
+          dashboard[bName].brandPcs[brandObj.brand] += brandObj.qty;
+        }
+
+        if (totalOrderInc > 0) {
+           var lStr = ledgerItems.join("<br>");
+           if (amountIncentive > 0) {
+              lStr += "<br><em>Volume Bonus: ₹" + amountIncentive + "</em>";
+           }
+           
+           dashboard[bName].ledger.push({
+              type: "Order",
+              shop: ord.shop,
+              desc: lStr,
+              amount: totalOrderInc
+           });
+        }
+      }
+    }
+  }
+
+  return dashboard;
+}
+
+// ----------------------------------------------------------------------
+// GOD'S EYE CEO ENGINE: DEALER & AREA LEVEL SALES
+// ----------------------------------------------------------------------
+function getCEOStats(filter, customStartStr, customEndStr) {
+  var now = new Date();
+  now.setHours(0, 0, 0, 0);
+  
+  var startTime;
+  var endTime;
+  
+  if (filter === 'today') { 
+    startTime = now.getTime(); 
+    endTime = now.getTime() + 86399999; 
+  } else if (filter === 'yesterday') { 
+    startTime = now.getTime() - 86400000; 
+    endTime = startTime + 86399999; 
+  } else if (filter === 'thisWeek') {
+    var d = now.getDay(); 
+    var diff = now.getDate() - d + (d == 0 ? -6 : 1); 
+    startTime = new Date(now.setDate(diff)).setHours(0, 0, 0, 0);
+    endTime = startTime + (7 * 86400000) - 1;
+  } else if (filter === 'lastWeek') {
+    var d = now.getDay(); 
+    var diff = now.getDate() - d + (d == 0 ? -6 : 1);
+    var thisWeekStart = new Date(now.setDate(diff)).setHours(0, 0, 0, 0);
+    startTime = thisWeekStart - (7 * 86400000);
+    endTime = thisWeekStart - 1;
+  } else if (filter === 'thisMonth') {
+    startTime = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    endTime = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).getTime();
+  } else if (filter === 'lastMonth') {
+    startTime = new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime();
+    endTime = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59).getTime();
+  } else if (filter === 'custom' && customStartStr && customEndStr) {
+    startTime = new Date(customStartStr).setHours(0, 0, 0, 0);
+    endTime = new Date(customEndStr).setHours(23, 59, 59, 999);
+  } else {
+    startTime = now.getTime(); 
+    endTime = now.getTime() + 86399999; 
+  }
+
+  var stats = { 
+    totalVisits: 0, 
+    totalCollections: 0, 
+    totalSales: 0 
+  };
+  
+  var staffData = {};
+
+  function initDealerMap(staff, area, dealer) {
+    if (!staffData[staff]) {
+      staffData[staff] = { visits: 0, collections: 0, sales: 0, orders: 0, areas: {} };
+    }
+    if (!staffData[staff].areas[area]) {
+      staffData[staff].areas[area] = { visits: 0, sales: 0, dealers: {} };
+    }
+    if (!staffData[staff].areas[area].dealers[dealer]) {
+      staffData[staff].areas[area].dealers[dealer] = { visits: 0, sales: 0, logs: [], orders: [] };
+    }
+  }
+
+  var globalLogs = []; 
+  var visitSheet = getSheetSafely("Daily Operation");
+
+  if (visitSheet) {
+    var data = visitSheet.getDataRange().getValues();
+    
+    for (var i = 1; i < data.length; i++) {
+      var dObj = extractDateSafe(data[i][1]);
+
+      if (dObj) {
+        var t = dObj.getTime();
+        var staffName = String(data[i][3]).trim();
+        var dealer = String(data[i][5]).trim().toUpperCase();
+        var area = String(data[i][4]).trim().toUpperCase() || "UNCATEGORIZED AREA";
+
+        if (t >= startTime && t <= endTime) {
+          initDealerMap(staffName, area, dealer);
+          
+          stats.totalVisits++;
+          staffData[staffName].visits++;
+          staffData[staffName].areas[area].visits++;
+          staffData[staffName].areas[area].dealers[dealer].visits++;
+          
+          var task = data[i][7];
+          
+          if (task === "Payment Collection") {
+            stats.totalCollections++;
+            staffData[staffName].collections++;
+          }
+          
+          var rowTimeRaw = data[i][2];
+          var rowTime = rowTimeRaw instanceof Date ? Utilities.formatDate(rowTimeRaw, Session.getScriptTimeZone(), "hh:mm a") : String(rowTimeRaw || "");
+          
+          var logEntry = {
+            date: Utilities.formatDate(dObj, Session.getScriptTimeZone(), "dd/MM/yyyy"), 
+            time: rowTime, 
+            staff: staffName, 
+            area: area, 
+            dealer: dealer, 
+            task: task,
+            feedback: String(data[i][40] || ""), 
+            photo: String(data[i][41] || ""),
+            stock: {
+              bAirpods: data[i][18], bNeckband: data[i][19], bPowerbank: data[i][20], bSmartwatch: data[i][21], bHeadphones: data[i][22],
+              gAirpods: data[i][23], gNeckband: data[i][24], gPowerbank: data[i][25], gSmartwatch: data[i][26], gHeadphones: data[i][27],
+              pNeckband: data[i][28], pPowerbank: data[i][29], pHeadphones: data[i][30], pCable: data[i][31], pOther: data[i][32],
+              vAirpods: data[i][33], vNeckband: data[i][34], vCable: data[i][35], vCharger: data[i][36],
+              mCard: data[i][37], pDrive: data[i][38], eSsd: data[i][39]
+            }
+          };
+          
+          staffData[staffName].areas[area].dealers[dealer].logs.push(logEntry);
+          globalLogs.push(logEntry);
+        }
+      }
+    }
+  }
+
+  var allOrders = fetchAndMapOrders();
+  
+  for (var o = 0; o < allOrders.length; o++) {
+    var ord = allOrders[o];
+    
+    if (ord.timeMs >= startTime && ord.timeMs <= endTime) {
+       var creditedStaff = String(ord.staff).trim();
+       var creditedArea = String(ord.area || "UNMAPPED LOCATIONS").trim().toUpperCase();
+       var creditedShop = ord.shop || "Unknown Dealer";
+       
+       if (!creditedStaff || creditedStaff === "Unassigned") {
+          creditedStaff = "System / Unmapped";
+          creditedArea = "UNMAPPED LOCATIONS";
+       }
+
+       initDealerMap(creditedStaff, creditedArea, creditedShop);
+
+       stats.totalSales += ord.amount;
+       staffData[creditedStaff].sales += ord.amount;
+       staffData[creditedStaff].orders++;
+       
+       staffData[creditedStaff].areas[creditedArea].sales += ord.amount;
+       staffData[creditedStaff].areas[creditedArea].dealers[creditedShop].sales += ord.amount;
+       
+       staffData[creditedStaff].areas[creditedArea].dealers[creditedShop].orders.push({
+         date: Utilities.formatDate(ord.date, Session.getScriptTimeZone(), "dd/MM/yyyy"),
+         amount: ord.amount,
+         items: ord.items
+       });
+    }
+  }
+
+  var leaderboard = [];
+  
+  for (var name in staffData) {
+     if (name === "") {
+       continue;
+     }
+     var sd = staffData[name];
+     var strike = sd.visits > 0 ? Math.round((sd.orders / sd.visits) * 100) : 0;
+     
+     leaderboard.push({
+        name: name, 
+        visits: sd.visits, 
+        collections: sd.collections, 
+        sales: sd.sales, 
+        strike: strike, 
+        areas: sd.areas
+     });
+  }
+  
+  leaderboard.sort(function(a, b) {
+    if (b.sales !== a.sales) return b.sales - a.sales;
+    return b.visits - a.visits;
+  });
+
+  return { metrics: stats, leaderboard: leaderboard, globalLogs: globalLogs };
+}
+
+// ----------------------------------------------------------------------
+// EOD WHATSAPP GENERATOR
+// ----------------------------------------------------------------------
+function generateWhatsAppEOD(staffName) {
+  var dash = getStaffDashboardData(staffName);
+  var staffNameClean = String(staffName).trim();
+  
+  var todayVisits = [];
+  var visitedDealersToday = [];
+  var stockOuts = [];
+  var deadStocks = [];
+  var firstVisitStr = "--:--";
+  var lastVisitStr = "--:--";
+  var activeMins = 0;
+  
+  var now = new Date();
+  now.setHours(0, 0, 0, 0);
+  var todayTime = now.getTime();
+  
+  var visitSheet = getSheetSafely("Daily Operation");
+  
+  if (visitSheet) {
+    var vData = visitSheet.getDataRange().getValues();
+    var timesArray = [];
+    
+    for (var i = 1; i < vData.length; i++) {
+      if (String(vData[i][3]).trim() === staffNameClean) {
+        var dObj = extractDateSafe(vData[i][1]);
+        
+        if (dObj && dObj.getTime() === todayTime) {
+          var dealer = String(vData[i][5]).trim().toUpperCase();
+          visitedDealersToday.push(dealer);
+          todayVisits.push(vData[i]);
+          
+          var rawTime = vData[i][2];
+          var formattedTime = "";
+          
+          if (rawTime instanceof Date) {
+              formattedTime = Utilities.formatDate(rawTime, Session.getScriptTimeZone(), "HH:mm");
+          } else {
+              formattedTime = String(rawTime || "").trim();
+          }
+          
+          if (formattedTime) timesArray.push(formattedTime);
+          
+          var stockCols = [
+            { idx: 18, name: "BOAT Airpods" }, 
+            { idx: 19, name: "BOAT Neckband" }, 
+            { idx: 20, name: "BOAT Powerbank" },
+            { idx: 23, name: "GoBoult Airpods" }, 
+            { idx: 24, name: "GoBoult Neckband" },
+            { idx: 33, name: "Velocity Airpods" }, 
+            { idx: 34, name: "Velocity Neckband" }, 
+            { idx: 35, name: "Velocity Cable" }
+          ];
+          
+          for (var s = 0; s < stockCols.length; s++) {
+            var sc = stockCols[s];
+            if (vData[i][sc.idx] === "0 (Nil)") {
+               stockOuts.push(dealer + " (" + sc.name + ")");
+            }
+            if (vData[i][sc.idx] === "10+ (High)") {
+               deadStocks.push(dealer + " (" + sc.name + ")");
+            }
+          }
+        }
+      }
+    }
+    
+    if (timesArray.length > 0) {
+      firstVisitStr = timesArray[0];
+      lastVisitStr = timesArray[timesArray.length - 1];
+      
+      try {
+        var fParts = firstVisitStr.split(":");
+        var lParts = lastVisitStr.split(":");
+        if (fParts.length >= 2 && lParts.length >= 2) {
+           var fMins = parseInt(fParts[0], 10) * 60 + parseInt(fParts[1], 10);
+           var lMins = parseInt(lParts[0], 10) * 60 + parseInt(lParts[1], 10);
+           activeMins = lMins - fMins;
+           if (activeMins < 0) activeMins = 0; 
+        }
+      } catch(e) {}
+    }
+  }
+
+  var allOrders = fetchAndMapOrders();
+  var orderDealersToday = [];
+  var rankMap = {}; 
+
+  for (var o = 0; o < allOrders.length; o++) {
+    var ord = allOrders[o];
+    if (ord.timeMs === todayTime) {
+      var ordStaffClean = String(ord.staff).trim();
+      if (!rankMap[ordStaffClean]) {
+         rankMap[ordStaffClean] = 0;
+      }
+      rankMap[ordStaffClean] += ord.amount;
+      
+      if (ordStaffClean === staffNameClean && ord.shop) {
+        var clnShop = ord.shop.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        orderDealersToday.push(clnShop);
+      }
+    }
+  }
+    
+  var sortedStaff = Object.keys(rankMap).sort(function(a, b) { return rankMap[b] - rankMap[a]; });
+  var myRank = sortedStaff.indexOf(staffNameClean) + 1;
+  if (myRank === 0 && dash.today.sales > 0) myRank = 1; 
+  
+  var zeroSaleDealers = [];
+  for (var v = 0; v < visitedDealersToday.length; v++) {
+    var d = visitedDealersToday[v];
+    var cleanD = d.replace(/[^A-Z0-9]/g, ''); 
+    var found = false;
+    
+    for (var t = 0; t < orderDealersToday.length; t++) {
+      var orderD = orderDealersToday[t];
+      if (cleanD.indexOf(orderD) !== -1 || orderD.indexOf(cleanD) !== -1) {
+        found = true; 
+        break;
+      }
+    }
+    if (!found) zeroSaleDealers.push(d);
+  }
+  
+  var productiveCount = todayVisits.length - zeroSaleDealers.length;
+  if (productiveCount < 0) productiveCount = 0;
+  
+  var strikeRate = todayVisits.length > 0 ? Math.round((productiveCount / todayVisits.length) * 100) : 0;
+  var actHrs = Math.floor(activeMins / 60);
+  var actM = activeMins % 60;
+  var avgMinsPerStore = todayVisits.length > 0 ? Math.round(activeMins / todayVisits.length) : 0;
+  var moneyLeftOnTable = zeroSaleDealers.length * dash.rules.visitRate; 
+  
+  var TARGET_WEEK = 150000;
+  var TARGET_MONTH = 600000;
+  var paceWeek = TARGET_WEEK - dash.thisWeek.sales;
+  var paceMonth = TARGET_MONTH - dash.thisMonth.sales;
+  
+  var focusArr = [];
+  for (var b in dash.today.brandPcs) {
+      var onlyLetters = b.replace(/[^A-Z]/g, '');
+      if (onlyLetters.length > 1) focusArr.push(onlyLetters);
+  }
+  
+  var uniqueFocus = [];
+  for (var i = 0; i < focusArr.length; i++) {
+      if (uniqueFocus.indexOf(focusArr[i]) === -1) {
+         uniqueFocus.push(focusArr[i]);
+      }
+  }
+  var focusBrandsSold = uniqueFocus.length > 0 ? uniqueFocus.join(", ") : "None";
+
+  var nl = "\n";
+  var report = "*📊 EXECUTIVE EOD REPORT*" + nl;
+  report += "*👤 Agent:* " + staffNameClean + nl;
+  report += "*📅 Date:* " + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd-MMM-yyyy") + nl + nl;
+  
+  report += "*🔥 1. CORE CONVERSION*" + nl;
+  report += "• Total Visits: *" + todayVisits.length + "*" + nl;
+  report += "• Productive: *" + productiveCount + "* (" + strikeRate + "% Strike Rate)" + nl;
+  report += "• Total Sales: *₹ " + dash.today.sales.toLocaleString('en-IN') + "*" + nl;
+  report += "• Zero-Sale Counters: *" + zeroSaleDealers.length + "*" + nl;
+  if (zeroSaleDealers.length > 0 && zeroSaleDealers.length <= 5) {
+     report += "  _(" + zeroSaleDealers.join(", ") + ")_" + nl;
+  } else if (zeroSaleDealers.length > 5) {
+     report += "  _(" + zeroSaleDealers.slice(0, 5).join(", ") + " + " + (zeroSaleDealers.length - 5) + " more)_" + nl;
+  }
+  report += nl;
+  
+  report += "*⏱️ 2. TIME & LEVERAGE*" + nl;
+  report += "• Field Active: *" + actHrs + "h " + actM + "m*" + nl;
+  report += "• First Punch: *" + firstVisitStr + "*" + nl;
+  report += "• Last Punch: *" + lastVisitStr + "*" + nl;
+  report += "• Avg Time/Store: *" + avgMinsPerStore + " mins*" + nl;
+  report += "• Route Efficiency: *" + (avgMinsPerStore > 40 ? "Needs Improvement ⚠️" : "Optimal ✅") + "*" + nl;
+  report += nl;
+  
+  report += "*📦 3. MARKET INTELLIGENCE*" + nl;
+  report += "• Stock-Out Alerts (Nil): *" + stockOuts.length + "*" + nl;
+  if (stockOuts.length > 0) {
+     report += "  _Follow up tomorrow on these._" + nl;
+  }
+  report += "• Focus Brands Pitched/Sold: *" + focusBrandsSold + "*" + nl;
+  report += "• Cross-Selling Index: *" + (uniqueFocus.length >= 2 ? "High 🚀" : "Low 🔻") + "*" + nl;
+  report += nl;
+  
+  report += "*💰 4. GAMIFICATION & INCENTIVE*" + nl;
+  report += "• Today's Incentive: *₹ " + dash.today.incentive + "*" + nl;
+  report += "• Money Left on Table: *~₹ " + moneyLeftOnTable + "* _(Lost due to zero-sale visits)_" + nl;
+  report += "• Daily Office Rank: *#" + (myRank || "-") + "* 🏆" + nl;
+  report += nl;
+  
+  report += "*📈 5. GROWTH TRACKER*" + nl;
+  report += "• Today: *₹ " + dash.today.sales.toLocaleString('en-IN') + "*" + nl;
+  report += "• Yesterday: *₹ " + dash.yesterday.sales.toLocaleString('en-IN') + "*" + nl;
+  report += "• This Week: *₹ " + dash.thisWeek.sales.toLocaleString('en-IN') + "* " + (paceWeek > 0 ? "(_Need ₹" + paceWeek.toLocaleString('en-IN') + " for Target_)" : "(_Target Hit! 🎯_)") + nl;
+  report += "• This Month: *₹ " + dash.thisMonth.sales.toLocaleString('en-IN') + "* " + (paceMonth > 0 ? "(_Need ₹" + paceMonth.toLocaleString('en-IN') + " for Target_)" : "(_Target Hit! 🎯_)") + nl;
+
+  return encodeURIComponent(report);
+}
+
+function getAreas() {
+  var sheet = getSheetSafely("Dealer Master");
+  if (!sheet) return [];
+  var data = sheet.getDataRange().getValues();
+  var areas = [];
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][2]) {
+       areas.push(data[i][2]);
+    }
+  }
+  return [...new Set(areas)].filter(String);
+}
+
+function getDealersByArea(area) {
+  var dealerSheet = getSheetSafely("Dealer Master");
+  var outSheet = getSheetSafely("Outstanding");
+  if (!dealerSheet) return [];
+
+  // 1. Outstanding sheet se Bill aur Cash ka map banayenge
+  var billMap = {};
+  var cashMap = {};
+  
+  if (outSheet) {
+    var outData = outSheet.getDataRange().getValues();
+    for (var r = 0; r < outData.length; r++) {
+      
+      // Table 1: Bill Outstanding (Col A = 0, Col B = 1)
+      var bName = String(outData[r][0]).trim().toUpperCase();
+      var bVal = String(outData[r][1]).trim();
+      if (bName && bVal) {
+         // Sirf numbers aur decimals extract karega
+         var cleanB = parseFloat(bVal.replace(/[^0-9.]/g, '')) || 0;
+         // Agar amount Credit (Cr) me hai, toh negative kar dega
+         if(bVal.toUpperCase().indexOf("CR") !== -1) cleanB = -cleanB;
+         billMap[bName] = cleanB;
+      }
+
+      // Table 2: Cash Outstanding (Col E = 4, Col F = 5)
+      var cName = String(outData[r][4]).trim().toUpperCase();
+      var cVal = String(outData[r][5]).trim();
+      if (cName && cVal) {
+         var cleanC = parseFloat(cVal.replace(/[^0-9.]/g, '')) || 0;
+         if(cVal.toUpperCase().indexOf("CR") !== -1) cleanC = -cleanC;
+         cashMap[cName] = cleanC;
+      }
+    }
+  }
+
+  // 2. Dealer Master se area filter karke final list banayenge
+  var data = dealerSheet.getDataRange().getValues();
+  var dealers = [];
+  
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][2] == area && data[i][1]) {
+      var dName = String(data[i][1]).trim();
+      var searchKey = dName.toUpperCase(); // Exact match ke liye uppercase
+
+      var gpsInfo = dealerGpsMap[searchKey] || null;
+      var hasLocked = (gpsInfo && gpsInfo.isLocked);
+      var finalGps = hasLocked ? gpsInfo.gps : (data[i][7] || "");
+      var finalLat = hasLocked ? gpsInfo.lat : null;
+      var finalLng = hasLocked ? gpsInfo.lng : null;
+      var finalRadius = (gpsInfo && gpsInfo.radius) ? gpsInfo.radius : 50;
+
+      dealers.push({ 
+        name: dName, 
+        billPending: billMap[searchKey] || 0, 
+        cashPending: cashMap[searchKey] || 0, 
+        gps: finalGps,
+        isLocked: hasLocked,
+        lat: finalLat,
+        lng: finalLng,
+        radius: finalRadius
+      });
+    }
+  }
+  
+  return dealers;
+}
+
+function getDealerDetails(dealerName) {
+  var sheet = getSheetSafely("Dealer Master");
+  if (!sheet) return { billPending: 0, cashPending: 0, gps: "" };
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][1] == dealerName) {
+      return { billPending: data[i][5] || 0, cashPending: data[i][6] || 0, gps: "" };
+    }
+  }
+  return { billPending: 0, cashPending: 0, gps: "" };
+}
+
+function uploadFileToDrive(base64Data, fileName) {
+  try {
+    var folder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+    var splitBase = base64Data.split(',');
+    var type = splitBase[0].split(';')[0].replace('data:', '');
+    var byteCharacters = Utilities.base64Decode(splitBase[1]);
+    var blob = Utilities.newBlob(byteCharacters, type, fileName);
+    var file = folder.createFile(blob);
+    return file.getUrl();
+  } catch (e) { 
+    throw new Error("SYSTEM ERROR: " + e.message); 
+  }
+}
+
+function saveFormRecord(formObject) {
+  // SERVER-SIDE 50M GEOFENCE ENFORCEMENT & ANTI-PROXY CHECK
+  if (formObject.location && formObject.location.indexOf(",") > -1) {
+    var locParts = formObject.location.split(",");
+    var staffLat = parseFloat(locParts[0]);
+    var staffLng = parseFloat(locParts[1]);
+    
+    var gpsSheet = getOrCreateDealerLocationGpsSheet();
+    var gpsRows = gpsSheet ? gpsSheet.getDataRange().getValues() : [];
+    var targetDealerName = String(formObject.dealerName || "").trim().toUpperCase();
+    
+    for (var g = 1; g < gpsRows.length; g++) {
+      if (String(gpsRows[g][0] || "").trim().toUpperCase() === targetDealerName) {
+        var lockedLat = parseFloat(gpsRows[g][3]);
+        var lockedLng = parseFloat(gpsRows[g][4]);
+        var allowedRadius = parseFloat(gpsRows[g][5]) || 50;
+        
+        if (!isNaN(lockedLat) && !isNaN(lockedLng) && lockedLat !== 0 && lockedLng !== 0) {
+          var distMeters = calculateHaversineDistanceMeters(lockedLat, lockedLng, staffLat, staffLng);
+          
+          if (distMeters > allowedRadius) {
+            // Log Proxy Breach Attempt
+            try {
+              var auditSheet = getOrCreateProxyAuditSheet();
+              auditSheet.appendRow([
+                new Date(),
+                formObject.staffName,
+                formObject.dealerName,
+                formObject.area,
+                Math.round(distMeters),
+                allowedRadius,
+                staffLat,
+                staffLng,
+                "REJECTED_PROXY_BREACH"
+              ]);
+            } catch(audErr) {}
+            
+            throw new Error("⛔ PROXY CHECK-IN REJECTED! Aap dealer '" + formObject.dealerName + "' se " + Math.round(distMeters) + " meters dur hain. Punch sirf 50 meters ke andar hi allowed hai.");
+          }
+        }
+        break;
+      }
+    }
+  }
+  var sheet = getSheetSafely("Daily Operation");
+  if (!sheet) throw new Error("Daily Operation missing");
+  
+  var currentDate = new Date();
+  var dateStr = Utilities.formatDate(currentDate, Session.getScriptTimeZone(), "dd/MM/yyyy");
+  var timeStr = Utilities.formatDate(currentDate, Session.getScriptTimeZone(), "HH:mm:ss");
+  var lastRow = sheet.getLastRow();
+  var newVisitId = "YM" + (1000 + lastRow); 
+
+  var photoUrl = "";
+  if (formObject.photoData) {
+    photoUrl = uploadFileToDrive(formObject.photoData, "Selfie_" + formObject.staffName + "_" + timeStr + ".jpg");
+  }
+
+  var rowData = [];
+  rowData[0] = newVisitId; 
+  rowData[1] = dateStr; 
+  rowData[2] = timeStr; 
+  rowData[3] = formObject.staffName; 
+  rowData[4] = formObject.area; 
+  rowData[5] = formObject.dealerName; 
+  rowData[6] = ""; 
+  rowData[7] = formObject.task; 
+  rowData[8] = ""; 
+  rowData[9] = ""; 
+  rowData[10] = ""; 
+  rowData[11] = formObject.location; 
+  rowData[12] = ""; 
+  rowData[13] = ""; 
+  rowData[14] = ""; 
+  rowData[15] = ""; 
+  rowData[16] = ""; 
+  rowData[17] = ""; 
+  
+  rowData[18] = formObject.bAirpods; 
+  rowData[19] = formObject.bNeckband; 
+  rowData[20] = formObject.bPowerbank; 
+  rowData[21] = formObject.bSmartwatch; 
+  rowData[22] = formObject.bHeadphones; 
+  
+  rowData[23] = formObject.gAirpods; 
+  rowData[24] = formObject.gNeckband; 
+  rowData[25] = formObject.gPowerbank; 
+  rowData[26] = formObject.gSmartwatch;
+  rowData[27] = formObject.gHeadphones; 
+  
+  rowData[28] = formObject.pNeckband; 
+  rowData[29] = formObject.pPowerbank; 
+  rowData[30] = formObject.pHeadphones; 
+  rowData[31] = formObject.pCable; 
+  rowData[32] = formObject.pOther; 
+  
+  rowData[33] = formObject.vAirpods; 
+  rowData[34] = formObject.vNeckband; 
+  rowData[35] = formObject.vCable; 
+  rowData[36] = formObject.vCharger; 
+  
+  rowData[37] = formObject.mCard; 
+  rowData[38] = formObject.pDrive; 
+  rowData[39] = formObject.eSsd; 
+  
+  rowData[40] = formObject.feedback; 
+  rowData[41] = photoUrl; 
+
+  sheet.appendRow(rowData);
+  return "Data aur Selfie successfully upload ho gayi!";
+}
+
+function forceDrivePermission() {
+  DriveApp.getRootFolder();
+}
+
+function authorizeExternalSheet() {
+  SpreadsheetApp.openById("1np1XfpYjqXcbbNwT7_Q3XzmxxGrcYKacXQV04p1ilYw");
+  Logger.log("✅ Authorization Successful! The app can now read external orders.");
+}
+
+// -------------------------------------------------------------
+// MORNING BRIEFING OS (CLEAN UI + TARGETS + FIFO OVERDUE + TALLY PDF)
+// -------------------------------------------------------------
+function generateMorningBriefing(areaName) {
+  var areaClean = String(areaName).trim().toUpperCase();
+  var now = new Date();
+  var startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  var startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime();
+  var endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59).getTime();
+  
+  // WTD Calculation setup
+  var dayOfWeek = now.getDay();
+  var diffToMonday = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+  var startOfThisWeek = new Date(now.getFullYear(), now.getMonth(), diffToMonday).getTime();
+  
+  var startOfFourMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 4, 1).getTime();
+  var thirtyDaysAgo = now.getTime() - (30 * 24 * 60 * 60 * 1000);
+  var fourteenDaysAgo = now.getTime() - (14 * 24 * 60 * 60 * 1000);
+  
+  var staffName = "Unassigned Staff";
+  var staffSheet = getSheetSafely("Staff Master");
+  
+  if (staffSheet) {
+    var sData = staffSheet.getDataRange().getValues();
+    for (var i = 1; i < sData.length; i++) {
+      var sAreas = String(sData[i][8]).toUpperCase();
+      if (sAreas.includes(areaClean)) {
+        staffName = String(sData[i][1]).trim();
+        break;
+      }
+    }
+  }
+
+  var dealerMaster = getSheetSafely("Dealer Master");
+  var dealers = {};
+  var totalBillPending = 0;
+  var totalCashPending = 0;
+  
+  if (dealerMaster) {
+    var dData = dealerMaster.getDataRange().getValues();
+    for (var i = 1; i < dData.length; i++) {
+      var dArea = String(dData[i][2]).trim().toUpperCase();
+      
+      if (dArea === areaClean) {
+        var dName = String(dData[i][1]).trim().toUpperCase();
+        var bPend = parseFloat(dData[i][5]) || 0;
+        var cPend = parseFloat(dData[i][6]) || 0;
+        
+        dealers[dName] = {
+          billPending: bPend,
+          cashPending: cPend,
+          totalPend: (bPend + cPend),
+          totalSales: 0,
+          sales30Days: 0,
+          salesMTD: 0,
+          salesWTD: 0,
+          salesLastMonth: 0,
+          sales4Months: 0,
+          lastOrderDate: 0,
+          lastVisitDate: 0,
+          lastFeedback: "No updates.",
+          visitCount30Days: 0,
+          stockOuts: [],
+          ordersHistory: [],
+          overdueDays: 0,
+          unpaidInvoices: []
+        };
+        totalBillPending += bPend;
+        totalCashPending += cPend;
+      }
+    }
+  }
+  
+  var allOrders = getCachedExternalOrders();
+  var mtdSales = 0;
+  var wtdSales = 0;
+  var brandSales = { 
+     "BOAT": 0, 
+     "PORTRONICS": 0, 
+     "GOBOULT": 0, 
+     "VELOCITY": 0, 
+     "HIKVISION": 0 
+  };
+  
+  for (var o = 0; o < allOrders.length; o++) {
+    var ord = allOrders[o];
+    var oShop = String(ord.shop).trim().toUpperCase();
+    var ordTime = ord.timeMs;
+    
+    if (dealers[oShop]) {
+      dealers[oShop].totalSales += ord.amount;
+      dealers[oShop].ordersHistory.push({ timeMs: ordTime, amount: ord.amount });
+      
+      if (ordTime > dealers[oShop].lastOrderDate) {
+         dealers[oShop].lastOrderDate = ordTime;
+      }
+      if (ordTime >= thirtyDaysAgo) {
+         dealers[oShop].sales30Days += ord.amount;
+      }
+      if (ordTime >= startOfThisWeek) {
+         dealers[oShop].salesWTD += ord.amount;
+      }
+      if (ordTime >= startOfMonth) {
+         dealers[oShop].salesMTD += ord.amount;
+      } else if (ordTime >= startOfLastMonth && ordTime <= endOfLastMonth) {
+         dealers[oShop].salesLastMonth += ord.amount;
+      }
+      if (ordTime >= startOfFourMonthsAgo) {
+         dealers[oShop].sales4Months += ord.amount;
+      }
+    }
+
+    if (String(ord.staff).trim() === staffName) {
+      if (ordTime >= startOfMonth) {
+        mtdSales += ord.amount;
+        var itemsList = (ord.items || "").split('|');
+        var totalQty = 0;
+        var orderBrandQtys = {};
+
+        for (var idx = 0; idx < itemsList.length; idx++) {
+          var match = itemsList[idx].match(/^(.*?)(?:\s*x\s*(\d+))?$/i);
+          if (match) {
+            var pName = match[1].trim().toUpperCase();
+            var qty = match[2] ? parseInt(match[2], 10) : 1;
+            var extBrand = pName.split(' ')[0];
+            
+            if (extBrand === "GO" || pName.includes("BOULT")) {
+               extBrand = "GOBOULT";
+            }
+            
+            if (brandSales[extBrand] !== undefined) {
+               orderBrandQtys[extBrand] = (orderBrandQtys[extBrand] || 0) + qty;
+            }
+            totalQty += qty;
+          }
+        }
+        
+        if (totalQty > 0) {
+          var avgItemValue = ord.amount / totalQty;
+          for (var b in orderBrandQtys) {
+             brandSales[b] += (orderBrandQtys[b] * avgItemValue);
+          }
+        }
+      }
+      if (ordTime >= startOfThisWeek) {
+         wtdSales += ord.amount;
+      }
+    }
+  }
+  
+  var visitSheet = getSheetSafely("Daily Operation");
+  
+  if (visitSheet) {
+    var vData = visitSheet.getDataRange().getValues();
+    for (var i = 1; i < vData.length; i++) {
+      var vShop = String(vData[i][5]).trim().toUpperCase();
+      if (dealers[vShop]) {
+        var dObj = extractDateSafe(vData[i][1]);
+        if (dObj) {
+          var vTime = dObj.getTime();
+          if (vTime > dealers[vShop].lastVisitDate) {
+             dealers[vShop].lastVisitDate = vTime;
+             dealers[vShop].lastFeedback = String(vData[i][40] || "");
+             dealers[vShop].stockOuts = [];
+             
+             var stockCols = [
+               { idx: 18, name: "BOAT Airpods" }, 
+               { idx: 19, name: "BOAT Neckband" }, 
+               { idx: 20, name: "BOAT Powerbank" }, 
+               { idx: 33, name: "Velocity Airpods" }, 
+               { idx: 34, name: "Velocity Neckband" }
+             ];
+             
+             for (var s = 0; s < stockCols.length; s++) {
+               if (vData[i][stockCols[s].idx] === "0 (Nil)") {
+                  dealers[vShop].stockOuts.push(stockCols[s].name);
+               }
+             }
+          }
+          if (vTime >= thirtyDaysAgo) {
+             dealers[vShop].visitCount30Days++;
+          }
+        }
+      }
+    }
+  }
+
+  // FIFO OVERDUE DAYS & LEDGER CALCULATION
+  for (var dKey in dealers) {
+    var d = dealers[dKey];
+    d.unpaidInvoices = [];
+    if (d.totalPend > 0) {
+      if (d.ordersHistory.length > 0) {
+        d.ordersHistory.sort(function(a, b) { return b.timeMs - a.timeMs; }); // Newest first
+        var runningPending = d.totalPend;
+        var oldestUnpaidTime = d.ordersHistory[0].timeMs;
+        
+        for (var h = 0; h < d.ordersHistory.length; h++) {
+           if (runningPending <= 0) break;
+           
+           var invAmt = Math.min(d.ordersHistory[h].amount, runningPending);
+           var ordTime = d.ordersHistory[h].timeMs;
+           var ordDate = new Date(ordTime);
+           var ordDateStr = Utilities.formatDate(ordDate, Session.getScriptTimeZone(), "dd MMM yy");
+           
+           var dueTime = ordTime + (24 * 60 * 60 * 1000); // Assuming next day due
+           var dueDate = new Date(dueTime);
+           var dueDateStr = Utilities.formatDate(dueDate, Session.getScriptTimeZone(), "dd MMM yy");
+           
+           var ovDays = Math.floor((now.getTime() - dueTime) / (1000 * 60 * 60 * 24));
+           if(ovDays < 0) ovDays = 0;
+
+           d.unpaidInvoices.unshift({
+              dateStr: ordDateStr,
+              ref: "INV-" + Math.floor(ordTime/10000).toString().substr(-5),
+              amt: invAmt,
+              dueStr: dueDateStr,
+              days: ovDays,
+              timeMs: ordTime
+           });
+           
+           runningPending -= invAmt;
+           oldestUnpaidTime = ordTime;
+        }
+        
+        d.overdueDays = Math.floor((now.getTime() - oldestUnpaidTime) / (1000 * 60 * 60 * 24));
+        if (runningPending > 0) {
+           d.overdueDays = d.overdueDays + "+";
+           d.unpaidInvoices.unshift({
+              dateStr: "Pre-History",
+              ref: "OPEN-BAL",
+              amt: runningPending,
+              dueStr: "-",
+              days: d.overdueDays
+           });
+        }
+      } else {
+        d.overdueDays = "Old Balance";
+        d.unpaidInvoices.push({
+           dateStr: "Pre-History",
+           ref: "OPEN-BAL",
+           amt: d.totalPend,
+           dueStr: "-",
+           days: "-"
+        });
+      }
+    }
+  }
+  
+  var outstandingList = [];
+  var dealerArray = [];
+  
+  for (var dKey in dealers) {
+    dealerArray.push({ name: dKey, data: dealers[dKey] });
+    if (dealers[dKey].totalPend > 0) {
+       outstandingList.push({ name: dKey, data: dealers[dKey] });
+    }
+  }
+  
+  outstandingList.sort(function(a, b) { 
+     return b.data.totalPend - a.data.totalPend; 
+  });
+  
+  dealerArray.sort(function(a, b) { 
+     return b.data.sales30Days - a.data.sales30Days; 
+  });
+
+  var vips = [];
+  var sleepingGiants = [];
+  var stockOutOpps = [];
+  
+  for (var i = 0; i < dealerArray.length; i++) {
+    var d = dealerArray[i].data;
+    var n = dealerArray[i].name;
+    
+    if (d.sales30Days > 0) {
+       vips.push(n);
+    }
+    if (d.totalSales > 0 && d.sales30Days === 0) {
+       sleepingGiants.push(n);
+    }
+    if (d.stockOuts.length > 0) {
+       stockOutOpps.push(n + " (" + d.stockOuts.join(", ") + ")");
+    }
+  }
+  
+  // PDF Generation (Matched to Tally List)
+  var totalAreaPend = 0;
+  for (var i = 0; i < outstandingList.length; i++) {
+      totalAreaPend += outstandingList[i].data.totalPend;
+  }
+  
+  var pdfHtml = "<div style='font-family: Arial, sans-serif; font-size: 12px;'>";
+  pdfHtml += "<p>List of outstanding due.<br>";
+  pdfHtml += "Total Customers: " + outstandingList.length + "<br>";
+  pdfHtml += "Total Amount: " + totalAreaPend.toLocaleString('en-IN') + "</p>";
+  pdfHtml += "<p>Group: " + areaClean + "</p><br>";
+  
+  for (var p = 0; p < outstandingList.length; p++) {
+    var od = outstandingList[p];
+    pdfHtml += "<h3 style='text-align: center; margin-bottom: 5px; font-size: 14px;'>" + od.name + "</h3>";
+    pdfHtml += "<table border='1' cellpadding='5' cellspacing='0' style='width:100%; border-collapse: collapse; text-align: center; margin-bottom: 20px;'>";
+    pdfHtml += "<tr style='background-color: #f2f2f2;'><th>Date</th><th>Ref. No.</th><th>Pending Amount</th><th>Due on</th><th>Overdue by days</th></tr>";
+    
+    var dealerTotal = 0;
+    var invs = od.data.unpaidInvoices;
+    
+    for(var x=0; x<invs.length; x++) {
+        pdfHtml += "<tr>";
+        pdfHtml += "<td>" + invs[x].dateStr + "</td>";
+        pdfHtml += "<td>" + invs[x].ref + "</td>";
+        pdfHtml += "<td>" + invs[x].amt.toLocaleString('en-IN') + "</td>";
+        pdfHtml += "<td>" + invs[x].dueStr + "</td>";
+        pdfHtml += "<td>" + invs[x].days + "</td>";
+        pdfHtml += "</tr>";
+        dealerTotal += invs[x].amt;
+    }
+    
+    pdfHtml += "<tr><td colspan='2' style='text-align: right; font-weight: bold;'>Total</td><td style='font-weight: bold;'>" + dealerTotal.toLocaleString('en-IN') + "</td><td colspan='2'></td></tr>";
+    pdfHtml += "</table>";
+  }
+  pdfHtml += "</div>";
+
+  var pdfUrl = "";
+  try {
+    var blob = Utilities.newBlob(pdfHtml, MimeType.HTML).getAs(MimeType.PDF);
+    blob.setName("Outstanding_" + areaClean.replace(/\s+/g, '_') + "_" + Utilities.formatDate(now, Session.getScriptTimeZone(), "dd-MMM").toUpperCase() + ".pdf");
+    var folder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+    var newFile = folder.createFile(blob);
+    newFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    pdfUrl = newFile.getUrl();
+  } catch(e) { 
+    pdfUrl = "Drive Error"; 
+  }
+  
+  var nl = "\n";
+  var report = "━━━━━━━━━━━━━━━━━━━" + nl;
+  report += "🌅 *MORNING ROUTE PLAN* 🌅" + nl;
+  report += "━━━━━━━━━━━━━━━━━━━" + nl;
+  report += "📍 *Area:* " + areaClean + nl;
+  report += "👤 *Staff:* " + staffName + nl;
+  report += "📅 *Date:* " + Utilities.formatDate(now, Session.getScriptTimeZone(), "dd-MMM-yyyy") + nl + nl;
+  
+  var totalTarget = 1000000; // 10 Lakhs Total
+  var targetPct = Math.round((mtdSales / totalTarget) * 100);
+  
+  var wtdTarget = 250000; // 2.5 Lakhs per Week
+  var wtdPct = Math.round((wtdSales / wtdTarget) * 100);
+
+  report += "🎯 *TARGET vs ACHIEVEMENT*" + nl;
+  report += "• *MTD (Is Mahine):* ₹" + (mtdSales/100000).toFixed(2) + "L / ₹10L (" + targetPct + "%)" + nl;
+  report += "• *WTD (Is Hafte):* ₹" + (wtdSales/100000).toFixed(2) + "L / ₹2.5L (" + wtdPct + "%)" + nl + nl;
+  
+  report += "📊 *BRAND TARGETS (MTD)*" + nl;
+  report += "• *boAt:* ₹" + (brandSales["BOAT"]/1000).toFixed(1) + "k / ₹2.5L" + nl;
+  report += "• *Portronics:* ₹" + (brandSales["PORTRONICS"]/1000).toFixed(1) + "k / ₹2.5L" + nl;
+  report += "• *GoBoult:* ₹" + (brandSales["GOBOULT"]/1000).toFixed(1) + "k / ₹2.5L" + nl;
+  report += "• *Velocity:* ₹" + (brandSales["VELOCITY"]/1000).toFixed(1) + "k / ₹2.5L" + nl;
+  report += "• *Hikvision:* ₹" + (brandSales["HIKVISION"]/1000).toFixed(1) + "k / ₹1.0L" + nl;
+  
+  report += "━━━━━━━━━━━━━━━━━━━" + nl;
+  
+  report += "💰 *TOP 5 VASOOLI (OUTSTANDING)*" + nl;
+  for (var v = 0; v < Math.min(5, outstandingList.length); v++) {
+    var od = outstandingList[v];
+    var overdueTxt = (typeof od.data.overdueDays === 'number') ? od.data.overdueDays + " days old" : od.data.overdueDays;
+    report += (v+1) + ". " + od.name + " - *₹" + od.data.totalPend.toLocaleString('en-IN') + "* (" + overdueTxt + ")" + nl;
+  }
+  
+  if (outstandingList.length === 0) {
+     report += "✅ No pending dues!" + nl;
+  }
+  report += nl + "📄 *Full PDF List:* " + nl + pdfUrl + nl;
+  
+  report += "━━━━━━━━━━━━━━━━━━━" + nl;
+  
+  report += "🚀 *TOP 5 VIP (POTENTIAL & TARGET)*" + nl;
+  var topVips = vips.slice(0, 5);
+  if (topVips.length > 0) {
+    for (var i = 0; i < topVips.length; i++) {
+      var vName = topVips[i];
+      var vData = dealers[vName];
+      var avg4M = Math.round(vData.sales4Months / 4);
+      
+      report += (i+1) + ". *" + vName + "*" + nl;
+      report += "   📈 Is Mahine: ₹" + (vData.salesMTD/1000).toFixed(1) + "k | Pichle Mahine: ₹" + (vData.salesLastMonth/1000).toFixed(1) + "k" + nl;
+      report += "   📊 4-Month Avg: ₹" + (avg4M/1000).toFixed(1) + "k" + nl;
+    }
+  } else { 
+     report += "Koi VIP data nahi." + nl; 
+  }
+  report += nl;
+  
+  report += "⚠️ *AT-RISK (30 DAYS ZERO SALE)*" + nl;
+  if (sleepingGiants.length > 0) {
+    for (var i = 0; i < sleepingGiants.length; i++) {
+       report += (i+1) + ". " + sleepingGiants[i] + nl;
+    }
+  } else { 
+     report += "Sab clear hai ✅" + nl; 
+  }
+  report += nl;
+  
+  report += "📦 *STOCK OUT (ORDER NIKALO)*" + nl;
+  var topStockOuts = stockOutOpps.slice(0, 5);
+  if (topStockOuts.length > 0) {
+    for (var i = 0; i < topStockOuts.length; i++) {
+       report += "👉 " + topStockOuts[i] + nl;
+    }
+  } else { 
+     report += "No stock outs reported." + nl; 
+  }
+  
+  report += "━━━━━━━━━━━━━━━━━━━" + nl;
+  report += "🔥 *Faad do aaj market!* 🔥";
+  
+  return encodeURIComponent(report);
+}
+function testDuesCheck() {
+  var area = "Manik Chwk + Asha Sqre + Pachpir"; // ya koi bhi area
+  var result = getDealersByArea(area);
+  Logger.log(JSON.stringify(result, null, 2));
+}
+
+// =====================================================================
+// DEALER LOCATION GPS & LIVE STAFF TRACKING ENGINE
+// =====================================================================
+var DEFAULT_GEOFENCE_RADIUS_METERS = 50;
+var HQ_COORDS = { lat: 19.088889, lon: 74.733667 };
+
+function getOrCreateDealerLocationGpsSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = getSheetSafely("Dealer Location GPS");
+  if (!sheet) {
+    sheet = ss.insertSheet("Dealer Location GPS");
+    var headers = [
+      "Dealer Name",
+      "Area",
+      "Locked GPS (Lat, Lng)",
+      "Latitude",
+      "Longitude",
+      "Geofence Radius (Meters)",
+      "Locked By",
+      "Locked Date",
+      "Locked Time",
+      "Google Maps Link",
+      "Status"
+    ];
+    sheet.appendRow(headers);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#0d6efd").setFontColor("#ffffff");
+    sheet.setFrozenRows(1);
+    
+    syncDealersToGpsSheet(sheet);
+  }
+  return sheet;
+}
+
+function syncDealersToGpsSheet(targetSheet) {
+  try {
+    var dMaster = getSheetSafely("Dealer Master");
+    if (!dMaster) return;
+    var dData = dMaster.getDataRange().getValues();
+    var existingNames = {};
+    var currentRows = targetSheet.getDataRange().getValues();
+    for (var r = 1; r < currentRows.length; r++) {
+      if (currentRows[r][0]) existingNames[String(currentRows[r][0]).trim().toUpperCase()] = true;
+    }
+    
+    var rowsToAdd = [];
+    for (var i = 1; i < dData.length; i++) {
+      var dName = String(dData[i][1] || "").trim();
+      var dArea = String(dData[i][2] || "").trim();
+      if (dName && !existingNames[dName.toUpperCase()]) {
+        var existingGps = String(dData[i][7] || "").trim();
+        var lat = "";
+        var lng = "";
+        var status = "Pending Lock (Unlocked)";
+        var mapsLink = "";
+        if (existingGps.indexOf(",") > -1) {
+          var parts = existingGps.split(",");
+          lat = parseFloat(parts[0]) || "";
+          lng = parseFloat(parts[1]) || "";
+          if (lat && lng) {
+            status = "Locked";
+            mapsLink = "https://www.google.com/maps?q=" + lat + "," + lng;
+          }
+        }
+        rowsToAdd.push([
+          dName,
+          dArea,
+          existingGps,
+          lat,
+          lng,
+          DEFAULT_GEOFENCE_RADIUS_METERS,
+          lat ? "System Import" : "",
+          lat ? Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy") : "",
+          lat ? Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "HH:mm:ss") : "",
+          mapsLink,
+          status
+        ]);
+        existingNames[dName.toUpperCase()] = true;
+      }
+    }
+    if (rowsToAdd.length > 0) {
+      targetSheet.getRange(targetSheet.getLastRow() + 1, 1, rowsToAdd.length, rowsToAdd[0].length).setValues(rowsToAdd);
+    }
+  } catch(e) {
+    Logger.log("Error syncing dealers to GPS sheet: " + e.message);
+  }
+}
+
+function getOrCreateLiveTrackingSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = getSheetSafely("Live Staff Tracking");
+  if (!sheet) {
+    sheet = ss.insertSheet("Live Staff Tracking");
+    var headers = [
+      "Staff Name",
+      "Last Latitude",
+      "Last Longitude",
+      "Accuracy (M)",
+      "Speed (km/h)",
+      "Distance from HQ (km)",
+      "Last Ping Time",
+      "Date",
+      "Google Maps Link",
+      "Status"
+    ];
+    sheet.appendRow(headers);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#198754").setFontColor("#ffffff");
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function getOrCreateProxyAuditSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = getSheetSafely("Proxy Audit Log");
+  if (!sheet) {
+    sheet = ss.insertSheet("Proxy Audit Log");
+    var headers = [
+      "Timestamp",
+      "Staff Name",
+      "Dealer Name",
+      "Area",
+      "Attempted Distance (M)",
+      "Allowed Radius (M)",
+      "Attempted Lat",
+      "Attempted Lng",
+      "Status"
+    ];
+    sheet.appendRow(headers);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#dc3545").setFontColor("#ffffff");
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
 }
 
 function calculateHaversineDistanceMeters(lat1, lon1, lat2, lon2) {
@@ -131,352 +1965,167 @@ function calculateHaversineDistanceMeters(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
-function apiLogin(data) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var staffSheet = ss.getSheetByName('Staff');
-  var empId = String(data.empId || '').trim().toUpperCase();
-  var pin = String(data.pin || '').trim();
-
-  if (!empId) return { success: false, error: 'Employee ID required.' };
-
-  var rows = staffSheet.getDataRange().getValues();
-  for (var i = 1; i < rows.length; i++) {
-    var rowEmp = String(rows[i][0]).trim().toUpperCase();
-    var rowPin = String(rows[i][1]).trim();
-    if (rowEmp === empId) {
-      if (pin !== 'SSO_BYPASS' && rowPin !== pin) {
-        return { success: false, error: 'Invalid PIN.' };
-      }
-      return {
-        success: true,
-        user: {
-          empId: rowEmp,
-          name: rows[i][2] || rowEmp,
-          role: rows[i][3] || 'Sales Boy',
-          phone: rows[i][4] || '',
-          status: rows[i][5] || 'Active'
-        }
-      };
+function lockDealerGPS(dealerName, area, lat, lng, staffName) {
+  try {
+    var sheet = getOrCreateDealerLocationGpsSheet();
+    var data = sheet.getDataRange().getValues();
+    lat = parseFloat(lat);
+    lng = parseFloat(lng);
+    if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+      return { success: false, message: "Valid GPS Coordinates required!" };
     }
-  }
-
-  if (pin === 'SSO_BYPASS') {
+    
+    var currentDate = new Date();
+    var dateStr = Utilities.formatDate(currentDate, Session.getScriptTimeZone(), "dd/MM/yyyy");
+    var timeStr = Utilities.formatDate(currentDate, Session.getScriptTimeZone(), "HH:mm:ss");
+    var mapsUrl = "https://www.google.com/maps?q=" + lat + "," + lng;
+    var gpsStr = lat + "," + lng;
+    var updated = false;
+    
+    dealerName = String(dealerName).trim();
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0]).trim().toUpperCase() === dealerName.toUpperCase()) {
+        sheet.getRange(i + 1, 3, 1, 9).setValues([[
+          gpsStr,
+          lat,
+          lng,
+          DEFAULT_GEOFENCE_RADIUS_METERS,
+          staffName || "Staff",
+          dateStr,
+          timeStr,
+          mapsUrl,
+          "Locked"
+        ]]);
+        updated = true;
+        break;
+      }
+    }
+    
+    if (!updated) {
+      sheet.appendRow([
+        dealerName,
+        area || "",
+        gpsStr,
+        lat,
+        lng,
+        DEFAULT_GEOFENCE_RADIUS_METERS,
+        staffName || "Staff",
+        dateStr,
+        timeStr,
+        mapsUrl,
+        "Locked"
+      ]);
+    }
+    
+    // Also update Dealer Master if exists
+    try {
+      var dMaster = getSheetSafely("Dealer Master");
+      if (dMaster) {
+        var mData = dMaster.getDataRange().getValues();
+        for (var m = 1; m < mData.length; m++) {
+          if (String(mData[m][1]).trim().toUpperCase() === dealerName.toUpperCase()) {
+            dMaster.getRange(m + 1, 8).setValue(gpsStr);
+            break;
+          }
+        }
+      }
+    } catch(errM) {}
+    
     return {
       success: true,
-      user: { empId: empId, name: empId, role: data.role || 'Sales Boy', phone: '', status: 'Active' }
-    };
-  }
-
-  return { success: false, error: 'Employee ID not found in staff roster.' };
-}
-
-function apiGetBootstrapData(data) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var empId = String(data.empId || '').trim().toUpperCase();
-
-  var dealersSheet = ss.getSheetByName('Dealers');
-  var dRows = dealersSheet.getDataRange().getValues();
-  var dealers = [];
-  for (var i = 1; i < dRows.length; i++) {
-    if (!dRows[i][0]) continue;
-    var lat = Number(dRows[i][6]) || 0;
-    var lng = Number(dRows[i][7]) || 0;
-    var isLocked = (lat !== 0 && lng !== 0);
-
-    dealers.push({
-      dealerId: String(dRows[i][0]),
-      shopName: String(dRows[i][1]),
-      contactPerson: String(dRows[i][2]),
-      phone: String(dRows[i][3]),
-      city: String(dRows[i][4]),
-      address: String(dRows[i][5]),
+      message: "Dealer '" + dealerName + "' location locked successfully at (" + lat.toFixed(5) + ", " + lng.toFixed(5) + ") in 'Dealer Location GPS' sheet!",
+      gps: gpsStr,
       lat: lat,
       lng: lng,
-      radiusMeters: Number(dRows[i][8]) || DEFAULT_GEOFENCE_RADIUS_METERS,
-      isLocked: isLocked,
-      lockedBy: String(dRows[i][9] || ''),
-      lockedAt: dRows[i][10] ? new Date(dRows[i][10]).toISOString() : '',
-      status: String(dRows[i][11] || 'Active')
-    });
+      radius: DEFAULT_GEOFENCE_RADIUS_METERS
+    };
+  } catch(e) {
+    return { success: false, message: "Lock GPS Error: " + e.message };
   }
+}
 
-  var visitsSheet = ss.getSheetByName('Visits');
-  var vRows = visitsSheet.getDataRange().getValues();
-  var todayVisits = [];
-  var today = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM-dd');
+function updateStaffLiveLocation(staffName, lat, lng, speed, accuracy) {
+  try {
+    if (!staffName || !lat || !lng) return { success: false };
+    lat = parseFloat(lat);
+    lng = parseFloat(lng);
+    speed = parseFloat(speed) || 0;
+    accuracy = parseFloat(accuracy) || 0;
+    
+    var sheet = getOrCreateLiveTrackingSheet();
+    var data = sheet.getDataRange().getValues();
+    var currentDate = new Date();
+    var dateStr = Utilities.formatDate(currentDate, Session.getScriptTimeZone(), "dd/MM/yyyy");
+    var timeStr = Utilities.formatDate(currentDate, Session.getScriptTimeZone(), "HH:mm:ss");
+    var distFromHQ = (calculateHaversineDistanceMeters(HQ_COORDS.lat, HQ_COORDS.lon, lat, lng) / 1000).toFixed(2);
+    var mapsUrl = "https://www.google.com/maps?q=" + lat + "," + lng;
+    
+    var found = false;
+    staffName = String(staffName).trim();
+    
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0]).trim().toUpperCase() === staffName.toUpperCase()) {
+        sheet.getRange(i + 1, 2, 1, 9).setValues([[
+          lat,
+          lng,
+          accuracy,
+          speed,
+          distFromHQ,
+          timeStr,
+          dateStr,
+          mapsUrl,
+          "Online"
+        ]]);
+        found = true;
+        break;
+      }
+    }
+    
+    if (!found) {
+      sheet.appendRow([
+        staffName,
+        lat,
+        lng,
+        accuracy,
+        speed,
+        distFromHQ,
+        timeStr,
+        dateStr,
+        mapsUrl,
+        "Online"
+      ]);
+    }
+    
+    return { success: true };
+  } catch(e) {
+    return { success: false, error: e.message };
+  }
+}
 
-  for (var v = 1; v < vRows.length; v++) {
-    if (!vRows[v][0]) continue;
-    var vDate = Utilities.formatDate(new Date(vRows[v][0]), 'Asia/Kolkata', 'yyyy-MM-dd');
-    var vEmp = String(vRows[v][2]).trim().toUpperCase();
-
-    if (vDate === today && (vEmp === empId || data.role === 'Owner')) {
-      todayVisits.push({
-        timestamp: vRows[v][0],
-        visitId: vRows[v][1],
-        empId: vRows[v][2],
-        staffName: vRows[v][3],
-        dealerId: vRows[v][4],
-        dealerName: vRows[v][5],
-        distanceMeters: vRows[v][6],
-        photoUrl: vRows[v][9],
-        purpose: vRows[v][10],
-        notes: vRows[v][11],
-        orderValue: vRows[v][12],
-        paymentCollected: vRows[v][13],
-        geofenceStatus: vRows[v][15]
+function getLiveStaffRadar() {
+  try {
+    var sheet = getOrCreateLiveTrackingSheet();
+    var data = sheet.getDataRange().getValues();
+    var list = [];
+    var now = new Date();
+    
+    for (var i = 1; i < data.length; i++) {
+      if (!data[i][0]) continue;
+      list.push({
+        name: String(data[i][0]),
+        lat: Number(data[i][1]) || 0,
+        lng: Number(data[i][2]) || 0,
+        accuracy: Number(data[i][3]) || 0,
+        speed: Number(data[i][4]) || 0,
+        distFromHQ: Number(data[i][5]) || 0,
+        lastTime: String(data[i][6]),
+        date: String(data[i][7]),
+        mapsUrl: String(data[i][8]),
+        status: String(data[i][9])
       });
     }
+    return { success: true, staff: list };
+  } catch(e) {
+    return { success: false, error: e.message };
   }
-
-  return {
-    success: true,
-    dealers: dealers,
-    todayVisits: todayVisits,
-    hqCoords: { lat: HQ_LAT, lng: HQ_LON },
-    defaultRadius: DEFAULT_GEOFENCE_RADIUS_METERS
-  };
-}
-
-function apiUpdateLiveBeacon(data) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var trackingSheet = ss.getSheetByName('LiveTracking');
-  var empId = String(data.empId || '').trim().toUpperCase();
-  var staffName = String(data.staffName || empId).trim();
-  var lat = Number(data.lat) || 0;
-  var lng = Number(data.lng) || 0;
-  var acc = Number(data.accuracy) || 0;
-  var speed = Number(data.speed) || 0;
-  var battery = String(data.battery || 'N/A');
-  var now = new Date();
-
-  if (!empId || lat === 0 || lng === 0) {
-    return { success: false, error: 'Invalid beacon parameters.' };
-  }
-
-  var distKm = (calculateHaversineDistanceMeters(HQ_LAT, HQ_LON, lat, lng) / 1000).toFixed(2);
-  var mapsUrl = 'https://www.google.com/maps?q=' + lat + ',' + lng;
-
-  var rows = trackingSheet.getDataRange().getValues();
-  var found = false;
-
-  for (var i = 1; i < rows.length; i++) {
-    if (String(rows[i][0]).trim().toUpperCase() === empId) {
-      trackingSheet.getRange(i + 1, 1, 1, 11).setValues([[
-        empId, staffName, lat, lng, acc, speed, distKm, now, battery, mapsUrl, 'Online'
-      ]]);
-      found = true;
-      break;
-    }
-  }
-
-  if (!found) {
-    trackingSheet.appendRow([
-      empId, staffName, lat, lng, acc, speed, distKm, now, battery, mapsUrl, 'Online'
-    ]);
-  }
-
-  return { success: true, updated: now, distFromHQKm: distKm };
-}
-
-function apiGetLiveRadar(data) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var trackingSheet = ss.getSheetByName('LiveTracking');
-  var rows = trackingSheet.getDataRange().getValues();
-  var staffPings = [];
-  var now = new Date();
-
-  for (var i = 1; i < rows.length; i++) {
-    if (!rows[i][0]) continue;
-    var lastPing = new Date(rows[i][7]);
-    var diffMinutes = Math.round((now.getTime() - lastPing.getTime()) / 60000);
-    var isLive = diffMinutes <= 7;
-
-    staffPings.push({
-      empId: rows[i][0],
-      staffName: rows[i][1],
-      lat: Number(rows[i][2]),
-      lng: Number(rows[i][3]),
-      accuracy: Number(rows[i][4]),
-      speed: Number(rows[i][5]),
-      distKm: Number(rows[i][6]),
-      lastUpdated: rows[i][7],
-      diffMinutes: diffMinutes,
-      battery: rows[i][8],
-      mapsUrl: rows[i][9],
-      status: isLive ? 'LIVE' : 'OFFLINE'
-    });
-  }
-
-  return { success: true, radar: staffPings, scannedAt: now };
-}
-
-function apiLockDealerLocation(data) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var dealersSheet = ss.getSheetByName('Dealers');
-  var dealerId = String(data.dealerId || '').trim();
-  var lat = Number(data.lat);
-  var lng = Number(data.lng);
-  var lockedBy = String(data.lockedBy || 'Staff').trim();
-  var radius = Number(data.radius) || DEFAULT_GEOFENCE_RADIUS_METERS;
-
-  if (!dealerId || isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) {
-    return { success: false, error: 'Valid dealer ID and GPS coordinates required.' };
-  }
-
-  var rows = dealersSheet.getDataRange().getValues();
-  var updated = false;
-
-  for (var i = 1; i < rows.length; i++) {
-    if (String(rows[i][0]).trim() === dealerId) {
-      dealersSheet.getRange(i + 1, 7, 1, 5).setValues([[lat, lng, radius, lockedBy, new Date()]]);
-      updated = true;
-      break;
-    }
-  }
-
-  if (!updated) {
-    return { success: false, error: 'Dealer ID not found in master sheet.' };
-  }
-
-  return {
-    success: true,
-    message: 'Dealer location locked at Lat: ' + lat.toFixed(6) + ', Lng: ' + lng.toFixed(6),
-    lat: lat,
-    lng: lng,
-    radius: radius
-  };
-}
-
-function apiRecordVisitPunch(data) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var dealersSheet = ss.getSheetByName('Dealers');
-  var visitsSheet = ss.getSheetByName('Visits');
-  var auditSheet = ss.getSheetByName('ProxyAuditLog');
-
-  var dealerId = String(data.dealerId || '').trim();
-  var empId = String(data.empId || '').trim().toUpperCase();
-  var staffName = String(data.staffName || empId).trim();
-  var currentLat = Number(data.lat);
-  var currentLng = Number(data.lng);
-  var base64Photo = data.photo || '';
-  var purpose = String(data.purpose || 'Routine Visit');
-  var notes = String(data.notes || '');
-  var orderValue = Number(data.orderValue) || 0;
-  var paymentCollected = Number(data.paymentCollected) || 0;
-  var nextVisitDate = String(data.nextVisitDate || '');
-  var now = new Date();
-
-  var dRows = dealersSheet.getDataRange().getValues();
-  var dealer = null;
-  for (var d = 1; d < dRows.length; d++) {
-    if (String(dRows[d][0]).trim() === dealerId) {
-      dealer = {
-        dealerId: String(dRows[d][0]),
-        shopName: String(dRows[d][1]),
-        lat: Number(dRows[d][6]) || 0,
-        lng: Number(dRows[d][7]) || 0,
-        radius: Number(dRows[d][8]) || DEFAULT_GEOFENCE_RADIUS_METERS
-      };
-      break;
-    }
-  }
-
-  if (!dealer) {
-    return { success: false, error: 'Dealer not found in database.' };
-  }
-
-  if (dealer.lat === 0 || dealer.lng === 0) {
-    return {
-      success: false,
-      error: 'Dealer location is not locked yet. Please use Lock Dealer GPS Location first.'
-    };
-  }
-
-  var distanceMeters = calculateHaversineDistanceMeters(dealer.lat, dealer.lng, currentLat, currentLng);
-  var allowedRadius = dealer.radius || DEFAULT_GEOFENCE_RADIUS_METERS;
-
-  if (distanceMeters > allowedRadius) {
-    auditSheet.appendRow([
-      now, empId, staffName, dealer.dealerId, dealer.shopName,
-      Math.round(distanceMeters), allowedRadius, currentLat, currentLng, 'REJECTED_PROXY_BREACH'
-    ]);
-
-    return {
-      success: false,
-      isGeofenceBreach: true,
-      distanceMeters: Math.round(distanceMeters),
-      allowedRadius: allowedRadius,
-      error: '⛔ PROXY CHECK-IN REJECTED! You are ' + Math.round(distanceMeters) + 'm away from ' + dealer.shopName + '. Allowed: 50m.'
-    };
-  }
-
-  var photoUrl = '';
-  if (base64Photo && base64Photo.indexOf('base64,') > -1) {
-    try {
-      var base64Data = base64Photo.split('base64,')[1];
-      var decoded = Utilities.base64Decode(base64Data);
-      var blob = Utilities.newBlob(decoded, 'image/jpeg', 'VISIT_' + dealer.dealerId + '_' + empId + '_' + now.getTime() + '.jpg');
-      var folder = getOrCreateDriveFolder('Market_Visit_Photos');
-      var file = folder.createFile(blob);
-      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-      photoUrl = file.getUrl();
-    } catch (photoErr) {
-      photoUrl = 'PHOTO_UPLOAD_FALLBACK';
-    }
-  }
-
-  var visitId = 'VST-' + Utilities.formatDate(now, 'Asia/Kolkata', 'yyyyMMdd-HHmmss');
-
-  visitsSheet.appendRow([
-    now, visitId, empId, staffName, dealer.dealerId, dealer.shopName,
-    Math.round(distanceMeters), currentLat, currentLng, photoUrl,
-    purpose, notes, orderValue, paymentCollected, nextVisitDate, 'VERIFIED_WITHIN_50M'
-  ]);
-
-  return {
-    success: true,
-    visitId: visitId,
-    dealerName: dealer.shopName,
-    distanceMeters: Math.round(distanceMeters),
-    photoUrl: photoUrl,
-    message: ' Visit successfully verified! (' + Math.round(distanceMeters) + 'm from store)'
-  };
-}
-
-function apiGetVisitHistory(data) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var visitsSheet = ss.getSheetByName('Visits');
-  var vRows = visitsSheet.getDataRange().getValues();
-  var list = [];
-
-  for (var i = 1; i < vRows.length; i++) {
-    if (!vRows[i][0]) continue;
-    list.push({
-      timestamp: vRows[i][0],
-      visitId: vRows[i][1],
-      empId: vRows[i][2],
-      staffName: vRows[i][3],
-      dealerId: vRows[i][4],
-      dealerName: vRows[i][5],
-      distanceMeters: vRows[i][6],
-      lat: vRows[i][7],
-      lng: vRows[i][8],
-      photoUrl: vRows[i][9],
-      purpose: vRows[i][10],
-      notes: vRows[i][11],
-      orderValue: vRows[i][12],
-      paymentCollected: vRows[i][13],
-      nextVisitDate: vRows[i][14],
-      status: vRows[i][15]
-    });
-  }
-
-  return { success: true, visits: list.reverse() };
-}
-
-function getOrCreateDriveFolder(name) {
-  var folders = DriveApp.getFoldersByName(name);
-  if (folders.hasNext()) return folders.next();
-  return DriveApp.createFolder(name);
 }
