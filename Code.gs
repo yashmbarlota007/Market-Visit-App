@@ -1225,70 +1225,110 @@ function getAreas() {
 }
 
 function getDealersByArea(area) {
-  var dealerSheet = getSheetSafely("Dealer Master");
-  var outSheet = getSheetSafely("Outstanding");
-  if (!dealerSheet) return [];
+  try {
+    var dealerSheet = getSheetSafely("Dealer Master");
+    var outSheet = getSheetSafely("Outstanding");
+    if (!dealerSheet) return [];
 
-  // 1. Outstanding sheet se Bill aur Cash ka map banayenge
-  var billMap = {};
-  var cashMap = {};
-  
-  if (outSheet) {
-    var outData = outSheet.getDataRange().getValues();
-    for (var r = 0; r < outData.length; r++) {
+    // 1. Outstanding sheet se Bill aur Cash ka map banayenge
+    var billMap = {};
+    var cashMap = {};
+    
+    if (outSheet) {
+      try {
+        var outData = outSheet.getDataRange().getValues();
+        for (var r = 0; r < outData.length; r++) {
+          var bName = String(outData[r][0] || "").trim().toUpperCase();
+          var bVal = String(outData[r][1] || "").trim();
+          if (bName && bVal) {
+             var cleanB = parseFloat(bVal.replace(/[^0-9.]/g, '')) || 0;
+             if (bVal.toUpperCase().indexOf("CR") !== -1) cleanB = -cleanB;
+             billMap[bName] = cleanB;
+          }
+
+          var cName = String(outData[r][4] || "").trim().toUpperCase();
+          var cVal = String(outData[r][5] || "").trim();
+          if (cName && cVal) {
+             var cleanC = parseFloat(cVal.replace(/[^0-9.]/g, '')) || 0;
+             if (cVal.toUpperCase().indexOf("CR") !== -1) cleanC = -cleanC;
+             cashMap[cName] = cleanC;
+          }
+        }
+      } catch (eOut) {
+        Logger.log("Error in Outstanding map: " + eOut.message);
+      }
+    }
+
+    // 2. Dealer Location GPS map banayenge (Safe read from Dealer Location GPS sheet)
+    var dealerGpsMap = {};
+    try {
+      var gpsSheet = getSheetSafely("Dealer Location GPS");
+      if (gpsSheet) {
+        var gpsData = gpsSheet.getDataRange().getValues();
+        for (var g = 1; g < gpsData.length; g++) {
+          var gName = String(gpsData[g][0] || "").trim().toUpperCase();
+          var gCoords = String(gpsData[g][2] || "").trim();
+          var gLat = parseFloat(gpsData[g][3]);
+          var gLng = parseFloat(gpsData[g][4]);
+          var gRad = parseFloat(gpsData[g][5]) || 50;
+          var gStatus = String(gpsData[g][10] || "").trim();
+          var isLocked = (!isNaN(gLat) && !isNaN(gLng) && gLat !== 0 && gLng !== 0) || (gStatus.indexOf("Locked") !== -1 && gStatus.indexOf("Unlocked") === -1);
+          if (gName) {
+            dealerGpsMap[gName] = {
+              gps: gCoords,
+              lat: isNaN(gLat) ? null : gLat,
+              lng: isNaN(gLng) ? null : gLng,
+              radius: gRad,
+              isLocked: !!isLocked
+            };
+          }
+        }
+      }
+    } catch(eGps) {
+      Logger.log("Error reading GPS sheet: " + eGps.message);
+    }
+
+    // 3. Dealer Master se area filter karke final list banayenge
+    var data = dealerSheet.getDataRange().getValues();
+    var dealers = [];
+    var targetArea = String(area || "").trim().toUpperCase();
+    
+    for (var i = 1; i < data.length; i++) {
+      var rowArea = String(data[i][2] || "").trim().toUpperCase();
+      var dName = String(data[i][1] || "").trim();
       
-      // Table 1: Bill Outstanding (Col A = 0, Col B = 1)
-      var bName = String(outData[r][0]).trim().toUpperCase();
-      var bVal = String(outData[r][1]).trim();
-      if (bName && bVal) {
-         // Sirf numbers aur decimals extract karega
-         var cleanB = parseFloat(bVal.replace(/[^0-9.]/g, '')) || 0;
-         // Agar amount Credit (Cr) me hai, toh negative kar dega
-         if(bVal.toUpperCase().indexOf("CR") !== -1) cleanB = -cleanB;
-         billMap[bName] = cleanB;
-      }
+      if (rowArea === targetArea && dName) {
+        var searchKey = dName.toUpperCase();
 
-      // Table 2: Cash Outstanding (Col E = 4, Col F = 5)
-      var cName = String(outData[r][4]).trim().toUpperCase();
-      var cVal = String(outData[r][5]).trim();
-      if (cName && cVal) {
-         var cleanC = parseFloat(cVal.replace(/[^0-9.]/g, '')) || 0;
-         if(cVal.toUpperCase().indexOf("CR") !== -1) cleanC = -cleanC;
-         cashMap[cName] = cleanC;
+        var gpsInfo = dealerGpsMap[searchKey] || null;
+        var hasLocked = (gpsInfo && gpsInfo.isLocked);
+        var finalGps = hasLocked ? gpsInfo.gps : (data[i][7] || "");
+        var finalLat = hasLocked ? gpsInfo.lat : null;
+        var finalLng = hasLocked ? gpsInfo.lng : null;
+        var finalRadius = (gpsInfo && gpsInfo.radius) ? gpsInfo.radius : 50;
+
+        dealers.push({ 
+          name: dName, 
+          billPending: billMap[searchKey] || 0, 
+          cashPending: cashMap[searchKey] || 0, 
+          gps: finalGps,
+          isLocked: !!hasLocked,
+          lat: finalLat,
+          lng: finalLng,
+          radius: finalRadius
+        });
       }
     }
+    
+    dealers.sort(function(a, b) {
+      return a.name.localeCompare(b.name);
+    });
+    
+    return dealers;
+  } catch (err) {
+    Logger.log("Critical error in getDealersByArea: " + err.message);
+    return [];
   }
-
-  // 2. Dealer Master se area filter karke final list banayenge
-  var data = dealerSheet.getDataRange().getValues();
-  var dealers = [];
-  
-  for (var i = 1; i < data.length; i++) {
-    if (data[i][2] == area && data[i][1]) {
-      var dName = String(data[i][1]).trim();
-      var searchKey = dName.toUpperCase(); // Exact match ke liye uppercase
-
-      var gpsInfo = dealerGpsMap[searchKey] || null;
-      var hasLocked = (gpsInfo && gpsInfo.isLocked);
-      var finalGps = hasLocked ? gpsInfo.gps : (data[i][7] || "");
-      var finalLat = hasLocked ? gpsInfo.lat : null;
-      var finalLng = hasLocked ? gpsInfo.lng : null;
-      var finalRadius = (gpsInfo && gpsInfo.radius) ? gpsInfo.radius : 50;
-
-      dealers.push({ 
-        name: dName, 
-        billPending: billMap[searchKey] || 0, 
-        cashPending: cashMap[searchKey] || 0, 
-        gps: finalGps,
-        isLocked: hasLocked,
-        lat: finalLat,
-        lng: finalLng,
-        radius: finalRadius
-      });
-    }
-  }
-  
-  return dealers;
 }
 
 function getDealerDetails(dealerName) {
@@ -1823,7 +1863,7 @@ function generateMorningBriefing(areaName) {
       var avg4M = Math.round(vData.sales4Months / 4);
       
       report += (i+1) + ". *" + vName + "*" + nl;
-      report += "   📈 Is Mahine: ₹" + (vData.salesMTD/1000).toFixed(1) + "k | Pichle Mahine: ₹" + (vData.salesLastMonth/1000).toFixed(1) + "k" + nl;
+      report += "   📈 Is Mahine: ��" + (vData.salesMTD/1000).toFixed(1) + "k | Pichle Mahine: ₹" + (vData.salesLastMonth/1000).toFixed(1) + "k" + nl;
       report += "   📊 4-Month Avg: ₹" + (avg4M/1000).toFixed(1) + "k" + nl;
     }
   } else { 
