@@ -838,7 +838,7 @@ document.addEventListener("DOMContentLoaded", function() {
     document.getElementById('staffName').value = currentUser;
     
     // ACCOUNTANT, MIS & CRM KO DIRECTLY CEO (GOD'S EYE) SCREEN DIKHAYEIN TAAKI WO MORNING BRIEFING BANA SAKE
-    if (savedRole === "CEO" || savedRole === "Owner" || savedRole === "Accountant" || savedRole === "MIS" || savedRole === "CRM") { 
+    if (savedRole === "Owner" || savedRole === "Accountant" || savedRole === "MIS" || savedRole === "CRM") { 
       showScreen('ceoScreen'); 
       refreshCEOStats(); 
     } else { 
@@ -881,7 +881,7 @@ function doLogin() {
       document.getElementById('staffName').value = currentUser;
       
       // ACCOUNTANT, MIS & CRM KO DIRECTLY CEO (GOD'S EYE) SCREEN DIKHAYEIN
-      if (res.role === "CEO" || res.role === "Owner" || res.role === "Accountant" || res.role === "MIS" || res.role === "CRM") { 
+      if (res.role === "Owner" || res.role === "Accountant" || res.role === "MIS" || res.role === "CRM") { 
         showScreen('ceoScreen'); 
         refreshCEOStats(); 
       } else { 
@@ -1428,22 +1428,35 @@ function loadDealers() {
   var area = document.getElementById('area').value;
   var sel = document.getElementById('dealerName');
   var alertBox = document.getElementById('duesAlert');
+  var nav = document.getElementById('navBtn');
   
   sel.innerHTML = '<option value="">Loading Dealers...</option>';
-  alertBox.style.display = 'none'; 
+  if (alertBox) alertBox.style.display = 'none'; 
+  if (nav) nav.style.display = 'none';
   
   if (area) {
-    google.script.run.withSuccessHandler(function(dealers) {
-      currentAreaDealers = dealers; 
-      sel.innerHTML = '<option value="">-- Select Dealer --</option>';
-      dealers.forEach(function(d) { 
-        // HTML break hone se rokne ke liye DOM createElement ka use
-        var opt = document.createElement('option');
-        opt.value = d.name;
-        opt.textContent = d.name;
-        sel.appendChild(opt);
-      });
-    }).getDealersByArea(area);
+    google.script.run
+      .withSuccessHandler(function(dealers) {
+        currentAreaDealers = dealers || []; 
+        if (!dealers || dealers.length === 0) {
+          sel.innerHTML = '<option value="">-- No Dealers Found in ' + area + ' --</option>';
+          return;
+        }
+        sel.innerHTML = '<option value="">-- Select Dealer (' + dealers.length + ') --</option>';
+        dealers.forEach(function(d) { 
+          var opt = document.createElement('option');
+          opt.value = d.name;
+          opt.textContent = d.name;
+          sel.appendChild(opt);
+        });
+      })
+      .withFailureHandler(function(err) {
+        console.error("Failed to load dealers: ", err);
+        sel.innerHTML = '<option value="">❌ Error loading dealers (Tap to retry)</option>';
+      })
+      .getDealersByArea(area);
+  } else {
+    sel.innerHTML = '<option value="">-- Select Area First --</option>';
   }
 }
 
