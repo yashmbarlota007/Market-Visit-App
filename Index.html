@@ -838,7 +838,7 @@ document.addEventListener("DOMContentLoaded", function() {
     document.getElementById('staffName').value = currentUser;
     
     // ACCOUNTANT, MIS & CRM KO DIRECTLY CEO (GOD'S EYE) SCREEN DIKHAYEIN TAAKI WO MORNING BRIEFING BANA SAKE
-    if (savedRole === "Owner" || savedRole === "Accountant" || savedRole === "MIS" || savedRole === "CRM") { 
+    if (savedRole === "CEO" || savedRole === "Owner" || savedRole === "Accountant" || savedRole === "MIS" || savedRole === "CRM") { 
       showScreen('ceoScreen'); 
       refreshCEOStats(); 
     } else { 
@@ -881,7 +881,7 @@ function doLogin() {
       document.getElementById('staffName').value = currentUser;
       
       // ACCOUNTANT, MIS & CRM KO DIRECTLY CEO (GOD'S EYE) SCREEN DIKHAYEIN
-      if (res.role === "Owner" || res.role === "Accountant" || res.role === "MIS" || res.role === "CRM") { 
+      if (res.role === "CEO" || res.role === "Owner" || res.role === "Accountant" || res.role === "MIS" || res.role === "CRM") { 
         showScreen('ceoScreen'); 
         refreshCEOStats(); 
       } else { 
