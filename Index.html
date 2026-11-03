@@ -1424,50 +1424,95 @@ function loadAreasInBackground() {
 function openVisitForm() { showScreen('visitScreen'); }
 function backToDashboard() { showScreen('dashboardScreen'); }
 
+function initFastDealersPreload() {
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.grouped) {
+        window.cachedAreasData = res;
+        var areaSel = document.getElementById('area');
+        if (areaSel && (areaSel.options.length <= 1)) {
+          areaSel.innerHTML = '<option value="">-- Select Area --</option>';
+          res.areas.forEach(function(a) {
+            areaSel.innerHTML += '<option value="' + a + '">' + a + '</option>';
+          });
+        }
+      }
+    })
+    .getAllDealersGroupedByArea();
+}
+
 function loadDealers() {
   var area = document.getElementById('area').value;
   var sel = document.getElementById('dealerName');
   var alertBox = document.getElementById('duesAlert');
   var nav = document.getElementById('navBtn');
+  var lockCard = document.getElementById('dealerGpsLockCard');
+  var geofenceBox = document.getElementById('geofenceAlertBox');
   
-  sel.innerHTML = '<option value="">Loading Dealers...</option>';
   if (alertBox) alertBox.style.display = 'none'; 
   if (nav) nav.style.display = 'none';
-  
-  if (area) {
-    google.script.run
-      .withSuccessHandler(function(dealers) {
-        currentAreaDealers = dealers || []; 
-        if (!dealers || dealers.length === 0) {
-          sel.innerHTML = '<option value="">-- No Dealers Found in ' + area + ' --</option>';
-          return;
-        }
-        sel.innerHTML = '<option value="">-- Select Dealer (' + dealers.length + ') --</option>';
-        dealers.forEach(function(d) { 
-          var opt = document.createElement('option');
-          opt.value = d.name;
-          opt.textContent = d.name;
-          sel.appendChild(opt);
-        });
-      })
-      .withFailureHandler(function(err) {
-        console.error("Failed to load dealers: ", err);
-        sel.innerHTML = '<option value="">❌ Error loading dealers (Tap to retry)</option>';
-      })
-      .getDealersByArea(area);
-  } else {
+  if (lockCard) lockCard.style.display = 'none';
+  if (geofenceBox) geofenceBox.style.display = 'none';
+
+  if (!area) {
     sel.innerHTML = '<option value="">-- Select Area First --</option>';
+    return;
   }
+
+  // 1. Check instant in-memory cache first (0 ms latency!)
+  if (window.cachedAreasData && window.cachedAreasData.grouped && window.cachedAreasData.grouped[area]) {
+    var cachedDealers = window.cachedAreasData.grouped[area];
+    currentAreaDealers = cachedDealers;
+    if (cachedDealers.length === 0) {
+      sel.innerHTML = '<option value="">-- No Dealers Found in ' + area + ' --</option>';
+      return;
+    }
+    sel.innerHTML = '<option value="">-- Select Dealer (' + cachedDealers.length + ') --</option>';
+    cachedDealers.forEach(function(d) {
+      var opt = document.createElement('option');
+      opt.value = d.name;
+      opt.textContent = d.name;
+      sel.appendChild(opt);
+    });
+    return;
+  }
+
+  // 2. Fallback to server if cache is still fetching
+  sel.innerHTML = '<option value="">Loading Dealers...</option>';
+  google.script.run
+    .withSuccessHandler(function(dealers) {
+      currentAreaDealers = dealers || []; 
+      if (!dealers || dealers.length === 0) {
+        sel.innerHTML = '<option value="">-- No Dealers Found in ' + area + ' --</option>';
+        return;
+      }
+      sel.innerHTML = '<option value="">-- Select Dealer (' + dealers.length + ') --</option>';
+      dealers.forEach(function(d) { 
+        var opt = document.createElement('option');
+        opt.value = d.name;
+        opt.textContent = d.name;
+        sel.appendChild(opt);
+      });
+    })
+    .withFailureHandler(function(err) {
+      console.error("Failed to load dealers: ", err);
+      sel.innerHTML = '<option value="">❌ Error loading dealers (Tap to retry)</option>';
+    })
+    .getDealersByArea(area);
 }
 
 function checkDealerDetails() {
   var dealerName = document.getElementById('dealerName').value;
   var alertBox = document.getElementById('duesAlert'); 
   var nav = document.getElementById('navBtn');
+  var lockCard = document.getElementById('dealerGpsLockCard');
+  var geofenceBox = document.getElementById('geofenceAlertBox');
   
   if (!dealerName) { 
-    alertBox.style.display = 'none'; 
-    nav.style.display = 'none'; 
+    if (alertBox) alertBox.style.display = 'none'; 
+    if (nav) nav.style.display = 'none'; 
+    if (lockCard) lockCard.style.display = 'none';
+    if (geofenceBox) geofenceBox.style.display = 'none';
     return; 
   }
   
@@ -1476,22 +1521,18 @@ function checkDealerDetails() {
   });
   
   if (dealer) {
-    // Backend se aayi value ko strictly number me convert karna
+    // 1. Dues Alert
     var billAmt = parseFloat(dealer.billPending) || 0;
     var cashAmt = parseFloat(dealer.cashPending) || 0;
     
-    // Agar bill ya cash zero nahi hai (positive ya negative kuch bhi ho)
     if (billAmt !== 0 || cashAmt !== 0) { 
       var msg = "⚠️ <b>Pending Dues:</b><br>";
-      
-      // Amount ko properly format karke dikhana
       if (billAmt !== 0) {
         msg += "📄 Bill: &#8377;" + Math.abs(billAmt).toLocaleString('en-IN') + (billAmt < 0 ? " (Cr)<br>" : " <br>");
       }
       if (cashAmt !== 0) {
         msg += "💵 Cash: &#8377;" + Math.abs(cashAmt).toLocaleString('en-IN') + (cashAmt < 0 ? " (Cr)" : "");
       }
-      
       alertBox.innerHTML = msg; 
       alertBox.className = "alert alert-warning mt-2 py-2 text-dark border-warning shadow-sm"; 
       alertBox.style.display = 'block'; 
@@ -1501,6 +1542,7 @@ function checkDealerDetails() {
       alertBox.style.display = 'block';
     }
     
+    // 2. Navigation
     if (dealer.gps) { 
       dealerGPSCoords = dealer.gps; 
       nav.href = "https://www.google.com/maps/dir/?api=1&destination=" + dealer.gps; 
@@ -1509,6 +1551,124 @@ function checkDealerDetails() {
       nav.style.display = 'none'; 
       dealerGPSCoords = ""; 
     }
+
+    // 3. Dealer GPS Geofence & Location Lock Card
+    if (lockCard) {
+      if (dealer.isLocked && dealer.lat && dealer.lng) {
+        lockCard.innerHTML = '<div class="alert alert-info py-2 px-3 small d-flex justify-content-between align-items-center mb-0 border-info shadow-sm">' +
+          '<div><i class="bi bi-shield-lock-fill text-success"></i> <b>Shop GPS Locked:</b> 50m Geofence Active</div>' +
+          '<a href="https://www.google.com/maps?q=' + dealer.lat + ',' + dealer.lng + '" target="_blank" class="badge bg-primary text-decoration-none py-1 px-2"><i class="bi bi-map"></i> View Map</a>' +
+        '</div>';
+        lockCard.style.display = 'block';
+      } else {
+        lockCard.innerHTML = '<div class="alert alert-warning py-2 px-3 small mb-0 border-warning shadow-sm">' +
+          '<div class="d-flex justify-content-between align-items-center mb-1">' +
+            '<div><i class="bi bi-exclamation-triangle-fill text-warning"></i> <b>Shop GPS Not Locked Yet</b></div>' +
+          '</div>' +
+          '<button type="button" class="btn btn-sm btn-outline-dark w-100 fw-bold mt-1" onclick="triggerLockDealerGPS()">' +
+            '<i class="bi bi-pin-map-fill text-danger"></i> 📍 Lock Current GPS as Dealer Location' +
+          '</button>' +
+        '</div>';
+        lockCard.style.display = 'block';
+      }
+    }
+
+    // 4. Verify geofence if GPS was already fetched
+    verifyCurrentGeofence();
+  }
+}
+
+function triggerLockDealerGPS() {
+  var dealerName = document.getElementById('dealerName').value;
+  var area = document.getElementById('area').value;
+  var staff = document.getElementById('staffName').value || currentUser || "Staff";
+  if (!dealerName) { alert("Please select a dealer first!"); return; }
+  
+  if (!confirm("Kya aap abhi '" + dealerName + "' ki dukan par khade hain?\n\nYaha ka GPS lock karne ke baad, staff sirf is dukan ke 50 meters ke andar se hi punch kar payega.")) {
+    return;
+  }
+  
+  var btn = event.target.closest('button');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Locking Shop Coordinates...'; }
+  
+  navigator.geolocation.getCurrentPosition(function(pos) {
+    var lat = pos.coords.latitude;
+    var lng = pos.coords.longitude;
+    
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (res.success) {
+          alert("✅ " + res.message);
+          // Update in-memory dealer
+          if (currentAreaDealers) {
+            var d = currentAreaDealers.find(function(x) { return x.name === dealerName; });
+            if (d) { d.isLocked = true; d.gps = res.gps; d.lat = res.lat; d.lng = res.lng; d.radius = res.radius; }
+          }
+          if (window.cachedAreasData && window.cachedAreasData.grouped && window.cachedAreasData.grouped[area]) {
+            var d2 = window.cachedAreasData.grouped[area].find(function(x) { return x.name === dealerName; });
+            if (d2) { d2.isLocked = true; d2.gps = res.gps; d2.lat = res.lat; d2.lng = res.lng; d2.radius = res.radius; }
+          }
+          checkDealerDetails();
+        } else {
+          alert("❌ " + res.message);
+          if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-pin-map-fill text-danger"></i> 📍 Lock Current GPS as Dealer Location'; }
+        }
+      })
+      .withFailureHandler(function(err) {
+        alert("Error locking GPS: " + err.message);
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-pin-map-fill text-danger"></i> 📍 Lock Current GPS as Dealer Location'; }
+      })
+      .lockDealerGPS(dealerName, area, lat, lng, staff);
+  }, function(err) {
+    alert("GPS Error: " + err.message + ". Phone ka Location / High Accuracy on karein.");
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-pin-map-fill text-danger"></i> 📍 Lock Current GPS as Dealer Location'; }
+  }, { enableHighAccuracy: true, timeout: 25000, maximumAge: 10000 });
+}
+
+function verifyCurrentGeofence() {
+  var locVal = document.getElementById('location').value;
+  var dealerName = document.getElementById('dealerName').value;
+  var geofenceBox = document.getElementById('geofenceAlertBox');
+  var submitBtn = document.getElementById('submitBtn');
+  
+  if (!geofenceBox) return;
+  if (!locVal || !dealerName || !currentAreaDealers) {
+    geofenceBox.style.display = 'none';
+    if (submitBtn) submitBtn.disabled = false;
+    return;
+  }
+  
+  var dealer = currentAreaDealers.find(function(d) { return d.name === dealerName; });
+  if (!dealer || !dealer.isLocked || !dealer.lat || !dealer.lng) {
+    geofenceBox.style.display = 'none';
+    if (submitBtn) submitBtn.disabled = false;
+    return;
+  }
+  
+  var parts = locVal.split(',');
+  var staffLat = parseFloat(parts[0]);
+  var staffLng = parseFloat(parts[1]);
+  if (isNaN(staffLat) || isNaN(staffLng)) return;
+  
+  var R = 6371000;
+  var dLat = (dealer.lat - staffLat) * Math.PI / 180;
+  var dLon = (dealer.lng - staffLng) * Math.PI / 180;
+  var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+          Math.cos(staffLat * Math.PI / 180) * Math.cos(dealer.lat * Math.PI / 180) *
+          Math.sin(dLon/2) * Math.sin(dLon/2);
+  var distMeters = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+  var allowedRadius = dealer.radius || 50;
+  
+  if (distMeters <= allowedRadius) {
+    geofenceBox.className = "alert alert-success mt-2 py-2 px-3 small fw-bold mb-0 border-success shadow-sm";
+    geofenceBox.innerHTML = '✅ <b>Inside Shop Geofence:</b> Aap dukan se ' + distMeters + 'm dur hain (Limit: ' + allowedRadius + 'm). Punch allowed!';
+    geofenceBox.style.display = 'block';
+    if (submitBtn) submitBtn.disabled = false;
+  } else {
+    geofenceBox.className = "alert alert-danger mt-2 py-2 px-3 small fw-bold mb-0 border-danger shadow-sm";
+    geofenceBox.innerHTML = '⛔ <b>Anti-Proxy Breach Block:</b> Aap dealer se ' + distMeters + ' meters dur hain! Punch sirf 50m ke andar allowed hai.';
+    geofenceBox.style.display = 'block';
+    if (submitBtn) submitBtn.disabled = true;
   }
 }
 
@@ -1520,6 +1680,7 @@ function getLocation() {
     document.getElementById('location').value = pos.coords.latitude + "," + pos.coords.longitude;
     stat.innerText = "GPS Locked ✔️"; 
     stat.className = "text-success fw-bold mt-1 d-block";
+    verifyCurrentGeofence();
   }, function(err) {
     stat.innerText = "GPS Error: " + err.message; 
     stat.className = "text-danger fw-bold mt-1 d-block";
