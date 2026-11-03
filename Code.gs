@@ -23,6 +23,24 @@ function onOpen() {
 }
 
 function doGet(e) {
+  if (e && e.parameter && e.parameter.diag) {
+    try {
+      var ss = getActiveSpreadsheet();
+      var sGps = getSheetSafely("Dealer Location GPS");
+      var sMaster = getSheetSafely("Dealer Master");
+      var sStaff = getSheetSafely("Live Staff Tracking");
+      var sAudit = getSheetSafely("Proxy Audit Log");
+      return ContentService.createTextOutput(JSON.stringify({
+        gpsRows: sGps ? sGps.getLastRow() : 0,
+        masterRows: sMaster ? sMaster.getLastRow() : 0,
+        dealersInArea: getDealersByArea(e.parameter.area || "Sawedi + Balikashram Road"),
+        allAreas: getAreas()
+      })).setMimeType(ContentService.MimeType.JSON);
+    } catch(errD) {
+      return ContentService.createTextOutput(JSON.stringify({ error: errD.message })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+  
   if (e && e.parameter && e.parameter.initTabs) {
     try {
       var s1 = getOrCreateDealerLocationGpsSheet();
@@ -1202,7 +1220,7 @@ function generateWhatsAppEOD(staffName) {
   report += "• Daily Office Rank: *#" + (myRank || "-") + "* 🏆" + nl;
   report += nl;
   
-  report += "*📈 5. GROWTH TRACKER*" + nl;
+  report += "*���� 5. GROWTH TRACKER*" + nl;
   report += "• Today: *₹ " + dash.today.sales.toLocaleString('en-IN') + "*" + nl;
   report += "• Yesterday: *₹ " + dash.yesterday.sales.toLocaleString('en-IN') + "*" + nl;
   report += "• This Week: *₹ " + dash.thisWeek.sales.toLocaleString('en-IN') + "* " + (paceWeek > 0 ? "(_Need ₹" + paceWeek.toLocaleString('en-IN') + " for Target_)" : "(_Target Hit! 🎯_)") + nl;
@@ -2216,3 +2234,105 @@ function getLiveStaffRadar(requestingRole) {
   }
 }
 
+
+
+function getAllDealersGroupedByArea() {
+  try {
+    var dMaster = getSheetSafely("Dealer Master");
+    var outSheet = getSheetSafely("Outstanding");
+    var gpsSheet = getSheetSafely("Dealer Location GPS");
+    
+    if (!dMaster) return { areas: [], grouped: {} };
+
+    var billMap = {};
+    var cashMap = {};
+    if (outSheet) {
+      try {
+        var outData = outSheet.getDataRange().getValues();
+        for (var r = 0; r < outData.length; r++) {
+          var bName = String(outData[r][0] || "").trim().toUpperCase();
+          var bVal = String(outData[r][1] || "").trim();
+          if (bName && bVal) {
+             var cleanB = parseFloat(bVal.replace(/[^0-9.]/g, '')) || 0;
+             if (bVal.toUpperCase().indexOf("CR") !== -1) cleanB = -cleanB;
+             billMap[bName] = cleanB;
+          }
+          var cName = String(outData[r][4] || "").trim().toUpperCase();
+          var cVal = String(outData[r][5] || "").trim();
+          if (cName && cVal) {
+             var cleanC = parseFloat(cVal.replace(/[^0-9.]/g, '')) || 0;
+             if (cVal.toUpperCase().indexOf("CR") !== -1) cleanC = -cleanC;
+             cashMap[cName] = cleanC;
+          }
+        }
+      } catch(eO) {}
+    }
+
+    var dealerGpsMap = {};
+    if (gpsSheet) {
+      try {
+        var gpsData = gpsSheet.getDataRange().getValues();
+        for (var g = 1; g < gpsData.length; g++) {
+          var gName = String(gpsData[g][0] || "").trim().toUpperCase();
+          var gCoords = String(gpsData[g][2] || "").trim();
+          var gLat = parseFloat(gpsData[g][3]);
+          var gLng = parseFloat(gpsData[g][4]);
+          var gRad = parseFloat(gpsData[g][5]) || 50;
+          var gStatus = String(gpsData[g][10] || "").trim();
+          var isLocked = (!isNaN(gLat) && !isNaN(gLng) && gLat !== 0 && gLng !== 0) || (gStatus.indexOf("Locked") !== -1 && gStatus.indexOf("Unlocked") === -1);
+          if (gName) {
+            dealerGpsMap[gName] = {
+              gps: gCoords,
+              lat: isNaN(gLat) ? null : gLat,
+              lng: isNaN(gLng) ? null : gLng,
+              radius: gRad,
+              isLocked: !!isLocked
+            };
+          }
+        }
+      } catch(eG) {}
+    }
+
+    var data = dMaster.getDataRange().getValues();
+    var grouped = {};
+    var areaSet = {};
+
+    for (var i = 1; i < data.length; i++) {
+      var dArea = String(data[i][2] || "").trim();
+      var dName = String(data[i][1] || "").trim();
+      if (dArea && dName) {
+        areaSet[dArea] = true;
+        if (!grouped[dArea]) grouped[dArea] = [];
+
+        var searchKey = dName.toUpperCase();
+        var gpsInfo = dealerGpsMap[searchKey] || null;
+        var hasLocked = (gpsInfo && gpsInfo.isLocked);
+        var finalGps = hasLocked ? gpsInfo.gps : (data[i][7] || "");
+        var finalLat = hasLocked ? gpsInfo.lat : null;
+        var finalLng = hasLocked ? gpsInfo.lng : null;
+        var finalRadius = (gpsInfo && gpsInfo.radius) ? gpsInfo.radius : 50;
+
+        grouped[dArea].push({
+          name: dName,
+          billPending: billMap[searchKey] || 0,
+          cashPending: cashMap[searchKey] || 0,
+          gps: finalGps,
+          isLocked: !!hasLocked,
+          lat: finalLat,
+          lng: finalLng,
+          radius: finalRadius
+        });
+      }
+    }
+
+    var areas = Object.keys(areaSet).sort();
+    for (var a = 0; a < areas.length; a++) {
+      grouped[areas[a]].sort(function(x, y) { return x.name.localeCompare(y.name); });
+    }
+
+    return { areas: areas, grouped: grouped };
+  } catch(err) {
+    Logger.log("Error in getAllDealersGroupedByArea: " + err.message);
+    return { areas: [], grouped: {} };
+  }
+}
