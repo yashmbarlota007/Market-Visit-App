@@ -23,6 +23,33 @@ function onOpen() {
 }
 
 function doGet(e) {
+  if (e && e.parameter && e.parameter.getStaffRadar) {
+    try {
+      var trackSheet = getOrCreateLiveTrackingSheet();
+      var trackData = trackSheet ? trackSheet.getDataRange().getValues() : [];
+      var list = [];
+      for (var t = 1; t < trackData.length; t++) {
+        if (trackData[t][0]) {
+          list.push({
+            name: trackData[t][0],
+            lat: trackData[t][1],
+            lng: trackData[t][2],
+            accuracy: trackData[t][3],
+            speed: trackData[t][4],
+            distFromHQ: trackData[t][5],
+            time: trackData[t][6],
+            date: trackData[t][7],
+            maps: trackData[t][8],
+            status: trackData[t][9]
+          });
+        }
+      }
+      return ContentService.createTextOutput(JSON.stringify({ success: true, staff: list })).setMimeType(ContentService.MimeType.JSON);
+    } catch(eRadar) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: eRadar.message })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+  
   if (e && e.parameter && e.parameter.diag) {
     try {
       var ss = getActiveSpreadsheet();
@@ -2341,5 +2368,47 @@ function getAllDealersGroupedByArea() {
   } catch(err) {
     Logger.log("Error in getAllDealersGroupedByArea: " + err.message);
     return { areas: [], grouped: {} };
+  }
+}
+
+
+function doPost(e) {
+  try {
+    var payload = {};
+    if (e && e.postData && e.postData.contents) {
+      try {
+        payload = JSON.parse(e.postData.contents);
+      } catch(errJ) {
+        payload = e.parameter || {};
+      }
+    } else if (e && e.parameter) {
+      payload = e.parameter;
+    }
+
+    var action = payload.action;
+    if (action === "updateStaffLocation" || payload.event === "SALES_LIVE_GPS" || action === "logEvent") {
+      var staffName = payload.staffName || payload.shopName || payload.name || payload.phone || "Staff";
+      var lat = payload.lat;
+      var lng = payload.lng;
+      var speed = payload.speed;
+      var acc = payload.accuracy || payload.acc;
+
+      if (payload.details && typeof payload.details === "string") {
+        try {
+          var det = JSON.parse(payload.details);
+          if (det.lat) lat = det.lat;
+          if (det.lng) lng = det.lng;
+          if (det.speed) speed = det.speed;
+          if (det.acc) acc = det.acc;
+        } catch(eDet) {}
+      }
+
+      var res = updateStaffLiveLocation(staffName, lat, lng, speed, acc);
+      return ContentService.createTextOutput(JSON.stringify(res)).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Action received" })).setMimeType(ContentService.MimeType.JSON);
+  } catch(errPost) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: errPost.message })).setMimeType(ContentService.MimeType.JSON);
   }
 }
