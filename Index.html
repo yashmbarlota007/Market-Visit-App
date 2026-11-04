@@ -813,6 +813,38 @@ try {
   portalRole = "<?= typeof role !== 'undefined' ? role : '' ?>";
 } catch(e) {}
 
+// ZERO-SECOND EMBEDDED DEALERS DATA DIRECT FROM SERVER AT INITIAL LOAD
+var embeddedDealersData = null;
+try {
+  embeddedDealersData = <?!= typeof allDealersJson !== 'undefined' ? allDealersJson : 'null' ?>;
+} catch(e) {}
+
+if (embeddedDealersData && embeddedDealersData.grouped && Object.keys(embeddedDealersData.grouped).length > 0) {
+  window.cachedAreasData = embeddedDealersData;
+  try {
+    localStorage.setItem('ym_all_dealers_cache', JSON.stringify(embeddedDealersData));
+  } catch(e) {}
+} else {
+  try {
+    var localCached = localStorage.getItem('ym_all_dealers_cache');
+    if (localCached) window.cachedAreasData = JSON.parse(localCached);
+  } catch(e) {}
+}
+
+function populateAreasSync() {
+  var sel = document.getElementById('area');
+  if (!sel || !window.cachedAreasData || !window.cachedAreasData.areas) return;
+  var currentVal = sel.value;
+  sel.innerHTML = '<option value="">-- Select Area --</option>';
+  window.cachedAreasData.areas.forEach(function(a) {
+    var opt = document.createElement('option');
+    opt.value = a;
+    opt.textContent = a;
+    if (a === currentVal) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
 var currentUser = "";
 var dealerGPSCoords = "";
 var masterData = null;
@@ -826,6 +858,8 @@ function makeSafePayload(obj) {
 }
 
 document.addEventListener("DOMContentLoaded", function() {
+  populateAreasSync();
+  initFastDealersPreload();
   var savedName = localStorage.getItem("yashApp_staffName");
   var savedRole = localStorage.getItem("yashApp_staffRole");
   
@@ -1421,7 +1455,7 @@ function loadAreasInBackground() {
   }).getAreas();
 }
 
-function openVisitForm() { showScreen('visitScreen'); }
+function openVisitForm() { showScreen('visitScreen'); populateAreasSync(); }
 function backToDashboard() { showScreen('dashboardScreen'); }
 
 function initFastDealersPreload() {
@@ -1459,35 +1493,52 @@ function loadDealers() {
     return;
   }
 
-  // 1. Check instant in-memory cache first (0 ms latency!)
+  // 1. Instant check in memory or localStorage (0.001 milliseconds!)
+  var dealers = null;
   if (window.cachedAreasData && window.cachedAreasData.grouped && window.cachedAreasData.grouped[area]) {
-    var cachedDealers = window.cachedAreasData.grouped[area];
-    currentAreaDealers = cachedDealers;
-    if (cachedDealers.length === 0) {
-      sel.innerHTML = '<option value="">-- No Dealers Found in ' + area + ' --</option>';
-      return;
-    }
-    sel.innerHTML = '<option value="">-- Select Dealer (' + cachedDealers.length + ') --</option>';
-    cachedDealers.forEach(function(d) {
+    dealers = window.cachedAreasData.grouped[area];
+  } else {
+    try {
+      var localStr = localStorage.getItem('ym_all_dealers_cache');
+      if (localStr) {
+        var parsed = JSON.parse(localStr);
+        if (parsed.grouped && parsed.grouped[area]) {
+          dealers = parsed.grouped[area];
+          window.cachedAreasData = parsed;
+        }
+      }
+    } catch(e) {}
+  }
+
+  if (dealers && dealers.length > 0) {
+    currentAreaDealers = dealers;
+    sel.innerHTML = '<option value="">-- Select Dealer (' + dealers.length + ') --</option>';
+    dealers.forEach(function(d) {
       var opt = document.createElement('option');
       opt.value = d.name;
       opt.textContent = d.name;
       sel.appendChild(opt);
     });
+    return; // Synchronous exit: NEVER shows 'Loading Dealers...'!
+  }
+
+  if (dealers && dealers.length === 0) {
+    currentAreaDealers = [];
+    sel.innerHTML = '<option value="">-- No Dealers Found in ' + area + ' --</option>';
     return;
   }
 
-  // 2. Fallback to server if cache is still fetching
-  sel.innerHTML = '<option value="">Loading Dealers...</option>';
+  // 2. Fallback only if cache is completely empty
+  sel.innerHTML = '<option value="">Fetching Dealers...</option>';
   google.script.run
-    .withSuccessHandler(function(dealers) {
-      currentAreaDealers = dealers || []; 
-      if (!dealers || dealers.length === 0) {
-        sel.innerHTML = '<option value="">-- No Dealers Found in ' + area + ' --</option>';
+    .withSuccessHandler(function(serverDealers) {
+      currentAreaDealers = serverDealers || [];
+      if (currentAreaDealers.length === 0) {
+        sel.innerHTML = '<option value="">-- No Dealers in ' + area + ' --</option>';
         return;
       }
-      sel.innerHTML = '<option value="">-- Select Dealer (' + dealers.length + ') --</option>';
-      dealers.forEach(function(d) { 
+      sel.innerHTML = '<option value="">-- Select Dealer (' + currentAreaDealers.length + ') --</option>';
+      currentAreaDealers.forEach(function(d) {
         var opt = document.createElement('option');
         opt.value = d.name;
         opt.textContent = d.name;
