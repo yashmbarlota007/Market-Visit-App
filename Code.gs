@@ -71,6 +71,13 @@ function doGet(e) {
     template.role = "";
   }
   
+    // PRE-EMBED ALL DEALERS DIRECTLY INTO HTML TEMPLATE FOR 0-SECOND CLIENT SWITCH
+  try {
+    template.allDealersJson = JSON.stringify(getAllDealersGroupedByArea());
+  } catch(errGroup) {
+    template.allDealersJson = JSON.stringify({ areas: [], grouped: {} });
+  }
+
   return template.evaluate()
     .setTitle('Yash Marketing App')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no')
@@ -1220,7 +1227,7 @@ function generateWhatsAppEOD(staffName) {
   report += "• Daily Office Rank: *#" + (myRank || "-") + "* 🏆" + nl;
   report += nl;
   
-  report += "*���� 5. GROWTH TRACKER*" + nl;
+  report += "*������ 5. GROWTH TRACKER*" + nl;
   report += "• Today: *₹ " + dash.today.sales.toLocaleString('en-IN') + "*" + nl;
   report += "• Yesterday: *₹ " + dash.yesterday.sales.toLocaleString('en-IN') + "*" + nl;
   report += "• This Week: *₹ " + dash.thisWeek.sales.toLocaleString('en-IN') + "* " + (paceWeek > 0 ? "(_Need ₹" + paceWeek.toLocaleString('en-IN') + " for Target_)" : "(_Target Hit! 🎯_)") + nl;
