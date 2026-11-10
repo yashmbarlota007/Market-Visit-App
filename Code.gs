@@ -665,15 +665,32 @@ function getStaffDashboardData(staffName) {
   var rules = getIncentiveRules();
   var staffNameClean = String(staffName).trim();
   
-  var dashboard = {
-    today: { visits: 0, visitTracker: 0, incentive: 0, sales: 0, brandPcs: {}, ledger: [] },
-    yesterday: { visits: 0, incentive: 0, sales: 0, brandPcs: {}, ledger: [] },
-    thisWeek: { visits: 0, incentive: 0, sales: 0, brandPcs: {}, ledger: [] },
-    lastWeek: { visits: 0, incentive: 0, sales: 0, brandPcs: {}, ledger: [] },
-    thisMonth: { visits: 0, incentive: 0, sales: 0, brandPcs: {}, ledger: [] },
-    lastMonth: { visits: 0, incentive: 0, sales: 0, brandPcs: {}, ledger: [] },
-    rules: rules 
-  };
+  var bucketKeys = ['today', 'yesterday', 'thisWeek', 'lastWeek', 'thisMonth', 'lastMonth'];
+  var dashboard = { rules: rules };
+  for (var bk = 0; bk < bucketKeys.length; bk++) {
+    dashboard[bucketKeys[bk]] = {
+      visits: 0,
+      visitTracker: 0,
+      incentive: 0,
+      sales: 0,
+      brandPcs: {},
+      ledger: [],
+      visitsList: [],
+      ordersList: [],
+      metrics: {
+        visits: 0,
+        conversionRatio: 0,
+        productiveVisits: 0,
+        avgRsSales: 0,
+        avgRsSalesPerVisit: 0,
+        txnPerDealer: 0,
+        revenue: 0,
+        transactions: 0,
+        uniqueDealersCount: 0
+      },
+      dealerBreakdown: []
+    };
+  }
 
   var now = new Date();
   now.setHours(0, 0, 0, 0);
@@ -723,14 +740,32 @@ function getStaffDashboardData(staffName) {
         var dObj = extractDateSafe(vData[i][1]);
         if (dObj) {
           var dateKey = Utilities.formatDate(dObj, Session.getScriptTimeZone(), "yyyy-MM-dd");
+          var dateStr = Utilities.formatDate(dObj, Session.getScriptTimeZone(), "dd/MM/yyyy");
+          var buckets = getBuckets(dObj);
+          
           if (!dailyVisitsMap[dateKey]) {
             dailyVisitsMap[dateKey] = { 
               count: 0, 
-              buckets: getBuckets(dObj), 
-              dateStr: Utilities.formatDate(dObj, Session.getScriptTimeZone(), "dd/MM/yyyy") 
+              buckets: buckets, 
+              dateStr: dateStr 
             };
           }
           dailyVisitsMap[dateKey].count++;
+          
+          var visitItem = {
+            id: String(vData[i][0] || ("V" + i)),
+            dateStr: dateStr,
+            timeStr: String(vData[i][2] || ""),
+            dealer: String(vData[i][5] || "").trim(),
+            area: String(vData[i][4] || "").trim(),
+            task: String(vData[i][7] || "Store Visit").trim(),
+            location: String(vData[i][11] || "").trim()
+          };
+          
+          for (var b = 0; b < buckets.length; b++) {
+            var bucketName = buckets[b];
+            dashboard[bucketName].visitsList.push(visitItem);
+          }
         }
       }
     }
@@ -767,6 +802,21 @@ function getStaffDashboardData(staffName) {
     if (String(ord.staff).trim() === staffNameClean) {
       var buckets = getBuckets(ord.date);
       if (buckets.length === 0) continue; 
+      
+      var orderDateStr = Utilities.formatDate(ord.date, Session.getScriptTimeZone(), "dd/MM/yyyy");
+      var orderItem = {
+        shop: ord.shop,
+        area: ord.area,
+        amount: ord.amount,
+        items: ord.items,
+        dateStr: orderDateStr,
+        timeMs: ord.timeMs
+      };
+      
+      for (var b = 0; b < buckets.length; b++) {
+        var bName = buckets[b];
+        dashboard[bName].ordersList.push(orderItem);
+      }
       
       var amountIncentive = Math.floor(ord.amount / 1000) * rules.thousandRate;
       var itemIncentive = 0;
@@ -877,6 +927,124 @@ function getStaffDashboardData(staffName) {
         }
       }
     }
+  }
+
+  // Compute 5 KPI Metrics & Dealer Breakdown for Each Time Bucket
+  for (var bk = 0; bk < bucketKeys.length; bk++) {
+    var bName = bucketKeys[bk];
+    var bObj = dashboard[bName];
+    
+    var dealersMap = {};
+    
+    // 1. Process visits
+    for (var vi = 0; vi < bObj.visitsList.length; vi++) {
+      var vItem = bObj.visitsList[vi];
+      var dClean = vItem.dealer.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (!dClean) continue;
+      
+      if (!dealersMap[dClean]) {
+        dealersMap[dClean] = {
+          dealerName: vItem.dealer,
+          area: vItem.area,
+          visitsCount: 0,
+          ordersCount: 0,
+          totalAmount: 0,
+          isConverted: false,
+          tasks: []
+        };
+      }
+      dealersMap[dClean].visitsCount++;
+      if (vItem.task && dealersMap[dClean].tasks.indexOf(vItem.task) === -1) {
+        dealersMap[dClean].tasks.push(vItem.task);
+      }
+    }
+    
+    // 2. Process orders
+    for (var oi = 0; oi < bObj.ordersList.length; oi++) {
+      var oItem = bObj.ordersList[oi];
+      var oClean = String(oItem.shop).toUpperCase().replace(/[^A-Z0-9]/g, '');
+      
+      var matchKey = null;
+      for (var dKey in dealersMap) {
+        if (dKey && oClean && (dKey.indexOf(oClean) !== -1 || oClean.indexOf(dKey) !== -1)) {
+          matchKey = dKey;
+          break;
+        }
+      }
+      
+      if (!matchKey) {
+        matchKey = oClean;
+        if (!dealersMap[matchKey]) {
+          dealersMap[matchKey] = {
+            dealerName: oItem.shop,
+            area: oItem.area || "",
+            visitsCount: 0,
+            ordersCount: 0,
+            totalAmount: 0,
+            isConverted: true,
+            tasks: []
+          };
+        }
+      }
+      
+      dealersMap[matchKey].ordersCount++;
+      dealersMap[matchKey].totalAmount += oItem.amount;
+      dealersMap[matchKey].isConverted = true;
+    }
+    
+    var dealerBreakdown = [];
+    var uniqueVisitedDealers = 0;
+    var productiveVisitsCount = 0;
+    
+    for (var dKey in dealersMap) {
+      var dData = dealersMap[dKey];
+      dealerBreakdown.push(dData);
+      if (dData.visitsCount > 0) {
+        uniqueVisitedDealers++;
+        if (dData.ordersCount > 0) {
+          productiveVisitsCount += dData.visitsCount;
+        }
+      }
+    }
+    
+    dealerBreakdown.sort(function(a, b) {
+      if (b.totalAmount !== a.totalAmount) return b.totalAmount - a.totalAmount;
+      return b.visitsCount - a.visitsCount;
+    });
+    
+    var totalVisits = bObj.visitsList.length;
+    var totalTxns = bObj.ordersList.length;
+    var totalRev = bObj.sales;
+    
+    if (totalTxns > 0 && productiveVisitsCount === 0) {
+      productiveVisitsCount = Math.min(totalVisits, totalTxns);
+    }
+    if (productiveVisitsCount > totalVisits && totalVisits > 0) {
+      productiveVisitsCount = totalVisits;
+    }
+    
+    var convRatio = totalVisits > 0 
+      ? Math.min(100, Math.round((productiveVisitsCount / totalVisits) * 100)) 
+      : (totalTxns > 0 ? 100 : 0);
+      
+    var avgSalesOrder = totalTxns > 0 ? Math.round(totalRev / totalTxns) : 0;
+    var avgSalesVisit = totalVisits > 0 ? Math.round(totalRev / totalVisits) : 0;
+    
+    var activeDealersForTxn = uniqueVisitedDealers > 0 ? uniqueVisitedDealers : dealerBreakdown.length;
+    var txnPerDealer = activeDealersForTxn > 0 ? +(totalTxns / activeDealersForTxn).toFixed(2) : 0;
+    
+    bObj.dealerBreakdown = dealerBreakdown;
+    bObj.metrics = {
+      visits: totalVisits,
+      conversionRatio: convRatio,
+      productiveVisits: productiveVisitsCount,
+      avgRsSales: avgSalesOrder,
+      avgRsSalesPerVisit: avgSalesVisit,
+      txnPerDealer: txnPerDealer,
+      revenue: totalRev,
+      transactions: totalTxns,
+      uniqueDealersCount: activeDealersForTxn
+    };
   }
 
   return dashboard;
