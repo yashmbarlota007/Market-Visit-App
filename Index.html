@@ -135,7 +135,179 @@
       color: #7c3aed !important; 
     }
     
-    </style>
+    
+    /* === EXECUTIVE CEO DASHBOARD SYSTEM (GOD'S EYE SUITE) === */
+    .ceo-container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .ceo-header-card {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #090d16 100%);
+      color: #ffffff;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
+      overflow: hidden;
+      position: relative;
+    }
+    .ceo-header-card::before {
+      content: '';
+      position: absolute;
+      top: -50px;
+      right: -50px;
+      width: 150px;
+      height: 150px;
+      background: radial-gradient(circle, rgba(59, 130, 246, 0.25) 0%, rgba(0, 0, 0, 0) 70%);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .pulse-live-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background-color: #22c55e;
+      border-radius: 50%;
+      box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+      animation: pulse-green 2s infinite;
+      margin-right: 6px;
+    }
+    @keyframes pulse-green {
+      0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+      70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    }
+    .ceo-nav-pill {
+      background: #ffffff;
+      color: #475569;
+      border: 1px solid #e2e8f0;
+      font-weight: 600;
+      font-size: 12.5px;
+      padding: 7px 16px;
+      border-radius: 24px;
+      white-space: nowrap;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+      user-select: none;
+    }
+    .ceo-nav-pill:hover {
+      background: #f1f5f9;
+      color: #0f172a;
+      transform: translateY(-1px);
+    }
+    .ceo-nav-pill.active {
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      color: #ffffff;
+      border-color: transparent;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+      font-weight: 700;
+    }
+    .ceo-hero-rev-card {
+      background: linear-gradient(135deg, #090d16 0%, #111827 50%, #1e293b 100%);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      border-radius: 16px;
+      color: #ffffff;
+      padding: 22px;
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.25);
+      position: relative;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .ceo-hero-rev-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 28px -5px rgba(0,0,0,0.35), 0 0 15px rgba(245, 158, 11, 0.2);
+    }
+    .ceo-kpi-card {
+      background: #ffffff;
+      border-radius: 14px;
+      padding: 16px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      transition: all 0.2s ease;
+      cursor: pointer;
+      position: relative;
+      height: 100%;
+    }
+    .ceo-kpi-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+    }
+    .ceo-kpi-icon-bubble {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+    .staff-perf-card {
+      background: #ffffff;
+      border-radius: 14px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      overflow: hidden;
+      margin-bottom: 16px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .staff-perf-card:hover {
+      box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    }
+    .rank-badge-gold {
+      background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+      color: #92400e;
+      border: 1px solid #f59e0b;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+    }
+    .rank-badge-silver {
+      background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+      color: #334155;
+      border: 1px solid #94a3b8;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+    }
+    .rank-badge-bronze {
+      background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
+      color: #9a3412;
+      border: 1px solid #f97316;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+    }
+    .rank-badge-normal {
+      background: #f8fafc;
+      color: #64748b;
+      border: 1px solid #cbd5e1;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+    }
+    .staff-metric-box {
+      background: #f8fafc;
+      border-radius: 10px;
+      padding: 10px;
+      text-align: center;
+      border: 1px solid #e2e8f0;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      height: 100%;
+    }
+    .staff-metric-box:hover {
+      background: #ffffff;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+    }
+    .staff-metric-box:active {
+      transform: scale(0.97);
+    }
+  
+  </style>
   
   <script>
     window.onerror = function(message, source, lineno, colno, error) {
@@ -315,194 +487,261 @@
 
       <!-- CEO / Accountant / MIS / CRM God's Eye View Screen -->
       <div id="ceoScreen" class="page-section">
-        <div class="card border-dark shadow">
-          <div class="card-header bg-dark text-white py-3">
-            <h4><i class="bi bi-eye-fill"></i> God's Eye View</h4>
-          </div>
-          <div class="card-body p-3">
+      <div class="ceo-container py-2">
 
-            <!-- MORNING BRIEFING GENERATOR -->
-            <div class="p-3 bg-dark bg-opacity-10 rounded border border-secondary mb-3 shadow-sm">
-              <h6 class="fw-bold text-dark mb-2"><i class="bi bi-rocket-takeoff-fill text-primary"></i> Generate Morning Briefing</h6>
-              <div class="input-group">
-                <select class="form-select border-secondary fw-bold" id="briefingArea">
-                  <option value="">Select Area for Today...</option>
-                  <!-- Options will be populated dynamically -->
-                </select>
-                <button class="btn btn-primary fw-bold" onclick="generateMorningWhatsApp()">
-                  <i class="bi bi-whatsapp"></i> Build
-                </button>
+        <!-- 👑 EXECUTIVE COMMAND HEADER -->
+        <div class="ceo-header-card p-3 p-md-4 mb-3">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-warning text-dark fw-bold px-2 py-1" style="font-size: 11px; letter-spacing: 0.5px;">
+                  👑 CEO COMMAND CENTER
+                </span>
+                <span class="text-white-50 small" style="font-size: 11px;">
+                  <span class="pulse-live-dot"></span>LIVE TELEMETRY
+                </span>
               </div>
+              <h3 class="fw-black mb-0 text-white" style="letter-spacing: -0.5px;">Yash Barlota</h3>
+              <p class="text-white-50 small mb-0">Executive Field Force Operations & Market Intelligence OS</p>
             </div>
-
-            <!-- Dynamic Filter Controls -->
-            <div class="p-3 bg-light rounded border mb-3">
-              <label class="form-label text-dark fw-bold mb-1" style="font-size:12px;">SELECT TIMEFRAME:</label>
-              <select class="form-select border-primary fw-bold" id="ceoFilter" onchange="onCeoFilterChange()">
-                <option value="today">Today</option>
-                <option value="yesterday">Yesterday</option>
-                <option value="thisWeek">This Week</option>
-                <option value="lastWeek">Last Week</option>
-                <option value="thisMonth">This Month</option>
-                <option value="lastMonth">Last Month</option>
-                <option value="thisQuarter">This Quarter</option>
-                <option value="lastQuarter">Last Quarter</option>
-                <option value="thisYear">This Year</option>
-                <option value="custom">Custom Date Range...</option>
-              </select>
-              
-              <div id="customDateRow" class="row g-2 mt-2" style="display:none;">
-                <div class="col-6">
-                  <small class="text-muted" style="font-size:10px;">START DATE</small>
-                  <input type="date" id="ceoStartDate" class="form-control form-control-sm" onchange="onCeoFilterChange()">
-                </div>
-                <div class="col-6">
-                  <small class="text-muted" style="font-size:10px;">END DATE</small>
-                  <input type="date" id="ceoEndDate" class="form-control form-control-sm" onchange="onCeoFilterChange()">
-                </div>
-              </div>
-            </div>
-
             
-            <!-- COMPANY-WIDE 5 PERFORMANCE KPI CARDS -->
-            <div class="card mb-3 border-0 shadow-sm" style="background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0;">
-              <div class="card-body p-3">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                  <h6 class="fw-bold text-dark mb-0" style="font-size: 14px;">
-                    <i class="bi bi-buildings-fill text-primary me-1"></i> Company Performance Overview
-                  </h6>
-                  <span class="badge bg-light text-secondary border" style="font-size: 11px;">
-                    <i class="bi bi-hand-index-thumb"></i> Click card for company drill-down
-                  </span>
-                </div>
-
-                <!-- 5 KPI Cards -->
-                <div class="row g-2">
-                  <!-- 1. Visits -->
-                  <div class="col-6">
-                    <div class="card h-100 p-2 border-0 shadow-sm clickable-card kpi-card"
-                         style="background: #f0f7ff; border-left: 4px solid #0d6efd !important; border-radius: 10px; cursor: pointer;"
-                         onclick="openCeoPerfModal('visits', 'company')" title="Click to view all company visits">
-                      <div class="d-flex justify-content-between align-items-center">
-                        <span class="small fw-bold text-muted text-uppercase" style="font-size: 11px;">1. Visits</span>
-                        <i class="bi bi-shop text-primary fs-5"></i>
-                      </div>
-                      <div class="fs-3 fw-black text-primary mt-1" id="ceoVisitsVal">0</div>
-                      <div class="text-muted d-flex justify-content-between align-items-center mt-1" style="font-size: 11px;">
-                        <span id="ceoVisitsSub">0 dealers</span>
-                        <i class="bi bi-chevron-right text-muted"></i>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- 2. Conversion -->
-                  <div class="col-6">
-                    <div class="card h-100 p-2 border-0 shadow-sm clickable-card kpi-card"
-                         style="background: #f0fdf4; border-left: 4px solid #16a34a !important; border-radius: 10px; cursor: pointer;"
-                         onclick="openCeoPerfModal('conversion', 'company')" title="Click to view company conversion strike rate">
-                      <div class="d-flex justify-content-between align-items-center">
-                        <span class="small fw-bold text-muted text-uppercase" style="font-size: 11px;">2. Conversion</span>
-                        <i class="bi bi-pie-chart-fill text-success fs-5"></i>
-                      </div>
-                      <div class="fs-3 fw-black text-success mt-1" id="ceoConversionVal">0%</div>
-                      <div class="text-muted d-flex justify-content-between align-items-center mt-1" style="font-size: 11px;">
-                        <span id="ceoConversionSub">Strike rate</span>
-                        <i class="bi bi-chevron-right text-muted"></i>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- 3. Avg Rs Sales -->
-                  <div class="col-6">
-                    <div class="card h-100 p-2 border-0 shadow-sm clickable-card kpi-card"
-                         style="background: #fffbeb; border-left: 4px solid #d97706 !important; border-radius: 10px; cursor: pointer;"
-                         onclick="openCeoPerfModal('avgSales', 'company')" title="Click to view company average sales">
-                      <div class="d-flex justify-content-between align-items-center">
-                        <span class="small fw-bold text-muted text-uppercase" style="font-size: 11px;">3. Avg Rs Sales</span>
-                        <i class="bi bi-cash-stack text-warning fs-5"></i>
-                      </div>
-                      <div class="fs-4 fw-black text-warning-emphasis mt-1" id="ceoAvgSalesVal">₹0</div>
-                      <div class="text-muted d-flex justify-content-between align-items-center mt-1" style="font-size: 11px;">
-                        <span id="ceoAvgSalesSub">Per order</span>
-                        <i class="bi bi-chevron-right text-muted"></i>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- 4. Txn / Dealer -->
-                  <div class="col-6">
-                    <div class="card h-100 p-2 border-0 shadow-sm clickable-card kpi-card"
-                         style="background: #f5f3ff; border-left: 4px solid #7c3aed !important; border-radius: 10px; cursor: pointer;"
-                         onclick="openCeoPerfModal('txnPerDealer', 'company')" title="Click to view company transactions per dealer">
-                      <div class="d-flex justify-content-between align-items-center">
-                        <span class="small fw-bold text-muted text-uppercase" style="font-size: 11px;">4. Txn / Dealer</span>
-                        <i class="bi bi-receipt-cutoff fs-5" style="color: #7c3aed;"></i>
-                      </div>
-                      <div class="fs-3 fw-black mt-1" style="color: #7c3aed;" id="ceoTxnDealerVal">0.0</div>
-                      <div class="text-muted d-flex justify-content-between align-items-center mt-1" style="font-size: 11px;">
-                        <span id="ceoTxnDealerSub">0 orders</span>
-                        <i class="bi bi-chevron-right text-muted"></i>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- 5. Revenue (Full Width) -->
-                  <div class="col-12">
-                    <div class="card p-3 border-0 shadow-sm clickable-card kpi-card"
-                         style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: white; border-radius: 10px; cursor: pointer;"
-                         onclick="openCeoPerfModal('revenue', 'company')" title="Click to view all company orders">
-                      <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                          <span class="text-uppercase text-secondary fw-bold" style="font-size: 11px; letter-spacing: 0.5px;">5. TOTAL COMPANY REVENUE</span>
-                          <div class="fs-2 fw-black text-warning mt-1" id="ceoRevenueVal">₹0</div>
-                        </div>
-                        <div class="text-end">
-                          <span class="badge bg-warning text-dark px-2 py-1 mb-1" id="ceoRevenueOrdersBadge">0 Orders</span>
-                          <div class="small text-secondary" style="font-size: 11px;">Tap to view all orders <i class="bi bi-arrow-right"></i></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                </div>
-              </div>
-            </div>
-
-            <div class="mb-3">
-              <h6 class="fw-bold border-bottom pb-1"><i class="bi bi-trophy-fill text-warning"></i> Team Leaderboard (Sorted by Sales)</h6>
-              <div id="leaderboardList" class="mt-2">
-                <div class="p-2 text-muted text-center border rounded">Select filter to load data...</div>
-              </div>
-            </div>
-
-            <div class="d-grid gap-2 mt-4">
-              
-              <!-- CEO / OWNER EXCLUSIVE RADAR BUTTON -->
-              <button class="btn btn-success py-3" id="btnCeoStaffRadar" style="display:none;" onclick="openStaffRadarModal()">
-                <b><i class="bi bi-broadcast-pin"></i> 📡 Live Staff Field Radar (Map View)</b>
+            <div class="d-flex gap-2 flex-wrap">
+              <button class="btn btn-sm btn-success fw-bold px-3 py-2 shadow-sm" id="btnCeoStaffRadar" onclick="openStaffRadarModal()" style="border-radius: 10px;">
+                <i class="bi bi-broadcast-pin"></i> 📡 Live Radar Map
               </button>
-              <button class="btn btn-dark py-3" onclick="refreshCEOStats()" id="btnRefreshCEO">
-                <b><i class="bi bi-arrow-clockwise"></i> Force Sync Data</b>
+              <button class="btn btn-sm btn-outline-light fw-bold px-3 py-2" id="btnRefreshCEO" onclick="refreshCEOStatsFromServer(null, true)" style="border-radius: 10px;">
+                <i class="bi bi-arrow-clockwise"></i> Force Sync
               </button>
-              
-              <button class="btn btn-warning py-3" onclick="openSleepingGiants()" id="btnGiants">
-                <b><i class="bi bi-alarm-fill"></i> At-Risk Accounts</b>
-              </button>
-              
-              <button class="btn btn-outline-danger" onclick="runDiagnostic()">
-                <i class="bi bi-bug"></i> Run System Audit
-              </button>
-
-              <button class="btn btn-outline-secondary" onclick="logout()">
-                <i class="bi bi-power"></i> Logout
+              <button class="btn btn-sm btn-outline-light fw-bold px-2 py-2" onclick="logout()" title="Logout" style="border-radius: 10px;">
+                <i class="bi bi-power"></i>
               </button>
             </div>
-
           </div>
         </div>
-      </div>
 
-      <!-- Agent Dashboard Screen -->
+        <!-- ⚡ SEGMENTED TIMEFRAME PILL NAVIGATION BAR -->
+        <div class="card border-0 shadow-sm p-2 mb-3 bg-white" style="border-radius: 16px;">
+          <div class="d-flex align-items-center justify-content-between px-2 pt-1 pb-1">
+            <span class="text-uppercase fw-bold text-muted" style="font-size: 11px; letter-spacing: 0.5px;">
+              <i class="bi bi-calendar3-range text-primary me-1"></i> Executive Timeframe:
+            </span>
+            <span class="badge bg-light text-secondary border fw-semibold" style="font-size: 10.5px;">
+              ⚡ 0-Second Instant Switch
+            </span>
+          </div>
+          
+          <div class="d-flex overflow-auto text-nowrap py-1 px-1" id="ceoFilterPills" style="gap: 8px; -webkit-overflow-scrolling: touch;">
+            <div class="ceo-nav-pill active" onclick="selectCeoTimeframe('today', this)">Today</div>
+            <div class="ceo-nav-pill" onclick="selectCeoTimeframe('yesterday', this)">Yesterday</div>
+            <div class="ceo-nav-pill" onclick="selectCeoTimeframe('thisWeek', this)">This Week</div>
+            <div class="ceo-nav-pill" onclick="selectCeoTimeframe('lastWeek', this)">Last Week</div>
+            <div class="ceo-nav-pill" onclick="selectCeoTimeframe('thisMonth', this)">This Month</div>
+            <div class="ceo-nav-pill" onclick="selectCeoTimeframe('lastMonth', this)">Last Month</div>
+            <div class="ceo-nav-pill" onclick="selectCeoTimeframe('thisQuarter', this)">This Quarter</div>
+            <div class="ceo-nav-pill" onclick="selectCeoTimeframe('lastQuarter', this)">Last Quarter</div>
+            <div class="ceo-nav-pill" onclick="selectCeoTimeframe('thisYear', this)">This Year</div>
+            <div class="ceo-nav-pill" onclick="selectCeoTimeframe('custom', this)"><i class="bi bi-calendar-event"></i> Custom Range</div>
+          </div>
+
+          <!-- Hidden legacy select to keep 100% backward compatibility -->
+          <select class="d-none" id="ceoFilter" onchange="onCeoFilterChange()">
+            <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="thisWeek">This Week</option>
+            <option value="lastWeek">Last Week</option>
+            <option value="thisMonth">This Month</option>
+            <option value="lastMonth">Last Month</option>
+            <option value="thisQuarter">This Quarter</option>
+            <option value="lastQuarter">Last Quarter</option>
+            <option value="thisYear">This Year</option>
+            <option value="custom">Custom Date Range...</option>
+          </select>
+
+          <!-- Custom Date Range Row -->
+          <div id="customDateRow" class="row g-2 mt-2 px-2 pb-2" style="display:none;">
+            <div class="col-6">
+              <small class="text-muted fw-bold" style="font-size:10.5px;">START DATE</small>
+              <input type="date" id="ceoStartDate" class="form-control form-control-sm border-primary" onchange="onCeoFilterChange()">
+            </div>
+            <div class="col-6">
+              <small class="text-muted fw-bold" style="font-size:10.5px;">END DATE</small>
+              <input type="date" id="ceoEndDate" class="form-control form-control-sm border-primary" onchange="onCeoFilterChange()">
+            </div>
+          </div>
+        </div>
+
+        <!-- 🏢 EXECUTIVE HERO METRICS BENTO GRID -->
+        <div class="row g-3 mb-3">
+          
+          <!-- HERO CARD: TOTAL VERIFIED FIELD REVENUE (Full Width Spotlight) -->
+          <div class="col-12">
+            <div class="ceo-hero-rev-card" onclick="openCeoPerfModal('revenue', 'company')" title="Click for Itemized Order Drilldown">
+              <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                <div>
+                  <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="badge bg-warning text-dark fw-bold px-2 py-1" style="font-size: 10px;">
+                      VERIFIED ON-GROUND SALES
+                    </span>
+                    <span class="text-secondary small" style="font-size: 11px;">(0-Visit Orders Strictly Excluded)</span>
+                  </div>
+                  <div class="fs-1 fw-black text-warning" id="ceoRevenueVal" style="letter-spacing: -1px; line-height: 1.1;">₹0</div>
+                  <div class="text-white-50 small mt-1">Direct Field Revenue generated through active store visits</div>
+                </div>
+                <div class="text-end">
+                  <span class="badge bg-white bg-opacity-20 text-white px-3 py-2 fw-bold fs-6" id="ceoRevenueOrdersBadge" style="border-radius: 10px;">
+                    0 Orders
+                  </span>
+                  <div class="text-warning small mt-2" style="font-size: 11.5px;">
+                    Itemized Order Breakdown <i class="bi bi-arrow-right ms-1"></i>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 1. Store Visits -->
+          <div class="col-6 col-md-3">
+            <div class="ceo-kpi-card" onclick="openCeoPerfModal('visits', 'company')" title="Click to view all physical visits" style="border-top: 4px solid #2563eb;">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-uppercase fw-bold text-muted" style="font-size: 11px;">1. Visits</span>
+                <div class="ceo-kpi-icon-bubble bg-primary bg-opacity-10 text-primary">
+                  <i class="bi bi-geo-alt-fill"></i>
+                </div>
+              </div>
+              <div class="fs-3 fw-black text-primary" id="ceoVisitsVal">0</div>
+              <div class="text-muted small mt-1 d-flex justify-content-between align-items-center" style="font-size: 11px;">
+                <span id="ceoVisitsSub">0 dealers</span>
+                <i class="bi bi-chevron-right text-muted"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Conversion Strike Rate -->
+          <div class="col-6 col-md-3">
+            <div class="ceo-kpi-card" onclick="openCeoPerfModal('conversion', 'company')" title="Click to view same-day visit conversion" style="border-top: 4px solid #10b981;">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-uppercase fw-bold text-muted" style="font-size: 11px;">2. Strike Rate</span>
+                <div class="ceo-kpi-icon-bubble bg-success bg-opacity-10 text-success">
+                  <i class="bi bi-pie-chart-fill"></i>
+                </div>
+              </div>
+              <div class="fs-3 fw-black text-success" id="ceoConversionVal">0%</div>
+              <div class="text-muted small mt-1 d-flex justify-content-between align-items-center" style="font-size: 11px;">
+                <span id="ceoConversionSub">Strike rate</span>
+                <i class="bi bi-chevron-right text-muted"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Avg Rs Sales / Visit -->
+          <div class="col-6 col-md-3">
+            <div class="ceo-kpi-card" onclick="openCeoPerfModal('avgSales', 'company')" title="Click to view average sales per visit & order" style="border-top: 4px solid #f59e0b;">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-uppercase fw-bold text-muted" style="font-size: 11px;">3. Avg Rs / Visit</span>
+                <div class="ceo-kpi-icon-bubble bg-warning bg-opacity-10 text-warning">
+                  <i class="bi bi-cash-stack"></i>
+                </div>
+              </div>
+              <div class="fs-4 fw-black text-warning-emphasis" id="ceoAvgSalesVal">₹0</div>
+              <div class="text-muted small mt-1 d-flex justify-content-between align-items-center" style="font-size: 11px;">
+                <span id="ceoAvgSalesSub">Per visit</span>
+                <i class="bi bi-chevron-right text-muted"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. Txn / Dealer -->
+          <div class="col-6 col-md-3">
+            <div class="ceo-kpi-card" onclick="openCeoPerfModal('txnPerDealer', 'company')" title="Click to view transaction depth per visited dealer" style="border-top: 4px solid #8b5cf6;">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-uppercase fw-bold text-muted" style="font-size: 11px;">4. Txn / Dealer</span>
+                <div class="ceo-kpi-icon-bubble bg-purple bg-opacity-10" style="color: #8b5cf6;">
+                  <i class="bi bi-receipt-cutoff"></i>
+                </div>
+              </div>
+              <div class="fs-3 fw-black" style="color: #7c3aed;" id="ceoTxnDealerVal">0.0</div>
+              <div class="text-muted small mt-1 d-flex justify-content-between align-items-center" style="font-size: 11px;">
+                <span id="ceoTxnDealerSub">0 orders</span>
+                <i class="bi bi-chevron-right text-muted"></i>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- 🏆 SALES FORCE LEADERBOARD & ROUTE EXECUTION -->
+        <div class="card border-0 shadow-sm p-3 mb-3 bg-white" style="border-radius: 16px;">
+          <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+            <div>
+              <h5 class="fw-black mb-0 text-dark">
+                <i class="bi bi-trophy-fill text-warning me-1"></i> Sales Force Leaderboard & Performance Matrix
+              </h5>
+              <div class="text-muted small">Ranked by verified on-ground revenue & same-day visit conversion</div>
+            </div>
+            <span class="badge bg-light text-dark border px-2 py-1" style="font-size: 11px;">
+              <i class="bi bi-hand-index-thumb"></i> Click any metric for deep drilldown
+            </span>
+          </div>
+
+          <div id="leaderboardList">
+            <div class="p-4 text-muted text-center border rounded">
+              <div class="spinner-border text-primary spinner-border-sm me-2"></div> Loading executive leaderboard data...
+            </div>
+          </div>
+        </div>
+
+        <!-- 🚀 EXECUTIVE STRATEGY & QUICK TOOLS DOCK -->
+        <div class="card border-0 shadow-sm p-3 mb-4 bg-white" style="border-radius: 16px;">
+          <h6 class="fw-black text-dark mb-3">
+            <i class="bi bi-tools text-secondary me-1"></i> Executive Control & Field Intelligence Tools
+          </h6>
+
+          <div class="row g-2">
+            <!-- Morning WhatsApp Briefing -->
+            <div class="col-12 col-md-6">
+              <div class="p-3 rounded border bg-light h-100 shadow-sm">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                  <i class="bi bi-rocket-takeoff-fill text-primary fs-5"></i>
+                  <span class="fw-bold text-dark">Generate Morning Route Briefing</span>
+                </div>
+                <div class="input-group">
+                  <select class="form-select border-secondary fw-bold" id="briefingArea" style="font-size:12px;">
+                    <option value="">Select Area for Today...</option>
+                  </select>
+                  <button class="btn btn-primary fw-bold px-3" onclick="generateMorningWhatsApp()">
+                    <i class="bi bi-whatsapp"></i> Build
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sleeping Giants & System Health -->
+            <div class="col-12 col-md-6">
+              <div class="p-3 rounded border bg-light h-100 shadow-sm d-flex flex-column justify-content-between gap-2">
+                <div class="d-flex align-items-center gap-2">
+                  <i class="bi bi-alarm-fill text-warning fs-5"></i>
+                  <div>
+                    <span class="fw-bold text-dark">Account Retention & Diagnostics</span>
+                    <div class="text-muted" style="font-size:11px;">Detect churn accounts (30+ days 0-sale)</div>
+                  </div>
+                </div>
+                <div class="d-flex gap-2">
+                  <button class="btn btn-sm btn-warning fw-bold flex-grow-1" onclick="openSleepingGiants()" id="btnGiants">
+                    <i class="bi bi-alarm-fill"></i> At-Risk Accounts
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger fw-bold" onclick="runDiagnostic()">
+                    <i class="bi bi-bug"></i> Audit OS
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Agent Dashboard Screen -->
       <div id="dashboardScreen" class="page-section">
         <div class="card shadow-lg border-0 bg-white">
           <div class="card-header py-3 bg-dark d-flex justify-content-between align-items-center">
@@ -1216,6 +1455,22 @@ function logout() {
 
 var ceoBucketsCache = null;
 
+function selectCeoTimeframe(filterKey, el) {
+  var container = document.getElementById('ceoFilterPills');
+  if (container) {
+    var pills = container.querySelectorAll('.ceo-nav-pill');
+    pills.forEach(function(p) { p.classList.remove('active'); });
+    if (el) el.classList.add('active');
+  }
+
+  var select = document.getElementById('ceoFilter');
+  if (select) {
+    select.value = filterKey;
+  }
+
+  onCeoFilterChange();
+}
+
 function renderCeoDashboard(res) {
   if (!res) return;
   masterData = res; 
@@ -1322,53 +1577,58 @@ function renderCeoDashboard(res) {
         areasHtml += '</div>';
       }
 
-      boardHtml += '<div class="card mb-3 border shadow-sm" style="border-radius:12px; overflow:hidden;">' +
-                     '<div class="card-header bg-white p-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">' +
-                       '<div>' +
-                         '<h6 class="fw-bold mb-0 text-dark fs-6"><i class="bi bi-person-badge-fill text-primary"></i> ' + staff.name + badge + '</h6>' +
-                         '<small class="text-muted" style="font-size:11px;">Field Sales Executive</small>' +
+      boardHtml += '<div class="staff-perf-card">' +
+                     '<div class="p-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2 bg-white">' +
+                       '<div class="d-flex align-items-center gap-2">' +
+                         '<div class="rounded-circle bg-dark text-white fw-bold d-flex align-items-center justify-content-center" style="width:36px; height:36px; font-size:14px;">' +
+                           staff.name.charAt(0) +
+                         '</div>' +
+                         '<div>' +
+                           '<div class="fw-bold text-dark fs-6 d-flex align-items-center">' + staff.name + rankBadge + '</div>' +
+                           '<small class="text-muted" style="font-size:11px;">Field Sales Representative</small>' +
+                         '</div>' +
                        '</div>' +
                        '<div>' +
-                         '<button class="btn btn-sm btn-outline-dark fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#' + collapseId + '" style="font-size:11px;">' +
-                           '<i class="bi bi-list-nested"></i> View Route & Shops <i class="bi bi-chevron-down ms-1"></i>' +
+                         '<button class="btn btn-sm btn-outline-secondary fw-bold px-3 py-1" type="button" data-bs-toggle="collapse" data-bs-target="#' + collapseId + '" style="font-size:11.5px; border-radius: 8px;">' +
+                           '<i class="bi bi-map"></i> Routes & Shops <i class="bi bi-chevron-down ms-1"></i>' +
                          '</button>' +
                        '</div>' +
                      '</div>' +
                      '<div class="p-2 bg-light border-bottom">' +
                        '<div class="row g-2 text-center">' +
                          '<div class="col-6 col-md-2" style="cursor:pointer;" onclick="openCeoPerfModal(\'visits\', \'' + safeStaffName + '\')">' +
-                           '<div class="p-2 rounded bg-white border border-primary-subtle shadow-sm h-100">' +
+                           '<div class="staff-metric-box border-primary-subtle">' +
                              '<div class="text-muted fw-bold" style="font-size:10px; text-transform:uppercase;">1. Visits</div>' +
-                             '<div class="fw-bold text-primary fs-5">' + sm.visits + '</div>' +
+                             '<div class="fw-bold text-primary fs-5 mt-1">' + sm.visits + '</div>' +
                              '<div class="text-muted" style="font-size:10px;">' + sm.uniqueDealersCount + ' dealers</div>' +
                            '</div>' +
                          '</div>' +
                          '<div class="col-6 col-md-2" style="cursor:pointer;" onclick="openCeoPerfModal(\'conversion\', \'' + safeStaffName + '\')">' +
-                           '<div class="p-2 rounded bg-white border border-success-subtle shadow-sm h-100">' +
+                           '<div class="staff-metric-box border-success-subtle">' +
                              '<div class="text-muted fw-bold" style="font-size:10px; text-transform:uppercase;">2. Strike Rate</div>' +
-                             '<div class="fw-bold text-success fs-5">' + sm.conversionRatio + '%</div>' +
+                             '<div class="fw-bold text-success fs-5 mt-1">' + sm.conversionRatio + '%</div>' +
                              '<div class="text-muted" style="font-size:10px;">' + sm.productiveVisits + '/' + sm.visits + ' converted</div>' +
                            '</div>' +
                          '</div>' +
                          '<div class="col-6 col-md-2" style="cursor:pointer;" onclick="openCeoPerfModal(\'avgSales\', \'' + safeStaffName + '\')">' +
-                           '<div class="p-2 rounded bg-white border border-warning-subtle shadow-sm h-100">' +
-                             '<div class="text-muted fw-bold" style="font-size:10px; text-transform:uppercase;">3. Avg Rs Sales</div>' +
-                             '<div class="fw-bold text-warning-emphasis fs-5">₹' + (sm.avgRsSales || 0).toLocaleString('en-IN') + '</div>' +
-                             '<div class="text-muted" style="font-size:10px;">₹' + (sm.avgRsSalesPerVisit || 0).toLocaleString('en-IN') + ' / visit</div>' +
+                           '<div class="staff-metric-box border-warning-subtle">' +
+                             '<div class="text-muted fw-bold" style="font-size:10px; text-transform:uppercase;">3. Avg / Visit</div>' +
+                             '<div class="fw-bold text-warning-emphasis fs-5 mt-1">₹' + (sm.avgRsSalesPerVisit || 0).toLocaleString('en-IN') + '</div>' +
+                             '<div class="text-muted" style="font-size:10px;">₹' + (sm.avgRsSales || 0).toLocaleString('en-IN') + ' / order</div>' +
                            '</div>' +
                          '</div>' +
                          '<div class="col-6 col-md-2" style="cursor:pointer;" onclick="openCeoPerfModal(\'txnPerDealer\', \'' + safeStaffName + '\')">' +
-                           '<div class="p-2 rounded bg-white border border-info-subtle shadow-sm h-100">' +
+                           '<div class="staff-metric-box border-purple-subtle">' +
                              '<div class="text-muted fw-bold" style="font-size:10px; text-transform:uppercase;">4. Txn / Dealer</div>' +
-                             '<div class="fw-bold text-dark fs-5">' + (sm.txnPerDealer || 0) + '</div>' +
+                             '<div class="fw-bold text-dark fs-5 mt-1">' + (sm.txnPerDealer || 0) + '</div>' +
                              '<div class="text-muted" style="font-size:10px;">' + sm.transactions + ' orders</div>' +
                            '</div>' +
                          '</div>' +
                          '<div class="col-12 col-md-4" style="cursor:pointer;" onclick="openCeoPerfModal(\'revenue\', \'' + safeStaffName + '\')">' +
-                           '<div class="p-2 rounded bg-white border border-dark-subtle shadow-sm h-100">' +
-                             '<div class="text-muted fw-bold" style="font-size:10px; text-transform:uppercase;">5. Total Revenue</div>' +
-                             '<div class="fw-bold text-success fs-5">₹' + (sm.revenue || 0).toLocaleString('en-IN') + '</div>' +
-                             '<div class="text-muted" style="font-size:10px;">' + sm.transactions + ' Verified Orders</div>' +
+                           '<div class="staff-metric-box bg-dark text-white border-0 shadow-sm">' +
+                             '<div class="text-white-50 fw-bold" style="font-size:10px; text-transform:uppercase;">5. Total Field Sales</div>' +
+                             '<div class="fw-bold text-warning fs-5 mt-1">₹' + (sm.revenue || 0).toLocaleString('en-IN') + '</div>' +
+                             '<div class="text-white-50" style="font-size:10px;">' + sm.transactions + ' Verified Orders</div>' +
                            '</div>' +
                          '</div>' +
                        '</div>' +
@@ -1381,7 +1641,7 @@ function renderCeoDashboard(res) {
     boardHtml += '</div>';
   }
   
-  var lbContainer = document.getElementById('ceoLeaderboardContainer');
+  var lbContainer = document.getElementById('leaderboardList') || document.getElementById('ceoLeaderboardContainer');
   if (lbContainer) lbContainer.innerHTML = boardHtml;
 }
 
