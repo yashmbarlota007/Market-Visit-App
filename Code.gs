@@ -304,10 +304,11 @@ function fetchAndMapOrders() {
     sheetsToScan.push(localStaffSheet);
   }
   
+  var cachedExtApp = null;
   try {
     var externalId = '1np1XfpYjqXcbbNwT7_Q3XzmxxGrcYKacXQV04p1ilYw';
-    var extApp = SpreadsheetApp.openById(externalId);
-    var extStaff = extApp.getSheetByName('Staff');
+    cachedExtApp = SpreadsheetApp.openById(externalId);
+    var extStaff = cachedExtApp.getSheetByName('Staff');
     if (extStaff) {
       sheetsToScan.push(extStaff);
     }
@@ -351,7 +352,7 @@ function fetchAndMapOrders() {
   var orderList = [];
   
   try {
-    var extSpreadsheet = SpreadsheetApp.openById('1np1XfpYjqXcbbNwT7_Q3XzmxxGrcYKacXQV04p1ilYw');
+    var extSpreadsheet = cachedExtApp || SpreadsheetApp.openById('1np1XfpYjqXcbbNwT7_Q3XzmxxGrcYKacXQV04p1ilYw');
     var orderSheet = extSpreadsheet.getSheetByName('Orders') || extSpreadsheet.getSheets()[0];
     var oData = orderSheet.getDataRange().getValues();
     
@@ -424,266 +425,169 @@ function fetchAndMapOrders() {
 // -------------------------------------------------------------
 // SLEEPING GIANTS RETENTION ENGINE
 // -------------------------------------------------------------
-function getSleepingGiantsData() {
-  var allOrders = fetchAndMapOrders();
-  var now = new Date().getTime();
-  var thirtyDaysAgo = now - (30 * 24 * 60 * 60 * 1000);
+function getCEOStatsForRange(startTime, endTime, vData, allOrders) {
+  var stats = { totalVisits: 0, totalCollections: 0, totalSales: 0 };
+  var staffData = {};
+  var allCompanyVisits = [];
+  var allCompanyOrders = [];
 
-  var dealerStats = {};
+  function initDealerMap(staff, area, dealer) {
+    if (!staffData[staff]) {
+      staffData[staff] = { visits: 0, collections: 0, sales: 0, orders: 0, areas: {}, visitsList: [], ordersList: [] };
+    }
+    if (!staffData[staff].areas[area]) {
+      staffData[staff].areas[area] = { visits: 0, sales: 0, dealers: {} };
+    }
+    if (!staffData[staff].areas[area].dealers[dealer]) {
+      staffData[staff].areas[area].dealers[dealer] = { visits: 0, sales: 0, logs: [], orders: [] };
+    }
+  }
 
-  for (var i = 0; i < allOrders.length; i++) {
-     var ord = allOrders[i];
-     var shop = ord.shop;
-     
-     if (shop === "") {
-       continue;
-     }
-     
-     if (!dealerStats[shop]) {
-        dealerStats[shop] = {
-           staff: ord.staff || "Unmapped",
-           area: ord.area || "Unknown",
-           lastOrderDate: ord.timeMs,
-           lastOrderStr: Utilities.formatDate(ord.date, Session.getScriptTimeZone(), "dd/MM/yyyy"),
-           totalSales: 0,
-           recentSales: 0
+  // 1. Process visits in range
+  if (vData && vData.length > 1) {
+    for (var i = 1; i < vData.length; i++) {
+      var dObj = extractDateSafe(vData[i][1]);
+      if (dObj) {
+        var t = dObj.getTime();
+        if (t >= startTime && t <= endTime) {
+          var staffName = String(vData[i][3]).trim();
+          var dealer = String(vData[i][5]).trim().toUpperCase();
+          var area = String(vData[i][4]).trim().toUpperCase() || "UNCATEGORIZED AREA";
+
+          initDealerMap(staffName, area, dealer);
+          stats.totalVisits++;
+          staffData[staffName].visits++;
+          staffData[staffName].areas[area].visits++;
+          staffData[staffName].areas[area].dealers[dealer].visits++;
+
+          var task = vData[i][7];
+          if (task === "Payment Collection") {
+            stats.totalCollections++;
+            staffData[staffName].collections++;
+          }
+
+          var rowTime = formatTimeSafe(vData[i][2]);
+          var dateStr = Utilities.formatDate(dObj, Session.getScriptTimeZone(), "dd/MM/yyyy");
+          var locationStr = String(vData[i][11] || "");
+
+          var visitItem = {
+            id: String(vData[i][0] || ("V" + i)),
+            dateStr: dateStr,
+            timeStr: rowTime,
+            staff: staffName,
+            area: area,
+            dealer: dealer,
+            task: task,
+            location: locationStr
+          };
+          allCompanyVisits.push(visitItem);
+          staffData[staffName].visitsList.push(visitItem);
+
+          var logEntry = {
+            date: dateStr, 
+            time: rowTime, 
+            staff: staffName, 
+            area: area, 
+            dealer: dealer, 
+            task: task,
+            feedback: String(vData[i][40] || ""), 
+            photo: String(vData[i][41] || "")
+          };
+          staffData[staffName].areas[area].dealers[dealer].logs.push(logEntry);
+        }
+      }
+    }
+  }
+
+  // 2. Process orders in range
+  if (allOrders && allOrders.length > 0) {
+    for (var j = 0; j < allOrders.length; j++) {
+      var ord = allOrders[j];
+      if (ord.timeMs >= startTime && ord.timeMs <= endTime) {
+        var creditedStaff = ord.staff;
+        var creditedArea = ord.area;
+        var creditedShop = ord.shop;
+
+        if (!creditedStaff || creditedStaff === "Unassigned" || creditedStaff === "Unmapped") {
+          creditedStaff = "Unmapped";
+          creditedArea = "UNMAPPED LOCATIONS";
+        }
+
+        initDealerMap(creditedStaff, creditedArea, creditedShop);
+
+        var orderDateStr = Utilities.formatDate(ord.date, Session.getScriptTimeZone(), "dd/MM/yyyy");
+        var orderItem = {
+          shop: creditedShop,
+          area: creditedArea,
+          amount: ord.amount,
+          items: ord.items,
+          dateStr: orderDateStr,
+          timeMs: ord.timeMs,
+          staff: creditedStaff
         };
-     }
-     
-     dealerStats[shop].totalSales += ord.amount;
+        allCompanyOrders.push(orderItem);
+        staffData[creditedStaff].ordersList.push(orderItem);
 
-     if (ord.timeMs > dealerStats[shop].lastOrderDate) {
-        dealerStats[shop].lastOrderDate = ord.timeMs;
-        dealerStats[shop].lastOrderStr = Utilities.formatDate(ord.date, Session.getScriptTimeZone(), "dd/MM/yyyy");
-     }
-
-     if (ord.timeMs >= thirtyDaysAgo) {
-        dealerStats[shop].recentSales += ord.amount;
-     }
+        staffData[creditedStaff].areas[creditedArea].dealers[creditedShop].orders.push({
+          date: orderDateStr,
+          amount: ord.amount,
+          items: ord.items
+        });
+      }
+    }
   }
 
-  var sleepingGiants = [];
-  
-  for (var shopKey in dealerStats) {
-     var d = dealerStats[shopKey];
-     
-     if (d.recentSales === 0 && d.totalSales > 0) {
-         var daysSinceLastOrder = Math.floor((now - d.lastOrderDate) / (1000 * 60 * 60 * 24));
-         
-         sleepingGiants.push({
-            shop: shopKey,
-            staff: d.staff,
-            area: d.area,
-            lastOrderStr: d.lastOrderStr,
-            daysInactive: daysSinceLastOrder,
-            totalSales: d.totalSales
-         });
-     }
+  // 3. Compute Metrics for each staff member
+  var leaderboard = [];
+  for (var name in staffData) {
+    if (name === "") continue;
+    var sd = staffData[name];
+    var staffMetricsObj = computeEntityMetrics(sd.visitsList, sd.ordersList);
+    leaderboard.push({
+      name: name,
+      visits: sd.visits,
+      collections: sd.collections,
+      sales: staffMetricsObj.metrics.revenue,
+      orders: staffMetricsObj.metrics.transactions,
+      strike: staffMetricsObj.metrics.conversionRatio,
+      metrics: staffMetricsObj.metrics,
+      dealerBreakdown: staffMetricsObj.dealerBreakdown,
+      visitsList: staffMetricsObj.visitsList,
+      ordersList: staffMetricsObj.ordersList,
+      unvisitedOrdersList: staffMetricsObj.unvisitedOrdersList,
+      areas: sd.areas
+    });
   }
 
-  sleepingGiants.sort(function(a, b) { 
-    return b.totalSales - a.totalSales; 
+  leaderboard.sort(function(a, b) {
+    if (b.sales !== a.sales) return b.sales - a.sales;
+    return b.visits - a.visits;
   });
 
-  return sleepingGiants;
+  var companyMetricsObj = computeEntityMetrics(allCompanyVisits, allCompanyOrders);
+
+  stats.totalSales = companyMetricsObj.metrics.revenue;
+  stats.directSales = companyMetricsObj.metrics.unvisitedRevenue;
+  stats.totalAllSales = companyMetricsObj.metrics.revenue + companyMetricsObj.metrics.unvisitedRevenue;
+
+  return {
+    metrics: stats,
+    companyMetrics: companyMetricsObj.metrics,
+    companyDealerBreakdown: companyMetricsObj.dealerBreakdown,
+    companyVisitsList: companyMetricsObj.visitsList,
+    companyOrdersList: companyMetricsObj.ordersList,
+    companyUnvisitedOrdersList: companyMetricsObj.unvisitedOrdersList,
+    leaderboard: leaderboard
+  };
 }
 
-// -------------------------------------------------------------
-// DIAGNOSTIC AUDIT SYSTEM
-// -------------------------------------------------------------
-function runSystemAudit() {
-  var report = "=== YASH MARKETING: DIAGNOSTIC AUDIT OS ===\n";
-  report += "Time: " + new Date().toLocaleString() + "\n\n";
-  
-  report += "[1] STAFF -> AREA MAPPING CHECK:\n";
-  var areaToStaff = {};
-  var staffSheet = getSheetSafely("Staff Master");
-  
-  if (!staffSheet) {
-    report += "❌ ERROR: Staff Master sheet not found!\n";
-  } else {
-    var staffData = staffSheet.getDataRange().getValues();
-    
-    for (var i = 1; i < staffData.length; i++) {
-      var staffName = String(staffData[i][1]).trim();
-      var areaStr = String(staffData[i][8] || "").trim();
-      
-      if (staffName && areaStr) {
-        report += "Staff: " + staffName + " | Raw Area String: '" + areaStr + "'\n";
-        var areas = areaStr.split(',');
-        
-        for (var k = 0; k < areas.length; k++) {
-          var cleanArea = areas[k].trim().toUpperCase();
-          if (cleanArea !== "") {
-            areaToStaff[cleanArea] = staffName;
-            report += "   -> Mapped Internal Key: [" + cleanArea + "]\n";
-          }
-        }
-      }
-    }
+function getCEOAllBuckets() {
+  var vData = [];
+  var visitSheet = getSheetSafely("Daily Operation");
+  if (visitSheet) {
+    vData = visitSheet.getDataRange().getValues();
   }
-  report += "\n";
-
-  report += "[2] DEALER -> AREA MAPPING CHECK (Sample):\n";
-  var dealerToArea = {};
-  var dealerSheet = getSheetSafely("Dealer Master");
-  
-  if (!dealerSheet) {
-    report += "❌ ERROR: Dealer Master sheet not found!\n";
-  } else {
-    var dData = dealerSheet.getDataRange().getValues();
-    var sampleLimit = 0;
-    
-    for (var i = 1; i < dData.length; i++) {
-      var dName = String(dData[i][1]).trim().toUpperCase();
-      var dArea = String(dData[i][2]).trim().toUpperCase();
-      
-      if (dName && dArea) {
-        dealerToArea[dName] = dArea;
-        
-        if (sampleLimit < 5) {
-          report += "Dealer: [" + dName + "] -> Area: [" + dArea + "]\n";
-          sampleLimit++;
-        }
-      }
-    }
-    report += "...Total Dealers Mapped: " + (dData.length - 1) + "\n\n";
-  }
-
-  report += "[3] EXTERNAL ORDER ATTRIBUTION SIMULATION (Last 10 Orders):\n";
-  try {
-    var externalId = '1np1XfpYjqXcbbNwT7_Q3XzmxxGrcYKacXQV04p1ilYw';
-    var extSpreadsheet = SpreadsheetApp.openById(externalId);
-    var orderSheet = extSpreadsheet.getSheetByName('Orders') || extSpreadsheet.getSheets()[0];
-    
-    var oData = orderSheet.getDataRange().getValues();
-    var head = oData[0];
-    var shopCol = -1;
-    var tCol = -1;
-    
-    for (var c = 0; c < head.length; c++) {
-      var hName = String(head[c]).toLowerCase().replace(/\s+/g, '');
-      if (hName === "shopname") {
-        shopCol = c;
-      }
-      if (hName.includes("total") || hName.includes("amount")) {
-        tCol = c;
-      }
-    }
-
-    var startIdx = oData.length > 10 ? oData.length - 10 : 1;
-    
-    for (var j = startIdx; j < oData.length; j++) {
-       var shopNameRaw = shopCol !== -1 ? String(oData[j][shopCol]).trim() : "";
-       var shopNameUp = shopNameRaw.toUpperCase();
-       var amt = tCol !== -1 ? parseFloat(oData[j][tCol]) || 0 : 0;
-       
-       report += "ORDER: [" + shopNameUp + "] | Amount: ₹" + amt + "\n";
-       
-       var dealerArea = dealerToArea[shopNameUp];
-       if (!dealerArea) {
-         report += "  ❌ FAIL: Shop [" + shopNameUp + "] is NOT listed in your Dealer Master.\n";
-       } else {
-         report += "  ✅ SUCCESS: Shop is linked to Area [" + dealerArea + "]\n";
-         
-         var mappedStaff = areaToStaff[dealerArea];
-         if (!mappedStaff) {
-           report += "  ❌ FAIL: The Area [" + dealerArea + "] is NOT assigned to any staff in Staff Master.\n";
-         } else {
-           report += "  ✅ SUCCESS: Order mapped to Staff [" + mappedStaff + "]\n";
-         }
-       }
-       report += "\n";
-    }
-  } catch (e) {
-    report += "❌ CRITICAL ERROR FETCHING EXTERNAL ORDERS: " + e.message + "\n";
-  }
-  
-  Logger.log(report);
-  return report;
-}
-
-// -------------------------------------------------------------
-// OPTIMIZED ORDER FETCH (SCALABLE CHUNKING ARCHITECTURE)
-// -------------------------------------------------------------
-function getCachedExternalOrders() {
-  var cache = CacheService.getScriptCache();
-  var cacheKey = 'YashMarketing_ExternalOrders_v4';
-
-  // 1. Attempt to assemble data from cached chunks
-  var numChunksStr = cache.get(cacheKey + '_count');
-  if (numChunksStr) {
-    var numChunks = parseInt(numChunksStr, 10);
-    var assembledJson = "";
-    var cacheMiss = false;
-
-    for (var c = 0; c < numChunks; c++) {
-      var chunk = cache.get(cacheKey + '_' + c);
-      if (!chunk) { 
-        cacheMiss = true; 
-        break; 
-      }
-      assembledJson += chunk;
-    }
-
-    if (!cacheMiss) {
-      try {
-        var parsed = JSON.parse(assembledJson);
-        for (var i = 0; i < parsed.length; i++) {
-          parsed[i].date = new Date(parsed[i].date);
-        }
-        return parsed;
-      } catch(e) {
-        // Fallback to fresh fetch if parsing fails
-      }
-    }
-  }
-
-  // 2. Fetch fresh data from the control tower
-  var freshOrders = fetchAndMapOrders();
-  var jsonString = JSON.stringify(freshOrders);
-
-  // 3. Store data in chunks (under the 100KB Google hard limit)
-  var chunkSize = 90000; // 90KB chunks
-  var chunks = Math.ceil(jsonString.length / chunkSize);
-
-  cache.put(cacheKey + '_count', chunks.toString(), 180);
-  for (var i = 0; i < chunks; i++) {
-    var chunkData = jsonString.substring(i * chunkSize, (i + 1) * chunkSize);
-    cache.put(cacheKey + '_' + i, chunkData, 180);
-  }
-
-  return freshOrders;
-}
-
-// -------------------------------------------------------------
-// STAFF DASHBOARD ENGINE
-// -------------------------------------------------------------
-function getStaffDashboardData(staffName) {
-  var staffNameClean = String(staffName).trim();
-  
-  var bucketKeys = ['today', 'yesterday', 'thisWeek', 'lastWeek', 'thisMonth', 'lastMonth', 'thisQuarter', 'lastQuarter', 'thisYear'];
-  var dashboard = { rules: {} };
-  for (var bk = 0; bk < bucketKeys.length; bk++) {
-    dashboard[bucketKeys[bk]] = {
-      visits: 0,
-      sales: 0,
-      visitsList: [],
-      ordersList: [],
-      metrics: {
-        visits: 0,
-        conversionRatio: 0,
-        productiveVisits: 0,
-        avgRsSales: 0,
-        avgRsSalesPerVisit: 0,
-        txnPerDealer: 0,
-        revenue: 0,
-        transactions: 0,
-        uniqueDealersCount: 0
-      },
-      dealerBreakdown: []
-    };
-  }
+  var allOrders = fetchAndMapOrders();
 
   var now = new Date();
   now.setHours(0, 0, 0, 0);
@@ -707,7 +611,6 @@ function getStaffDashboardData(staffName) {
   var startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime();
   var endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999).getTime();
 
-  // 3-month Quarter blocks
   var currentQuarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
   var startOfThisQuarter = new Date(now.getFullYear(), currentQuarterStartMonth, 1).getTime();
   var endOfThisQuarter = new Date(now.getFullYear(), currentQuarterStartMonth + 3, 0, 23, 59, 59, 999).getTime();
@@ -715,291 +618,49 @@ function getStaffDashboardData(staffName) {
   var startOfLastQuarter = new Date(now.getFullYear(), currentQuarterStartMonth - 3, 1).getTime();
   var endOfLastQuarter = new Date(now.getFullYear(), currentQuarterStartMonth, 0, 23, 59, 59, 999).getTime();
 
-  // Year: from Jan 1 of current year
   var startOfThisYear = new Date(now.getFullYear(), 0, 1).getTime();
   var endOfThisYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999).getTime();
 
-  function getBuckets(dateObj) {
-    var t = dateObj.getTime();
-    var buckets = [];
-    if (t >= todayTime && t <= todayEndTime) buckets.push('today');
-    if (t >= yesterdayTime && t <= yesterdayEndTime) buckets.push('yesterday');
-    if (t >= startOfThisWeek && t <= todayEndTime) buckets.push('thisWeek');
-    if (t >= startOfLastWeek && t <= endOfLastWeek) buckets.push('lastWeek');
-    if (t >= startOfThisMonth && t <= endOfThisMonth) buckets.push('thisMonth');
-    if (t >= startOfLastMonth && t <= endOfLastMonth) buckets.push('lastMonth');
-    if (t >= startOfThisQuarter && t <= endOfThisQuarter) buckets.push('thisQuarter');
-    if (t >= startOfLastQuarter && t <= endOfLastQuarter) buckets.push('lastQuarter');
-    if (t >= startOfThisYear && t <= endOfThisYear) buckets.push('thisYear');
-    return buckets;
+  var ranges = {
+    today: [todayTime, todayEndTime],
+    yesterday: [yesterdayTime, yesterdayEndTime],
+    thisWeek: [startOfThisWeek, todayEndTime],
+    lastWeek: [startOfLastWeek, endOfLastWeek],
+    thisMonth: [startOfThisMonth, endOfThisMonth],
+    lastMonth: [startOfLastMonth, endOfLastMonth],
+    thisQuarter: [startOfThisQuarter, endOfThisQuarter],
+    lastQuarter: [startOfLastQuarter, endOfLastQuarter],
+    thisYear: [startOfThisYear, endOfThisYear]
+  };
+
+  var buckets = {};
+  for (var key in ranges) {
+    buckets[key] = getCEOStatsForRange(ranges[key][0], ranges[key][1], vData, allOrders);
   }
-
-  var visitSheet = getSheetSafely("Daily Operation");
-  if (visitSheet) {
-    var vData = visitSheet.getDataRange().getValues();
-    for (var i = 1; i < vData.length; i++) {
-      if (String(vData[i][3]).trim() === staffNameClean) {
-        var dObj = extractDateSafe(vData[i][1]);
-        if (dObj) {
-          var dateStr = Utilities.formatDate(dObj, Session.getScriptTimeZone(), "dd/MM/yyyy");
-          var buckets = getBuckets(dObj);
-          
-          var visitItem = {
-            id: String(vData[i][0] || ("V" + i)),
-            dateStr: dateStr,
-            timeStr: formatTimeSafe(vData[i][2]),
-            dealer: String(vData[i][5] || "").trim(),
-            area: String(vData[i][4] || "").trim(),
-            task: String(vData[i][7] || "Store Visit").trim(),
-            location: String(vData[i][11] || "").trim()
-          };
-          
-          for (var b = 0; b < buckets.length; b++) {
-            var bucketName = buckets[b];
-            dashboard[bucketName].visitsList.push(visitItem);
-          }
-        }
-      }
-    }
-  }
-
-  var allOrders = getCachedExternalOrders(); 
-  for (var o = 0; o < allOrders.length; o++) {
-    var ord = allOrders[o];
-    if (String(ord.staff).trim() === staffNameClean) {
-      var buckets = getBuckets(ord.date);
-      if (buckets.length === 0) continue; 
-      
-      var orderDateStr = Utilities.formatDate(ord.date, Session.getScriptTimeZone(), "dd/MM/yyyy");
-      var orderItem = {
-        shop: ord.shop,
-        area: ord.area,
-        amount: ord.amount,
-        items: ord.items,
-        dateStr: orderDateStr,
-        timeMs: ord.timeMs
-      };
-      
-      for (var b = 0; b < buckets.length; b++) {
-        var bName = buckets[b];
-        dashboard[bName].ordersList.push(orderItem);
-        dashboard[bName].sales += ord.amount;
-      }
-    }
-  }
-
-  // Compute 5 KPI Metrics for Each Time Bucket
-  for (var bk = 0; bk < bucketKeys.length; bk++) {
-    var bName = bucketKeys[bk];
-    var bObj = dashboard[bName];
-    var computed = computeEntityMetrics(bObj.visitsList, bObj.ordersList);
-    bObj.visits = computed.metrics.visits;
-    bObj.sales = computed.metrics.revenue;
-    bObj.metrics = computed.metrics;
-    bObj.dealerBreakdown = computed.dealerBreakdown;
-    bObj.ordersList = computed.ordersList;
-    bObj.unvisitedOrdersList = computed.unvisitedOrdersList;
-  }
-
-  return dashboard;
-}
-
-// -------------------------------------------------------------
-// CORE METRICS COMPUTATION ENGINE (SHARED ACROSS STAFF & CEO)
-// -------------------------------------------------------------
-function computeEntityMetrics(visits, orders) {
-  var visitsList = visits || [];
-  var ordersList = orders || [];
-  
-  function cleanDealerKey(name) {
-    return String(name || "").toUpperCase().replace(/[^A-Z0-9]/g, '');
-  }
-
-  var dealersMap = {};
-
-  // 1. Process all visits (ONLY dealers who were physically visited enter dealersMap)
-  for (var vi = 0; vi < visitsList.length; vi++) {
-    var vItem = visitsList[vi];
-    var dClean = cleanDealerKey(vItem.dealer);
-    if (!dClean) continue;
-    
-    if (!dealersMap[dClean]) {
-      dealersMap[dClean] = {
-        dealerName: vItem.dealer,
-        area: vItem.area || "",
-        staff: vItem.staff || "",
-        visitsCount: 0,
-        ordersCount: 0,
-        convertedVisitsCount: 0,
-        sameDayOrdersCount: 0,
-        sameDayRevenue: 0,
-        totalRevenue: 0,
-        totalAmount: 0,
-        isConverted: false,
-        tasks: [],
-        visits: [],
-        orders: []
-      };
-    }
-    dealersMap[dClean].visitsCount++;
-    dealersMap[dClean].visits.push({
-      id: vItem.id || ("V" + vi),
-      dateStr: vItem.dateStr || "",
-      timeStr: vItem.timeStr || "",
-      dealer: vItem.dealer,
-      area: vItem.area || "",
-      staff: vItem.staff || "",
-      task: vItem.task || "Store Visit",
-      location: vItem.location || "",
-      isConverted: false,
-      sameDayAmount: 0,
-      sameDayOrders: []
-    });
-    if (vItem.task && dealersMap[dClean].tasks.indexOf(vItem.task) === -1) {
-      dealersMap[dClean].tasks.push(vItem.task);
-    }
-  }
-
-  // 2. Process all orders:
-  // ZERO-VISIT EXCLUSION RULE:
-  // An order is counted in Market Visit metrics ONLY IF the dealer was physically visited at least once (visitsCount > 0).
-  // Orders from dealers with 0 visits are separated into unvisitedOrders to prevent artificial KPI inflation.
-  var visitedOrders = [];
-  var unvisitedOrders = [];
-  var unvisitedRevenue = 0;
-
-  for (var oi = 0; oi < ordersList.length; oi++) {
-    var oItem = ordersList[oi];
-    var oClean = cleanDealerKey(oItem.shop);
-    if (!oClean) continue;
-    
-    var matchKey = null;
-    for (var dKey in dealersMap) {
-      if (dKey && oClean && (dKey === oClean || dKey.indexOf(oClean) !== -1 || oClean.indexOf(dKey) !== -1)) {
-        matchKey = dKey;
-        break;
-      }
-    }
-
-    var oAmt = parseFloat(oItem.amount) || 0;
-
-    if (matchKey && dealersMap[matchKey]) {
-      // Visited Dealer Match (Visits >= 1)
-      dealersMap[matchKey].ordersCount++;
-      dealersMap[matchKey].totalRevenue += oAmt;
-      dealersMap[matchKey].totalAmount += oAmt;
-      
-      var visitedOrdRecord = {
-        shop: oItem.shop,
-        amount: oAmt,
-        items: oItem.items || "",
-        dateStr: oItem.dateStr || "",
-        staff: oItem.staff || "",
-        area: oItem.area || "",
-        isSameDayConverted: false
-      };
-      dealersMap[matchKey].orders.push(visitedOrdRecord);
-      visitedOrders.push(visitedOrdRecord);
-    } else {
-      // 0-VISIT ORDER (Dealer had 0 visits in this timeframe)
-      // Excluded from Market Visit KPIs!
-      unvisitedOrders.push({
-        shop: oItem.shop,
-        amount: oAmt,
-        items: oItem.items || "",
-        dateStr: oItem.dateStr || "",
-        staff: oItem.staff || "",
-        area: oItem.area || ""
-      });
-      unvisitedRevenue += oAmt;
-    }
-  }
-
-  // 3. MATCH SAME-DAY VISIT CONVERSIONS (Visit Date == Order Date)
-  var productiveVisitsTotal = 0;
-  var sameDayRevenueTotal = 0;
-  var sameDayOrdersTotal = 0;
-
-  for (var k in dealersMap) {
-    var dData = dealersMap[k];
-    
-    for (var vIdx = 0; vIdx < dData.visits.length; vIdx++) {
-      var vis = dData.visits[vIdx];
-      var vDate = vis.dateStr ? vis.dateStr.trim() : "";
-      
-      var matchedOrders = [];
-      for (var oIdx = 0; oIdx < dData.orders.length; oIdx++) {
-        var ord = dData.orders[oIdx];
-        var oDate = ord.dateStr ? ord.dateStr.trim() : "";
-        if (vDate && oDate && vDate === oDate) {
-          matchedOrders.push(ord);
-          ord.isSameDayConverted = true;
-        }
-      }
-      
-      if (matchedOrders.length > 0) {
-        vis.isConverted = true;
-        vis.sameDayOrders = matchedOrders;
-        vis.sameDayAmount = matchedOrders.reduce(function(sum, o) { return sum + (o.amount || 0); }, 0);
-        dData.convertedVisitsCount++;
-        dData.sameDayOrdersCount += matchedOrders.length;
-        dData.sameDayRevenue += vis.sameDayAmount;
-        productiveVisitsTotal++;
-      }
-    }
-    
-    dData.isConverted = (dData.convertedVisitsCount > 0);
-    sameDayRevenueTotal += dData.sameDayRevenue;
-    sameDayOrdersTotal += dData.sameDayOrdersCount;
-  }
-
-  var dealerBreakdown = [];
-  for (var k in dealersMap) {
-    dealerBreakdown.push(dealersMap[k]);
-  }
-
-  dealerBreakdown.sort(function(a, b) {
-    if (b.sameDayRevenue !== a.sameDayRevenue) return b.sameDayRevenue - a.sameDayRevenue;
-    if (b.totalRevenue !== a.totalRevenue) return b.totalRevenue - a.totalRevenue;
-    return b.visitsCount - a.visitsCount;
-  });
-
-  var totalVisits = visitsList.length;
-  var totalTxns = visitedOrders.length;
-  var totalRev = visitedOrders.reduce(function(sum, o) { return sum + (parseFloat(o.amount) || 0); }, 0);
-  var uniqueVisitedDealers = dealerBreakdown.length;
-
-  // Conversion Ratio = (Productive Visits with Same-Day Order ÷ Total Visits) × 100
-  var convRatio = totalVisits > 0 
-    ? Math.min(100, Math.round((productiveVisitsTotal / totalVisits) * 100)) 
-    : 0;
-
-  var avgSalesOrder = totalTxns > 0 ? Math.round(totalRev / totalTxns) : 0;
-  var avgSalesVisit = totalVisits > 0 ? Math.round(totalRev / totalVisits) : 0;
-
-  var txnPerDealer = uniqueVisitedDealers > 0 ? +(totalTxns / uniqueVisitedDealers).toFixed(2) : 0;
 
   return {
-    metrics: {
-      visits: totalVisits,
-      conversionRatio: convRatio,
-      productiveVisits: productiveVisitsTotal,
-      avgRsSales: avgSalesOrder,
-      avgRsSalesPerVisit: avgSalesVisit,
-      txnPerDealer: txnPerDealer,
-      revenue: totalRev,
-      transactions: totalTxns,
-      uniqueDealersCount: uniqueVisitedDealers,
-      sameDayRevenue: sameDayRevenueTotal,
-      sameDayOrders: sameDayOrdersTotal,
-      unvisitedOrdersCount: unvisitedOrders.length,
-      unvisitedRevenue: unvisitedRevenue
-    },
-    dealerBreakdown: dealerBreakdown,
-    visitsList: visitsList,
-    ordersList: visitedOrders,
-    unvisitedOrdersList: unvisitedOrders
+    success: true,
+    allBuckets: true,
+    buckets: buckets
   };
+}
+
+function getCEOStats(filter, customStartStr, customEndStr) {
+  if (filter === 'custom' && customStartStr && customEndStr) {
+    var startTime = new Date(customStartStr).setHours(0, 0, 0, 0);
+    var endTime = new Date(customEndStr).setHours(23, 59, 59, 999);
+    var vData = [];
+    var visitSheet = getSheetSafely("Daily Operation");
+    if (visitSheet) {
+      vData = visitSheet.getDataRange().getValues();
+    }
+    var allOrders = fetchAndMapOrders();
+    var res = getCEOStatsForRange(startTime, endTime, vData, allOrders);
+    return res;
+  }
+
+  // For standard timeframe queries, return all buckets for 0-second instant client switching
+  return getCEOAllBuckets();
 }
 
 function getCEOStats(filter, customStartStr, customEndStr) {
