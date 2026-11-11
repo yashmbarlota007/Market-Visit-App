@@ -360,25 +360,107 @@
               </div>
             </div>
 
-            <h6 class="mb-2 fw-bold text-dark border-bottom pb-1"><i class="bi bi-graph-up-arrow text-primary"></i> Filtered Network Output</h6>
             
-            <div class="row g-2 mb-3 text-center">
-              <div class="col-4">
-                <div class="p-2 bg-primary bg-opacity-10 rounded border border-primary clickable-card" onclick="showGlobalList()">
-                  <h4 class="text-primary fw-bold mb-0" id="vTotal">0</h4>
-                  <small class="text-dark fw-bold" style="font-size: 10px;">TOTAL VISITS</small>
+            <!-- COMPANY-WIDE 5 PERFORMANCE KPI CARDS -->
+            <div class="card mb-3 border-0 shadow-sm" style="background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0;">
+              <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <h6 class="fw-bold text-dark mb-0" style="font-size: 14px;">
+                    <i class="bi bi-buildings-fill text-primary me-1"></i> Company Performance Overview
+                  </h6>
+                  <span class="badge bg-light text-secondary border" style="font-size: 11px;">
+                    <i class="bi bi-hand-index-thumb"></i> Click card for company drill-down
+                  </span>
                 </div>
-              </div>
-              <div class="col-4">
-                <div class="p-2 bg-success bg-opacity-10 rounded border border-success">
-                  <h4 class="text-success fw-bold mb-0" id="sTotal">��0</h4>
-                  <small class="text-dark fw-bold" style="font-size: 10px;">GROSS SALES</small>
-                </div>
-              </div>
-              <div class="col-4">
-                <div class="p-2 bg-warning bg-opacity-10 rounded border border-warning clickable-card" onclick="showGlobalList()">
-                  <h4 class="text-dark fw-bold mb-0" id="cTotal">0</h4>
-                  <small class="text-dark fw-bold" style="font-size: 10px;">COLLECTIONS</small>
+
+                <!-- 5 KPI Cards -->
+                <div class="row g-2">
+                  <!-- 1. Visits -->
+                  <div class="col-6">
+                    <div class="card h-100 p-2 border-0 shadow-sm clickable-card kpi-card"
+                         style="background: #f0f7ff; border-left: 4px solid #0d6efd !important; border-radius: 10px; cursor: pointer;"
+                         onclick="openCeoPerfModal('visits', 'company')" title="Click to view all company visits">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <span class="small fw-bold text-muted text-uppercase" style="font-size: 11px;">1. Visits</span>
+                        <i class="bi bi-shop text-primary fs-5"></i>
+                      </div>
+                      <div class="fs-3 fw-black text-primary mt-1" id="ceoVisitsVal">0</div>
+                      <div class="text-muted d-flex justify-content-between align-items-center mt-1" style="font-size: 11px;">
+                        <span id="ceoVisitsSub">0 dealers</span>
+                        <i class="bi bi-chevron-right text-muted"></i>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 2. Conversion -->
+                  <div class="col-6">
+                    <div class="card h-100 p-2 border-0 shadow-sm clickable-card kpi-card"
+                         style="background: #f0fdf4; border-left: 4px solid #16a34a !important; border-radius: 10px; cursor: pointer;"
+                         onclick="openCeoPerfModal('conversion', 'company')" title="Click to view company conversion strike rate">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <span class="small fw-bold text-muted text-uppercase" style="font-size: 11px;">2. Conversion</span>
+                        <i class="bi bi-pie-chart-fill text-success fs-5"></i>
+                      </div>
+                      <div class="fs-3 fw-black text-success mt-1" id="ceoConversionVal">0%</div>
+                      <div class="text-muted d-flex justify-content-between align-items-center mt-1" style="font-size: 11px;">
+                        <span id="ceoConversionSub">Strike rate</span>
+                        <i class="bi bi-chevron-right text-muted"></i>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 3. Avg Rs Sales -->
+                  <div class="col-6">
+                    <div class="card h-100 p-2 border-0 shadow-sm clickable-card kpi-card"
+                         style="background: #fffbeb; border-left: 4px solid #d97706 !important; border-radius: 10px; cursor: pointer;"
+                         onclick="openCeoPerfModal('avgSales', 'company')" title="Click to view company average sales">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <span class="small fw-bold text-muted text-uppercase" style="font-size: 11px;">3. Avg Rs Sales</span>
+                        <i class="bi bi-cash-stack text-warning fs-5"></i>
+                      </div>
+                      <div class="fs-4 fw-black text-warning-emphasis mt-1" id="ceoAvgSalesVal">₹0</div>
+                      <div class="text-muted d-flex justify-content-between align-items-center mt-1" style="font-size: 11px;">
+                        <span id="ceoAvgSalesSub">Per order</span>
+                        <i class="bi bi-chevron-right text-muted"></i>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 4. Txn / Dealer -->
+                  <div class="col-6">
+                    <div class="card h-100 p-2 border-0 shadow-sm clickable-card kpi-card"
+                         style="background: #f5f3ff; border-left: 4px solid #7c3aed !important; border-radius: 10px; cursor: pointer;"
+                         onclick="openCeoPerfModal('txnPerDealer', 'company')" title="Click to view company transactions per dealer">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <span class="small fw-bold text-muted text-uppercase" style="font-size: 11px;">4. Txn / Dealer</span>
+                        <i class="bi bi-receipt-cutoff fs-5" style="color: #7c3aed;"></i>
+                      </div>
+                      <div class="fs-3 fw-black mt-1" style="color: #7c3aed;" id="ceoTxnDealerVal">0.0</div>
+                      <div class="text-muted d-flex justify-content-between align-items-center mt-1" style="font-size: 11px;">
+                        <span id="ceoTxnDealerSub">0 orders</span>
+                        <i class="bi bi-chevron-right text-muted"></i>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 5. Revenue (Full Width) -->
+                  <div class="col-12">
+                    <div class="card p-3 border-0 shadow-sm clickable-card kpi-card"
+                         style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: white; border-radius: 10px; cursor: pointer;"
+                         onclick="openCeoPerfModal('revenue', 'company')" title="Click to view all company orders">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                          <span class="text-uppercase text-secondary fw-bold" style="font-size: 11px; letter-spacing: 0.5px;">5. TOTAL COMPANY REVENUE</span>
+                          <div class="fs-2 fw-black text-warning mt-1" id="ceoRevenueVal">₹0</div>
+                        </div>
+                        <div class="text-end">
+                          <span class="badge bg-warning text-dark px-2 py-1 mb-1" id="ceoRevenueOrdersBadge">0 Orders</span>
+                          <div class="small text-secondary" style="font-size: 11px;">Tap to view all orders <i class="bi bi-arrow-right"></i></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                 </div>
               </div>
             </div>
@@ -1229,18 +1311,66 @@ function refreshCEOStats() {
   }).withSuccessHandler(function(res) {
     masterData = res; 
     
-    document.getElementById('vTotal').innerText = res.metrics.totalVisits;
-    document.getElementById('sTotal').innerText = "₹" + (res.metrics.totalSales / 1000).toFixed(1) + "k";
-    document.getElementById('cTotal').innerText = res.metrics.totalCollections;
+    // 1. Populate Company-Wide KPI Cards
+    var cm = res.companyMetrics || {};
+    var cVisits = cm.visits !== undefined ? cm.visits : (res.metrics ? res.metrics.totalVisits : 0);
+    var cConv = (cm.conversionRatio !== undefined ? cm.conversionRatio : 0) + "%";
+    var cAvgSales = "₹" + (cm.avgRsSales || 0).toLocaleString('en-IN');
+    var cTxnDealer = cm.txnPerDealer !== undefined ? cm.txnPerDealer : 0;
+    var cRev = "₹" + (cm.revenue !== undefined ? cm.revenue : (res.metrics ? res.metrics.totalSales : 0)).toLocaleString('en-IN');
     
+    var elCVisits = document.getElementById('ceoVisitsVal');
+    var elCConv = document.getElementById('ceoConversionVal');
+    var elCAvg = document.getElementById('ceoAvgSalesVal');
+    var elCTxn = document.getElementById('ceoTxnDealerVal');
+    var elCRev = document.getElementById('ceoRevenueVal');
+    
+    if (elCVisits) elCVisits.innerText = cVisits;
+    if (elCConv) elCConv.innerText = cConv;
+    if (elCAvg) elCAvg.innerText = cAvgSales;
+    if (elCTxn) elCTxn.innerText = cTxnDealer;
+    if (elCRev) elCRev.innerText = cRev;
+    
+    var elCVisitsSub = document.getElementById('ceoVisitsSub');
+    var elCConvSub = document.getElementById('ceoConversionSub');
+    var elCAvgSub = document.getElementById('ceoAvgSalesSub');
+    var elCTxnSub = document.getElementById('ceoTxnDealerSub');
+    var elCRevBadge = document.getElementById('ceoRevenueOrdersBadge');
+    
+    var cDealers = cm.uniqueDealersCount || 0;
+    var cProd = cm.productiveVisits || 0;
+    var cAvgPerVisit = "₹" + (cm.avgRsSalesPerVisit || 0).toLocaleString('en-IN');
+    var cOrders = cm.transactions || 0;
+    
+    if (elCVisitsSub) elCVisitsSub.innerText = cDealers + (cDealers === 1 ? ' dealer' : ' dealers');
+    if (elCConvSub) elCConvSub.innerText = cProd + '/' + cVisits + ' converted';
+    if (elCAvgSub) elCAvgSub.innerText = cAvgPerVisit + ' / visit';
+    if (elCTxnSub) elCTxnSub.innerText = cOrders + (cOrders === 1 ? ' order' : ' orders');
+    if (elCRevBadge) elCRevBadge.innerText = cOrders + (cOrders === 1 ? ' Order' : ' Orders');
+
+    // 2. Render Team Leaderboard with 5 Clickable Metrics for Each Sales Boy
     var boardHtml = '<div class="accordion accordion-flush" id="staffAccordion">';
     
     if (!res.leaderboard || res.leaderboard.length === 0) {
       boardHtml += '<div class="text-center p-3 text-muted border rounded">No data found for this period.</div>';
     } else {
       res.leaderboard.forEach(function(staff, index) {
-        var badge = index === 0 ? '<span class="badge bg-success ms-2" style="font-size:10px;">TOP</span>' : '';
+        var badge = index === 0 ? '<span class="badge bg-success ms-2" style="font-size:10px;">TOP PERFORMER 🏆</span>' : '';
         var collapseId = 'collapse' + index;
+        var sm = staff.metrics || {
+          visits: staff.visits,
+          conversionRatio: staff.strike || 0,
+          productiveVisits: 0,
+          avgRsSales: 0,
+          avgRsSalesPerVisit: 0,
+          txnPerDealer: 0,
+          revenue: staff.sales,
+          transactions: 0,
+          uniqueDealersCount: 0
+        };
+        
+        var safeStaffName = encodeURIComponent(staff.name);
+        
         var areasHtml = '<div class="text-muted small p-2">No Orders or Visits in this timeframe</div>';
         
         if (staff.areas && Object.keys(staff.areas).length > 0) {
@@ -1286,30 +1416,65 @@ function refreshCEOStats() {
           areasHtml += '</div>';
         }
 
-        boardHtml += '<div class="accordion-item border rounded mb-2 shadow-sm">' +
-          '<h2 class="accordion-header" id="heading' + index + '">' +
-            '<button class="accordion-button collapsed p-2" type="button" data-bs-toggle="collapse" data-bs-target="#' + collapseId + '">' +
-              '<div class="w-100">' +
-                '<div class="fw-bold text-dark mb-2" style="font-size: 15px;">' + staff.name + ' ' + badge + '</div>' +
-                '<div class="d-flex justify-content-between pe-3">' +
-                  '<div class="text-center border rounded p-1 flex-fill me-1 bg-primary bg-opacity-10 border-primary">' +
-                    '<div style="font-size:9px;" class="fw-bold text-primary">VISITS</div>' +
-                    '<div class="fw-bold fs-5 text-primary">' + staff.visits + '</div>' +
-                  '</div>' +
-                  '<div class="text-center border rounded p-1 flex-fill me-1 bg-success bg-opacity-10 border-success">' +
-                    '<div style="font-size:9px;" class="fw-bold text-success">SALES</div>' +
-                    '<div class="fw-bold fs-6 text-success">&#8377;' + staff.sales.toLocaleString('en-IN') + '</div>' +
-                  '</div>' +
-                  '<div class="text-center border rounded p-1 flex-fill bg-dark bg-opacity-10 border-dark">' +
-                    '<div style="font-size:9px;" class="fw-bold text-dark">STRIKE</div>' +
-                    '<div class="fw-bold fs-5 text-dark">' + staff.strike + '%</div>' +
-                  '</div>' +
+        boardHtml += '<div class="card border rounded mb-3 shadow-sm bg-white" style="border-radius:12px; overflow:hidden;">' +
+          '<div class="p-3 bg-light border-bottom d-flex justify-content-between align-items-center">' +
+            '<div>' +
+              '<h6 class="fw-bold text-dark mb-0" style="font-size:15px;"><i class="bi bi-person-fill text-primary"></i> ' + staff.name + ' ' + badge + '</h6>' +
+              '<small class="text-muted" style="font-size:11px;">Click any metric below for drill-down</small>' +
+            '</div>' +
+            '<button class="btn btn-sm btn-outline-dark fw-bold py-1 px-2" type="button" data-bs-toggle="collapse" data-bs-target="#' + collapseId + '">' +
+              '<i class="bi bi-diagram-3"></i> Areas <i class="bi bi-chevron-down"></i>' +
+            '</button>' +
+          '</div>' +
+
+          '<!-- 5 Clickable KPI Metrics for ' + staff.name + ' -->' +
+          '<div class="p-2 bg-white">' +
+            '<div class="row g-1 text-center">' +
+              '<!-- 1. Visits -->' +
+              '<div class="col-4">' +
+                '<div class="p-2 rounded border border-primary bg-primary bg-opacity-10 clickable-card" style="cursor:pointer;" onclick="openCeoPerfModal(\'visits\', decodeURIComponent(\'' + safeStaffName + '\'))" title="Click to view staff visits">' +
+                  '<div style="font-size:9px;" class="fw-bold text-primary text-uppercase">1. Visits</div>' +
+                  '<div class="fw-black fs-5 text-primary">' + sm.visits + '</div>' +
+                  '<small class="text-muted" style="font-size:9px;">' + (sm.uniqueDealersCount || 0) + ' dealers</small>' +
                 '</div>' +
               '</div>' +
-            '</button>' +
-          '</h2>' +
-          '<div id="' + collapseId + '" class="accordion-collapse collapse" data-bs-parent="#staffAccordion">' +
-            '<div class="accordion-body p-0">' + areasHtml + '</div>' +
+              '<!-- 2. Conversion Strike -->' +
+              '<div class="col-4">' +
+                '<div class="p-2 rounded border border-success bg-success bg-opacity-10 clickable-card" style="cursor:pointer;" onclick="openCeoPerfModal(\'conversion\', decodeURIComponent(\'' + safeStaffName + '\'))" title="Click to view staff conversion">' +
+                  '<div style="font-size:9px;" class="fw-bold text-success text-uppercase">2. Strike</div>' +
+                  '<div class="fw-black fs-5 text-success">' + sm.conversionRatio + '%</div>' +
+                  '<small class="text-muted" style="font-size:9px;">' + (sm.productiveVisits || 0) + '/' + sm.visits + ' conv</small>' +
+                '</div>' +
+              '</div>' +
+              '<!-- 3. Avg Rs Sales -->' +
+              '<div class="col-4">' +
+                '<div class="p-2 rounded border border-warning bg-warning bg-opacity-10 clickable-card" style="cursor:pointer;" onclick="openCeoPerfModal(\'avgSales\', decodeURIComponent(\'' + safeStaffName + '\'))" title="Click to view staff avg sales">' +
+                  '<div style="font-size:9px;" class="fw-bold text-warning-emphasis text-uppercase">3. Avg/Order</div>' +
+                  '<div class="fw-bold fs-6 text-warning-emphasis">₹' + (sm.avgRsSales || 0).toLocaleString('en-IN') + '</div>' +
+                  '<small class="text-muted" style="font-size:9px;">₹' + (sm.avgRsSalesPerVisit || 0).toLocaleString('en-IN') + '/vis</small>' +
+                '</div>' +
+              '</div>' +
+              '<!-- 4. Txn / Dealer -->' +
+              '<div class="col-6 mt-1">' +
+                '<div class="p-2 rounded border clickable-card" style="border-color: #7c3aed !important; background: #f5f3ff; cursor:pointer;" onclick="openCeoPerfModal(\'txnPerDealer\', decodeURIComponent(\'' + safeStaffName + '\'))" title="Click to view transactions per dealer">' +
+                  '<div style="font-size:9px; color:#7c3aed;" class="fw-bold text-uppercase">4. Txn / Dealer</div>' +
+                  '<div class="fw-black fs-5" style="color:#7c3aed;">' + sm.txnPerDealer + '</div>' +
+                  '<small class="text-muted" style="font-size:9px;">' + (sm.transactions || 0) + ' orders / ' + (sm.uniqueDealersCount || 0) + ' dealers</small>' +
+                '</div>' +
+              '</div>' +
+              '<!-- 5. Total Revenue -->' +
+              '<div class="col-6 mt-1">' +
+                '<div class="p-2 rounded border clickable-card" style="border-color: #0f172a !important; background: #0f172a; color:white; cursor:pointer;" onclick="openCeoPerfModal(\'revenue\', decodeURIComponent(\'' + safeStaffName + '\'))" title="Click to view staff orders">' +
+                  '<div style="font-size:9px;" class="fw-bold text-warning text-uppercase">5. Total Revenue</div>' +
+                  '<div class="fw-black fs-5 text-warning">₹' + (sm.revenue || 0).toLocaleString('en-IN') + '</div>' +
+                  '<small class="text-secondary" style="font-size:9px;">' + (sm.transactions || 0) + ' orders total</small>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+
+          '<div id="' + collapseId + '" class="collapse" data-bs-parent="#staffAccordion">' +
+            '<div class="p-0 border-top">' + areasHtml + '</div>' +
           '</div>' +
         '</div>';
       });
@@ -2346,6 +2511,270 @@ function openPerfModal(metricType) {
                       '<div>' +
                         '<h6 class="fw-bold text-dark mb-0">' + (idx + 1) + '. ' + ord.shop + '</h6>' +
                         '<span class="text-muted small">' + ord.dateStr + ' • ' + (ord.area || 'Direct') + '</span>' +
+                      '</div>' +
+                      '<h5 class="fw-bold text-success mb-0">₹' + ord.amount.toLocaleString('en-IN') + '</h5>' +
+                    '</div>' +
+                    itemsHtml +
+                  '</div>' +
+                '</div>';
+      });
+      body.innerHTML = html;
+    }
+  }
+  
+  new bootstrap.Modal(document.getElementById('perfDetailModal')).show();
+}
+
+
+
+// -------------------------------------------------------------
+// CEO DRILL-DOWN MODAL & LEADERBOARD CLICKABLE METRICS ENGINE
+// -------------------------------------------------------------
+function openCeoPerfModal(metricType, targetKey) {
+  if (!masterData) return;
+  
+  var isCompany = targetKey === 'company';
+  var dataObj = null;
+  var entityTitle = "";
+  
+  if (isCompany) {
+    dataObj = {
+      metrics: masterData.companyMetrics || {},
+      visitsList: masterData.companyVisitsList || [],
+      ordersList: masterData.companyOrdersList || [],
+      dealerBreakdown: masterData.companyDealerBreakdown || []
+    };
+    entityTitle = "🏢 Company-Wide";
+  } else {
+    var foundStaff = (masterData.leaderboard || []).find(function(s) { return s.name === targetKey; });
+    if (!foundStaff) return;
+    dataObj = {
+      metrics: foundStaff.metrics || {},
+      visitsList: foundStaff.visitsList || [],
+      ordersList: foundStaff.ordersList || [],
+      dealerBreakdown: foundStaff.dealerBreakdown || []
+    };
+    entityTitle = "👤 " + targetKey;
+  }
+  
+  var filterSelect = document.getElementById('ceoFilter');
+  var filterLabel = filterSelect ? filterSelect.options[filterSelect.selectedIndex].text : "Selected Period";
+  
+  var m = dataObj.metrics || {};
+  var header = document.getElementById('perfModalHeader');
+  var title = document.getElementById('perfModalTitle');
+  var body = document.getElementById('perfModalBody');
+  
+  var visitsList = dataObj.visitsList || [];
+  var ordersList = dataObj.ordersList || [];
+  var breakdown = dataObj.dealerBreakdown || [];
+  
+  if (metricType === 'visits') {
+    header.style.background = '#0d6efd';
+    title.innerHTML = '<i class="bi bi-shop"></i> ' + entityTitle + ' Visits (' + visitsList.length + ')';
+    
+    if (visitsList.length === 0) {
+      body.innerHTML = '<div class="text-center p-4 text-muted fw-bold"><i class="bi bi-calendar-x fs-1 d-block mb-2 text-secondary"></i>No store visits recorded for ' + filterLabel + '.</div>';
+    } else {
+      var html = '<div class="alert alert-primary py-2 px-3 mb-3 d-flex justify-content-between align-items-center" style="font-size:13px;">' +
+                   '<span><b>Total Visits:</b> ' + visitsList.length + '</span>' +
+                   '<span><b>Dealers:</b> ' + (m.uniqueDealersCount || 0) + '</span>' +
+                 '</div>';
+      
+      visitsList.forEach(function(v, idx) {
+        var mapLink = v.location ? '<a href="https://www.google.com/maps?q=' + encodeURIComponent(v.location) + '" target="_blank" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size:11px;"><i class="bi bi-geo-alt-fill"></i> Map</a>' : '';
+        var staffBadge = isCompany ? '<span class="badge bg-dark me-1" style="font-size:10px;"><i class="bi bi-person"></i> ' + (v.staff ? v.staff.split(' ')[0] : 'Staff') + '</span>' : '';
+        html += '<div class="card mb-2 border-0 shadow-sm" style="border-radius:10px;">' +
+                  '<div class="card-body p-3">' +
+                    '<div class="d-flex justify-content-between align-items-start mb-1">' +
+                      '<h6 class="fw-bold text-dark mb-0">' + (idx + 1) + '. ' + v.dealer + '</h6>' +
+                      '<span class="badge bg-primary-subtle text-primary border border-primary-subtle">' + (v.timeStr || '--:--') + '</span>' +
+                    '</div>' +
+                    '<div class="text-muted small mb-2"><i class="bi bi-pin-map"></i> ' + v.area + '</div>' +
+                    '<div class="d-flex justify-content-between align-items-center pt-2 border-top">' +
+                      '<div>' + staffBadge + '<span class="badge bg-secondary-subtle text-secondary">' + v.task + '</span></div>' +
+                      mapLink +
+                    '</div>' +
+                  '</div>' +
+                '</div>';
+      });
+      body.innerHTML = html;
+    }
+  } 
+  else if (metricType === 'conversion') {
+    header.style.background = '#16a34a';
+    title.innerHTML = '<i class="bi bi-pie-chart-fill"></i> ' + entityTitle + ' Conversion (' + (m.conversionRatio || 0) + '%)';
+    
+    var convertedDealers = breakdown.filter(function(d) { return d.isConverted && d.ordersCount > 0; });
+    var zeroSaleDealers = breakdown.filter(function(d) { return d.visitsCount > 0 && (!d.isConverted || d.ordersCount === 0); });
+    
+    var html = '<div class="card mb-3 border-0 bg-success text-white p-3 text-center shadow-sm" style="border-radius:12px;">' +
+                 '<div class="small text-uppercase opacity-75 fw-bold">Conversion Strike Rate</div>' +
+                 '<div class="display-6 fw-bold">' + (m.conversionRatio || 0) + '%</div>' +
+                 '<div class="small mt-1 opacity-90">' + (m.productiveVisits || 0) + ' converted out of ' + (m.visits || 0) + ' visits</div>' +
+                 '<div class="badge bg-white text-success mx-auto mt-2 px-3 py-1 fw-bold" style="font-size:11px;">Formula: (Converted Visits ÷ Total Visits) × 100</div>' +
+               '</div>';
+               
+    html += '<h6 class="fw-bold text-success mb-2"><i class="bi bi-check-circle-fill"></i> Converted Visits (' + convertedDealers.length + ' Dealers)</h6>';
+    if (convertedDealers.length === 0) {
+      html += '<div class="card mb-3 p-3 text-center text-muted border-0 shadow-sm" style="font-size:13px;">No converted orders in this period.</div>';
+    } else {
+      convertedDealers.forEach(function(cd) {
+        var staffInfo = cd.staff ? '<span class="badge bg-light text-dark border me-1">' + cd.staff.split(' ')[0] + '</span>' : '';
+        html += '<div class="card mb-2 border-0 shadow-sm" style="border-left: 4px solid #16a34a !important; border-radius:8px;">' +
+                  '<div class="card-body p-2 d-flex justify-content-between align-items-center">' +
+                    '<div>' +
+                      '<div class="fw-bold text-dark" style="font-size:13px;">' + cd.dealerName + '</div>' +
+                      '<div class="text-muted" style="font-size:11px;">' + staffInfo + cd.visitsCount + ' Visits • ' + cd.ordersCount + ' Orders</div>' +
+                    '</div>' +
+                    '<div class="text-end">' +
+                      '<div class="fw-bold text-success fs-6">₹' + cd.totalAmount.toLocaleString('en-IN') + '</div>' +
+                      '<span class="badge bg-success-subtle text-success" style="font-size:10px;">Converted ✅</span>' +
+                    '</div>' +
+                  '</div>' +
+                '</div>';
+      });
+    }
+    
+    if (zeroSaleDealers.length > 0) {
+      html += '<h6 class="fw-bold text-warning-emphasis mt-3 mb-2"><i class="bi bi-hourglass-split"></i> Visited Without Sale (' + zeroSaleDealers.length + ' Dealers)</h6>';
+      zeroSaleDealers.forEach(function(zd) {
+        var staffInfo = zd.staff ? '<span class="badge bg-light text-dark border me-1">' + zd.staff.split(' ')[0] + '</span>' : '';
+        html += '<div class="card mb-2 border-0 shadow-sm" style="border-left: 4px solid #f59e0b !important; border-radius:8px;">' +
+                  '<div class="card-body p-2 d-flex justify-content-between align-items-center">' +
+                    '<div>' +
+                      '<div class="fw-bold text-dark" style="font-size:13px;">' + zd.dealerName + '</div>' +
+                      '<div class="text-muted" style="font-size:11px;">' + staffInfo + (zd.tasks.join(', ') || 'Store Visit') + '</div>' +
+                    '</div>' +
+                    '<div class="text-end">' +
+                      '<span class="badge bg-warning-subtle text-warning-emphasis" style="font-size:10px;">Follow-up Needed ⏳</span>' +
+                    '</div>' +
+                  '</div>' +
+                '</div>';
+      });
+    }
+    
+    body.innerHTML = html;
+  }
+  else if (metricType === 'avgSales') {
+    header.style.background = '#d97706';
+    title.innerHTML = '<i class="bi bi-cash-stack"></i> ' + entityTitle + ' Avg Rs Sales';
+    
+    var html = '<div class="row g-2 mb-3">' +
+                 '<div class="col-6">' +
+                   '<div class="card p-2 text-center border-0 shadow-sm bg-white" style="border-radius:10px;">' +
+                     '<div class="text-muted small fw-bold text-uppercase" style="font-size:10px;">Avg Per Order</div>' +
+                     '<div class="fs-4 fw-bold text-warning-emphasis">₹' + (m.avgRsSales || 0).toLocaleString('en-IN') + '</div>' +
+                     '<div class="text-muted" style="font-size:10px;">Total Rev ÷ ' + (m.transactions || 0) + ' Orders</div>' +
+                   '</div>' +
+                 '</div>' +
+                 '<div class="col-6">' +
+                   '<div class="card p-2 text-center border-0 shadow-sm bg-white" style="border-radius:10px;">' +
+                     '<div class="text-muted small fw-bold text-uppercase" style="font-size:10px;">Avg Per Visit</div>' +
+                     '<div class="fs-4 fw-bold text-primary">₹' + (m.avgRsSalesPerVisit || 0).toLocaleString('en-IN') + '</div>' +
+                     '<div class="text-muted" style="font-size:10px;">Total Rev ÷ ' + (m.visits || 0) + ' Visits</div>' +
+                   '</div>' +
+                 '</div>' +
+               '</div>';
+               
+    html += '<h6 class="fw-bold text-dark mb-2"><i class="bi bi-receipt"></i> Orders Contributing (' + ordersList.length + ')</h6>';
+    if (ordersList.length === 0) {
+      body.innerHTML = html + '<div class="text-center p-4 text-muted fw-bold">No orders booked in ' + filterLabel + '.</div>';
+    } else {
+      ordersList.forEach(function(ord, idx) {
+        var staffInfo = isCompany && ord.staff ? '<span class="badge bg-dark me-1" style="font-size:10px;">' + ord.staff.split(' ')[0] + '</span>' : '';
+        html += '<div class="card mb-2 border-0 shadow-sm" style="border-radius:10px;">' +
+                  '<div class="card-body p-2 d-flex justify-content-between align-items-center">' +
+                    '<div>' +
+                      '<div class="fw-bold text-dark" style="font-size:13px;">' + (idx + 1) + '. ' + ord.shop + '</div>' +
+                      '<div class="text-muted" style="font-size:11px;">' + staffInfo + ord.dateStr + ' • ' + (ord.area || 'Direct') + '</div>' +
+                    '</div>' +
+                    '<div class="text-end">' +
+                      '<div class="fw-bold text-dark fs-6">₹' + ord.amount.toLocaleString('en-IN') + '</div>' +
+                    '</div>' +
+                  '</div>' +
+                '</div>';
+      });
+      body.innerHTML = html;
+    }
+  }
+  else if (metricType === 'txnPerDealer') {
+    header.style.background = '#7c3aed';
+    title.innerHTML = '<i class="bi bi-receipt-cutoff"></i> ' + entityTitle + ' Txn / Dealer (' + (m.txnPerDealer || 0) + ')';
+    
+    var html = '<div class="card mb-3 border-0 text-white p-3 text-center shadow-sm" style="background:#7c3aed; border-radius:12px;">' +
+                 '<div class="small text-uppercase opacity-75 fw-bold">Average Orders Per Dealer</div>' +
+                 '<div class="display-6 fw-bold">' + (m.txnPerDealer || 0) + '</div>' +
+                 '<div class="small mt-1 opacity-90">' + (m.transactions || 0) + ' Orders across ' + (m.uniqueDealersCount || 0) + ' Dealers</div>' +
+                 '<div class="badge bg-white text-purple mx-auto mt-2 px-3 py-1 fw-bold" style="color:#7c3aed; font-size:11px;">Formula: Total Orders ÷ Visited Dealers</div>' +
+               '</div>';
+               
+    html += '<h6 class="fw-bold text-dark mb-2"><i class="bi bi-building"></i> Dealer-Wise Breakdown</h6>';
+    if (breakdown.length === 0) {
+      body.innerHTML = html + '<div class="text-center p-4 text-muted fw-bold">No dealer interactions in ' + filterLabel + '.</div>';
+    } else {
+      breakdown.forEach(function(d) {
+        var statusBadge = d.ordersCount > 0 ? '<span class="badge bg-success-subtle text-success">Active ✅</span>' : '<span class="badge bg-secondary-subtle text-secondary">Visit Only</span>';
+        var staffBadge = isCompany && d.staff ? '<span class="badge bg-light text-dark border me-1">' + d.staff.split(' ')[0] + '</span>' : '';
+        html += '<div class="card mb-2 border-0 shadow-sm" style="border-radius:10px;">' +
+                  '<div class="card-body p-3">' +
+                    '<div class="d-flex justify-content-between align-items-start mb-2">' +
+                      '<div>' +
+                        '<h6 class="fw-bold text-dark mb-0">' + d.dealerName + '</h6>' +
+                        '<span class="text-muted small">' + staffBadge + (d.area || 'All Areas') + '</span>' +
+                      '</div>' +
+                      statusBadge +
+                    '</div>' +
+                    '<div class="row g-1 text-center pt-2 border-top" style="font-size:12px;">' +
+                      '<div class="col-4 border-end">' +
+                        '<div class="text-muted" style="font-size:10px;">VISITS</div>' +
+                        '<div class="fw-bold text-primary">' + d.visitsCount + '</div>' +
+                      '</div>' +
+                      '<div class="col-4 border-end">' +
+                        '<div class="text-muted" style="font-size:10px;">ORDERS</div>' +
+                        '<div class="fw-bold text-success">' + d.ordersCount + '</div>' +
+                      '</div>' +
+                      '<div class="col-4">' +
+                        '<div class="text-muted" style="font-size:10px;">SALES</div>' +
+                        '<div class="fw-bold text-dark">₹' + d.totalAmount.toLocaleString('en-IN') + '</div>' +
+                      '</div>' +
+                    '</div>' +
+                  '</div>' +
+                '</div>';
+      });
+      body.innerHTML = html;
+    }
+  }
+  else if (metricType === 'revenue') {
+    header.style.background = '#1e293b';
+    title.innerHTML = '<i class="bi bi-currency-rupee text-warning"></i> ' + entityTitle + ' Revenue (₹' + (m.revenue || 0).toLocaleString('en-IN') + ')';
+    
+    var html = '<div class="card mb-3 border-0 text-white p-3 text-center shadow-sm" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius:12px;">' +
+                 '<div class="small text-uppercase opacity-75 fw-bold text-warning">Total Sales Booked</div>' +
+                 '<div class="display-6 fw-bold text-warning">₹' + (m.revenue || 0).toLocaleString('en-IN') + '</div>' +
+                 '<div class="small mt-1 opacity-90">' + ordersList.length + ' Orders Booked in ' + filterLabel + '</div>' +
+               '</div>';
+               
+    html += '<h6 class="fw-bold text-dark mb-2"><i class="bi bi-bag-check-fill text-success"></i> Itemized Orders List</h6>';
+    if (ordersList.length === 0) {
+      body.innerHTML = html + '<div class="text-center p-4 text-muted fw-bold">No orders recorded for ' + filterLabel + '.</div>';
+    } else {
+      ordersList.forEach(function(ord, idx) {
+        var itemsHtml = "";
+        if (ord.items) {
+          var itemsArr = ord.items.split('|');
+          itemsHtml = '<div class="mt-2 pt-2 border-top text-muted" style="font-size:11px; line-height:1.4;">' +
+                        '<i class="bi bi-box-seam text-primary me-1"></i> ' + itemsArr.map(function(it){ return it.trim(); }).join('<br><i class="bi bi-box-seam text-primary me-1"></i> ') +
+                      '</div>';
+        }
+        var staffBadge = isCompany && ord.staff ? '<span class="badge bg-dark me-1" style="font-size:10px;"><i class="bi bi-person"></i> ' + ord.staff + '</span>' : '';
+        
+        html += '<div class="card mb-2 border-0 shadow-sm" style="border-radius:10px;">' +
+                  '<div class="card-body p-3">' +
+                    '<div class="d-flex justify-content-between align-items-start">' +
+                      '<div>' +
+                        '<h6 class="fw-bold text-dark mb-0">' + (idx + 1) + '. ' + ord.shop + '</h6>' +
+                        '<span class="text-muted small">' + staffBadge + ord.dateStr + ' • ' + (ord.area || 'Direct') + '</span>' +
                       '</div>' +
                       '<h5 class="fw-bold text-success mb-0">₹' + ord.amount.toLocaleString('en-IN') + '</h5>' +
                     '</div>' +
