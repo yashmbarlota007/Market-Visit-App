@@ -345,6 +345,9 @@
                 <option value="lastWeek">Last Week</option>
                 <option value="thisMonth">This Month</option>
                 <option value="lastMonth">Last Month</option>
+                <option value="thisQuarter">This Quarter</option>
+                <option value="lastQuarter">Last Quarter</option>
+                <option value="thisYear">This Year</option>
                 <option value="custom">Custom Date Range...</option>
               </select>
               
@@ -531,11 +534,16 @@
                   </div>
 
                   <!-- Period Filter Tabs -->
-                  <div class="btn-group w-100 mb-3" role="group" id="kpiPeriodTabs" style="box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                    <button type="button" class="btn btn-sm btn-primary fw-bold" onclick="switchKpiPeriod('today', this)">Today</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary fw-semibold" onclick="switchKpiPeriod('yesterday', this)">Yesterday</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary fw-semibold" onclick="switchKpiPeriod('thisWeek', this)">This Week</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary fw-semibold" onclick="switchKpiPeriod('thisMonth', this)">This Month</button>
+                  <div class="d-flex overflow-auto text-nowrap pb-1 mb-3" id="kpiPeriodTabs" style="gap: 6px; -webkit-overflow-scrolling: touch;">
+                    <button type="button" class="btn btn-sm btn-primary fw-bold px-3" onclick="switchKpiPeriod('today', this)">Today</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary fw-semibold px-3" onclick="switchKpiPeriod('yesterday', this)">Yesterday</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary fw-semibold px-3" onclick="switchKpiPeriod('thisWeek', this)">This Week</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary fw-semibold px-3" onclick="switchKpiPeriod('lastWeek', this)">Last Week</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary fw-semibold px-3" onclick="switchKpiPeriod('thisMonth', this)">This Month</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary fw-semibold px-3" onclick="switchKpiPeriod('lastMonth', this)">Last Month</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary fw-semibold px-3" onclick="switchKpiPeriod('thisQuarter', this)">This Quarter</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary fw-semibold px-3" onclick="switchKpiPeriod('lastQuarter', this)">Last Quarter</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary fw-semibold px-3" onclick="switchKpiPeriod('thisYear', this)">This Year</button>
                   </div>
 
                   <!-- 5 KPI Clickable Cards -->
@@ -632,83 +640,7 @@
                 </div>
               </div>
 
-              <div id="focusedBrandBanner" class="focus-brand-banner">
-                <div class="small text-uppercase mb-2">HOT Active Brand Incentives HOT</div>
-                <div class="mb-1" id="fBrandName"></div>
-              </div>
-
-              <div class="general-scheme-card">
-                <div class="text-muted small fw-bold mb-2">OTHER ACTIVE SCHEMES</div>
-                <div class="d-flex justify-content-around">
-                  <div>
-                    <span class="fs-5 text-dark fw-bold">₹<span id="uiVisitRate">0</span></span><br>
-                    <small class="text-muted">Per Visit</small>
-                  </div>
-                  <div class="border-start border-secondary"></div>
-                  <div>
-                    <span class="fs-5 text-dark fw-bold">₹<span id="uiPcRate">0</span></span><br>
-                    <small class="text-muted">General / Pc</small>
-                  </div>
-                  <div class="border-start border-secondary"></div>
-                  <div>
-                    <span class="fs-5 text-dark fw-bold">₹<span id="uiThousandRate">0</span></span><br>
-                    <small class="text-muted">Per ₹1k Sale</small>
-                  </div>
-                </div>
-              </div>
-              
-              <h6 class="fw-bold text-secondary mb-3"><i class="bi bi-wallet2 text-success"></i> My Earnings <small class="text-muted fw-normal">(Click for Ledger)</small></h6>
-
-              <!-- Daily Threshold Progress Bar -->
-              <div class="mb-3 px-2">
-                <div class="d-flex justify-content-between small fw-bold mb-1">
-                  <span class="text-dark">Daily Visit Target (Min 12)</span>
-                  <span id="visitTrackerText" class="text-primary">0 / 12</span>
-                </div>
-                <div class="progress" style="height: 10px;">
-                  <div id="visitProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 0%"></div>
-                </div>
-              </div>
-
-              <div class="row g-2 mb-3">
-                <div class="col-12">
-                  <div class="inc-box text-center clickable-card" style="background:#f8fff9; cursor: pointer;" onclick="openLedger('today', 'Today')">
-                    <div class="inc-title">Earned Today</div>
-                    <div class="inc-val" style="font-size:2.5rem;" id="incToday">₹0</div>
-                    <div class="text-muted fw-bold mt-1">
-                      <i class="bi bi-shop text-primary"></i> <span id="visToday" class="text-dark fs-5">0</span> Visits Completed
-                    </div>
-                  </div>
-                </div>
-                <div class="col-6">
-                  <div class="inc-box text-center border-primary clickable-card" style="cursor: pointer;" onclick="openLedger('thisWeek', 'This Week')">
-                    <div class="inc-title">This Week</div>
-                    <div class="inc-val text-primary fs-4" id="incWeek">₹0</div>
-                    <div class="text-muted small fw-bold mt-1"><i class="bi bi-shop"></i> <span id="visWeek">0</span> Visits</div>
-                  </div>
-                </div>
-                <div class="col-6">
-                  <div class="inc-box text-center border-warning clickable-card" style="cursor: pointer;" onclick="openLedger('yesterday', 'Yesterday')">
-                    <div class="inc-title">Yesterday</div>
-                    <div class="inc-val text-warning fs-4" id="incYest">₹0</div>
-                    <div class="text-muted small fw-bold mt-1"><i class="bi bi-shop"></i> <span id="visYest">0</span> Visits</div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="d-flex justify-content-between p-3 bg-dark rounded border mb-4">
-                <div class="text-center w-50 border-end border-secondary clickable-card" style="cursor: pointer;" onclick="openLedger('thisMonth', 'This Month')">
-                  <div class="small text-secondary fw-bold">EARNED THIS MONTH</div>
-                  <div class="fs-4 fw-bold text-white" id="incMonth">₹0</div>
-                </div>
-                <div class="text-center w-50 clickable-card" style="cursor: pointer;" onclick="openLedger('lastMonth', 'Last Month')">
-                  <div class="small text-secondary fw-bold">LAST MONTH</div>
-                  <div class="fs-4 fw-bold text-white" id="incLastMonth">₹0</div>
-                </div>
-              </div>
-            </div>
-
-            <div class="d-grid gap-3 mt-4">
+              <div class="d-grid gap-3 mt-4">
               <button class="btn btn-primary py-3 shadow fs-5" onclick="openVisitForm()">
                 <b><i class="bi bi-geo-alt-fill"></i> Punch Store Visit</b>
               </button>
@@ -1174,46 +1106,12 @@ function loadStaffDashboard(name) {
   
   google.script.run.withSuccessHandler(function(res) {
     globalDashboardData = res; 
-    document.getElementById('incentiveLoader').style.display = 'none';
-    document.getElementById('incentiveDashboard').style.display = 'block';
-    
-    if (res.rules) {
-      var brandHtml = "";
-      
-      for (var b in res.rules.brandRates) {
-         brandHtml += '<span class="scheme-pill">' + b + ': &#8377;' + res.rules.brandRates[b] + '/pc</span> ';
-      }
-      
-      if (brandHtml !== "") {
-         document.getElementById('fBrandName').innerHTML = brandHtml;
-         document.getElementById('focusedBrandBanner').style.display = 'block';
-      } else {
-         document.getElementById('focusedBrandBanner').style.display = 'none';
-      }
-      
-      document.getElementById('uiVisitRate').innerText = res.rules.visitRate;
-      document.getElementById('uiPcRate').innerText = res.rules.pcRate;
-      document.getElementById('uiThousandRate').innerText = res.rules.thousandRate;
-    }
-
-    var currentVisits = res.today.visitTracker || res.today.visits || 0;
-    document.getElementById('visitTrackerText').innerText = currentVisits + " / 12";
-    var progressPct = Math.min((currentVisits / 12) * 100, 100);
-    var pBar = document.getElementById('visitProgressBar');
-    pBar.style.width = progressPct + "%";
-    pBar.className = progressPct >= 100 ? "progress-bar bg-success" : "progress-bar progress-bar-striped progress-bar-animated bg-primary";
-
-    document.getElementById('incToday').innerText = "₹" + res.today.incentive;
-    document.getElementById('visToday').innerText = res.today.visits;
-    document.getElementById('incYest').innerText = "₹" + res.yesterday.incentive;
-    document.getElementById('visYest').innerText = res.yesterday.visits;
-    document.getElementById('incWeek').innerText = "₹" + res.thisWeek.incentive;
-    document.getElementById('visWeek').innerText = res.thisWeek.visits;
-    document.getElementById('incMonth').innerText = "₹" + res.thisMonth.incentive;
-    document.getElementById('incLastMonth').innerText = "₹" + res.lastMonth.incentive;
+    var loader = document.getElementById('incentiveLoader');
+    if (loader) loader.style.display = 'none';
+    var dash = document.getElementById('incentiveDashboard');
+    if (dash) dash.style.display = 'block';
 
     renderKpiDashboard(currentKpiPeriod || 'today');
-
   }).getStaffDashboardData(name);
 }
 
@@ -2238,7 +2136,12 @@ var KPI_PERIOD_LABELS = {
   today: 'Today',
   yesterday: 'Yesterday',
   thisWeek: 'This Week',
-  thisMonth: 'This Month'
+  lastWeek: 'Last Week',
+  thisMonth: 'This Month',
+  lastMonth: 'Last Month',
+  thisQuarter: 'This Quarter',
+  lastQuarter: 'Last Quarter',
+  thisYear: 'This Year'
 };
 
 function switchKpiPeriod(periodKey, btn) {
