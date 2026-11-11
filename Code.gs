@@ -2250,7 +2250,7 @@ function updateStaffLiveLocation(staffName, lat, lng, speed, accuracy) {
 
 function getLiveStaffRadar(requestingRole) {
   var role = String(requestingRole || "").trim().toLowerCase();
-  if (role !== "owner" && role !== "ceo" && role !== "superadmin") {
+  if (role !== "owner" && role !== "ceo" && role !== "superadmin" && role !== "accountant" && role !== "director" && role !== "mis" && role !== "crm" && role !== "admin" && role !== "manager") {
     return { success: false, error: "Access Denied: Only CEO / Owner can access Live Staff Radar." };
   }
   try {
