@@ -2256,31 +2256,63 @@ function getLiveStaffRadar(requestingRole) {
   try {
     var sheet = getOrCreateLiveTrackingSheet();
     var data = sheet.getDataRange().getValues();
-    var list = [];
-    var now = new Date();
+    var staffMap = {};
     
+    // Process rows and keep ONLY THE LATEST RECORD for each unique staff member
     for (var i = 1; i < data.length; i++) {
-      if (!data[i][0]) continue;
-      list.push({
-        name: String(data[i][0]),
-        lat: Number(data[i][1]) || 0,
-        lng: Number(data[i][2]) || 0,
-        accuracy: Number(data[i][3]) || 0,
-        speed: Number(data[i][4]) || 0,
-        distFromHQ: Number(data[i][5]) || 0,
-        lastTime: String(data[i][6]),
-        date: String(data[i][7]),
-        mapsUrl: String(data[i][8]),
-        status: String(data[i][9])
-      });
+      var rawName = String(data[i][0] || "").trim();
+      if (!rawName) continue;
+      
+      var normKey = rawName.toUpperCase();
+      var rawTime = data[i][6];
+      var timeFormatted = formatTimeSafe(rawTime);
+      
+      var rawDate = data[i][7];
+      var dateFormatted = "";
+      if (rawDate instanceof Date) {
+        dateFormatted = Utilities.formatDate(rawDate, Session.getScriptTimeZone(), "dd/MM/yyyy");
+      } else {
+        var dStr = String(rawDate || "").trim();
+        if (dStr.indexOf("1899") !== -1) dStr = "";
+        dateFormatted = dStr;
+      }
+
+      var lat = Number(data[i][1]) || 0;
+      var lng = Number(data[i][2]) || 0;
+      var dist = Number(data[i][5]) || 0;
+      var speed = Number(data[i][4]) || 0;
+      var acc = Number(data[i][3]) || 0;
+      var mapsUrl = (lat && lng) ? ("https://www.google.com/maps?q=" + lat + "," + lng) : String(data[i][8] || "");
+
+      // Deduplicate: Store latest
+      staffMap[normKey] = {
+        name: rawName,
+        lat: lat,
+        lng: lng,
+        accuracy: acc,
+        speed: speed,
+        distFromHQ: dist,
+        lastTime: timeFormatted,
+        date: dateFormatted,
+        mapsUrl: mapsUrl,
+        status: String(data[i][9] || "Online")
+      };
     }
+
+    var list = [];
+    for (var k in staffMap) {
+      list.push(staffMap[k]);
+    }
+
+    list.sort(function(a, b) {
+      return a.name.localeCompare(b.name);
+    });
+
     return { success: true, staff: list };
   } catch(e) {
     return { success: false, error: e.message };
   }
 }
-
-
 
 function getAllDealersGroupedByArea() {
   try {
