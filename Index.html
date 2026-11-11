@@ -1653,7 +1653,17 @@ function renderCeoDashboard(res) {
     boardHtml += '<div class="text-center p-3 text-muted border rounded">No data found for this period.</div>';
   } else {
     res.leaderboard.forEach(function(staff, index) {
-      var badge = index === 0 ? '<span class="badge bg-success ms-2" style="font-size:10px;">TOP PERFORMER 🏆</span>' : '';
+      var rankBadge = '';
+      if (index === 0) {
+        rankBadge = '<span class="badge bg-warning text-dark ms-2 fw-bold" style="font-size:10.5px;"><i class="bi bi-trophy-fill text-dark me-1"></i>#1 TOP PERFORMER</span>';
+      } else if (index === 1) {
+        rankBadge = '<span class="badge bg-secondary-subtle text-dark border ms-2 fw-semibold" style="font-size:10.5px;">#2</span>';
+      } else if (index === 2) {
+        rankBadge = '<span class="badge bg-secondary-subtle text-dark border ms-2 fw-semibold" style="font-size:10.5px;">#3</span>';
+      } else {
+        rankBadge = '<span class="badge bg-light text-muted border ms-2" style="font-size:10.5px;">#' + (index + 1) + '</span>';
+      }
+      var badge = rankBadge;
       var collapseId = 'collapse' + index;
       var sm = staff.metrics || {
         visits: staff.visits,
