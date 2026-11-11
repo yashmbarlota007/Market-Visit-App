@@ -235,6 +235,39 @@ function getIncentiveRules() {
 // -------------------------------------------------------------
 // EXTERNAL ORDER CONTROL TOWER & ULTIMATE ATTRIBUTION
 // -------------------------------------------------------------
+function formatTimeSafe(raw) {
+  if (!raw) return "";
+  if (raw instanceof Date) {
+    return Utilities.formatDate(raw, Session.getScriptTimeZone(), "hh:mm a");
+  }
+  var s = String(raw).trim();
+  if (s.indexOf("GMT") !== -1 || s.indexOf("1899") !== -1) {
+    try {
+      var d = new Date(s);
+      if (!isNaN(d.getTime())) {
+        return Utilities.formatDate(d, Session.getScriptTimeZone(), "hh:mm a");
+      }
+    } catch(e) {}
+  }
+  if (s.indexOf(":") !== -1 && (s.indexOf("AM") !== -1 || s.indexOf("PM") !== -1)) {
+    return s;
+  }
+  if (s.indexOf(":") !== -1) {
+    var parts = s.split(":");
+    var h = parseInt(parts[0], 10);
+    var m = parseInt(parts[1], 10);
+    if (!isNaN(h) && !isNaN(m)) {
+      var ampm = h >= 12 ? "PM" : "AM";
+      var h12 = h % 12;
+      if (h12 === 0) h12 = 12;
+      var mStr = m < 10 ? "0" + m : "" + m;
+      var hStr = h12 < 10 ? "0" + h12 : "" + h12;
+      return hStr + ":" + mStr + " " + ampm;
+    }
+  }
+  return s;
+}
+
 function extractDateSafe(raw) {
   if (!raw) {
     return null;
@@ -714,7 +747,7 @@ function getStaffDashboardData(staffName) {
           var visitItem = {
             id: String(vData[i][0] || ("V" + i)),
             dateStr: dateStr,
-            timeStr: String(vData[i][2] || ""),
+            timeStr: formatTimeSafe(vData[i][2]),
             dealer: String(vData[i][5] || "").trim(),
             area: String(vData[i][4] || "").trim(),
             task: String(vData[i][7] || "Store Visit").trim(),
@@ -1006,7 +1039,7 @@ function getCEOStats(filter, customStartStr, customEndStr) {
           }
           
           var rowTimeRaw = data[i][2];
-          var rowTime = rowTimeRaw instanceof Date ? Utilities.formatDate(rowTimeRaw, Session.getScriptTimeZone(), "hh:mm a") : String(rowTimeRaw || "");
+          var rowTime = formatTimeSafe(rowTimeRaw);
           var dateStr = Utilities.formatDate(dObj, Session.getScriptTimeZone(), "dd/MM/yyyy");
           var locationStr = String(data[i][11] || "");
 
@@ -2021,7 +2054,7 @@ function generateMorningBriefing(areaName) {
   report += "• *Portronics:* ₹" + (brandSales["PORTRONICS"]/1000).toFixed(1) + "k / ₹2.5L" + nl;
   report += "• *GoBoult:* ₹" + (brandSales["GOBOULT"]/1000).toFixed(1) + "k / ₹2.5L" + nl;
   report += "• *Velocity:* ₹" + (brandSales["VELOCITY"]/1000).toFixed(1) + "k / ₹2.5L" + nl;
-  report += "• *Hikvision:* ₹" + (brandSales["HIKVISION"]/1000).toFixed(1) + "k / ₹1.0L" + nl;
+  report += "�� *Hikvision:* ₹" + (brandSales["HIKVISION"]/1000).toFixed(1) + "k / ₹1.0L" + nl;
   
   report += "━━━━━━━━━━━━━━━━━━━" + nl;
   
