@@ -310,6 +310,82 @@
   </style>
   
   <script>
+
+// =============================================================
+// GLOBAL CORE HELPERS & PRELOAD ENGINE (EARLY INITIALIZATION)
+// =============================================================
+window.formatVisitDateTime = function(dateStr, timeStr) {
+  var d = String(dateStr || "").trim();
+  var t = String(timeStr || "").trim();
+  
+  if (t.indexOf("1899") !== -1 || t.indexOf("GMT") !== -1) {
+    try {
+      var dObj = new Date(t);
+      if (!isNaN(dObj.getTime())) {
+        var h = dObj.getHours();
+        var m = dObj.getMinutes();
+        var ampm = h >= 12 ? "PM" : "AM";
+        var h12 = h % 12 || 12;
+        var mStr = m < 10 ? "0" + m : m;
+        t = (h12 < 10 ? "0" + h12 : h12) + ":" + mStr + " " + ampm;
+      }
+    } catch(e) {}
+  }
+  
+  if (d.indexOf("1899") !== -1) {
+    d = "";
+  }
+  
+  if (d && t) return d + " • " + t;
+  if (d) return d;
+  if (t) return t;
+  return "--:--";
+};
+
+window.initFastDealersPreload = function() {
+  try {
+    if (window.cachedAreasData && window.cachedAreasData.areas && window.cachedAreasData.areas.length > 0) {
+      if (typeof populateAreasSync === 'function') populateAreasSync();
+      return;
+    }
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res && res.grouped) {
+            window.cachedAreasData = res;
+            if (typeof populateAreasSync === 'function') populateAreasSync();
+          }
+        })
+        .getAllDealersGroupedByArea();
+    }
+  } catch(e) {
+    console.error("Fast dealers preload error:", e);
+  }
+};
+
+window.loadAreasInBackground = function() {
+  try {
+    if (window.cachedAreasData && window.cachedAreasData.areas && window.cachedAreasData.areas.length > 0) {
+      if (typeof populateAreasSync === 'function') populateAreasSync();
+      return;
+    }
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run.withSuccessHandler(function(areas) {
+        var sel = document.getElementById('area');
+        if (sel && Array.isArray(areas)) {
+          sel.innerHTML = '<option value="">-- Select Area --</option>';
+          areas.forEach(function(a) {
+            sel.innerHTML += '<option value="' + a + '">' + a + '</option>';
+          });
+        }
+      }).getAreas();
+    }
+  } catch(e) {
+    console.error("Load areas in background error:", e);
+  }
+};
+
+
     window.onerror = function(message, source, lineno, colno, error) {
        var stack = error && error.stack ? error.stack : "No stack trace available";
        document.body.innerHTML = 
@@ -1766,6 +1842,204 @@ function refreshCEOStatsFromServer(targetFilter, forceSync, customStartStr, cust
 function refreshCEOStats() {
   onCeoFilterChange();
 }
+
+
+// -------------------------------------------------------------
+// SALES BOY / STAFF 5-KPI INTERACTIVE DRILLDOWN MODAL
+// -------------------------------------------------------------
+function openPerfModal(metricType) {
+  if (!globalDashboardData || !globalDashboardData[currentKpiPeriod]) return;
+  var data = globalDashboardData[currentKpiPeriod];
+  var m = data.metrics || {};
+  var periodLabels = {
+    today: 'Today',
+    yesterday: 'Yesterday',
+    thisWeek: 'This Week',
+    lastWeek: 'Last Week',
+    thisMonth: 'This Month',
+    lastMonth: 'Last Month',
+    thisQuarter: 'This Quarter',
+    lastQuarter: 'Last Quarter',
+    thisYear: 'This Year'
+  };
+  var periodLabel = periodLabels[currentKpiPeriod] || 'Selected Period';
+  
+  var header = document.getElementById('perfModalHeader');
+  var title = document.getElementById('perfModalTitle');
+  var body = document.getElementById('perfModalBody');
+  if (!header || !title || !body) return;
+  
+  var visitsList = data.visitsList || [];
+  var ordersList = data.ordersList || [];
+  var breakdown = data.dealerBreakdown || [];
+  
+  if (metricType === 'visits') {
+    header.style.background = '#0d6efd';
+    title.innerHTML = '<i class="bi bi-shop"></i> ' + periodLabel + ' Visits (' + visitsList.length + ')';
+    
+    if (visitsList.length === 0) {
+      body.innerHTML = '<div class="text-center p-4 text-muted fw-bold"><i class="bi bi-calendar-x fs-1 d-block mb-2 text-secondary"></i>No store visits recorded for ' + periodLabel + '.</div>';
+    } else {
+      var html = '<div class="alert alert-primary py-2 px-3 mb-3 d-flex justify-content-between align-items-center" style="font-size:13px;">' +
+                   '<span><b>Total Visits:</b> ' + visitsList.length + '</span>' +
+                   '<span><b>Unique Dealers:</b> ' + (m.uniqueDealersCount || 0) + '</span>' +
+                 '</div>';
+      
+      visitsList.forEach(function(v, idx) {
+        var mapLink = v.location ? '<a href="https://www.google.com/maps?q=' + encodeURIComponent(v.location) + '" target="_blank" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size:11px;"><i class="bi bi-geo-alt-fill"></i> Map</a>' : '';
+        html += '<div class="card mb-2 border-0 shadow-sm" style="border-radius:10px;">' +
+                  '<div class="card-body p-3">' +
+                    '<div class="d-flex justify-content-between align-items-start mb-1">' +
+                      '<h6 class="fw-bold text-dark mb-0">' + (idx + 1) + '. ' + v.dealer + '</h6>' +
+                      '<span class="badge bg-primary-subtle text-primary border border-primary-subtle fw-semibold" style="font-size:11.5px;"><i class="bi bi-clock-history me-1"></i>' + formatVisitDateTime(v.dateStr, v.timeStr) + '</span>' +
+                    '</div>' +
+                    '<div class="text-muted small mb-2"><i class="bi bi-pin-map"></i> ' + (v.area || '') + '</div>' +
+                    '<div class="d-flex justify-content-between align-items-center pt-2 border-top">' +
+                      '<span class="badge bg-secondary-subtle text-secondary">' + (v.task || 'Store Visit') + '</span>' +
+                      mapLink +
+                    '</div>' +
+                  '</div>' +
+                '</div>';
+      });
+      body.innerHTML = html;
+    }
+  } 
+  else if (metricType === 'conversion') {
+    header.style.background = '#16a34a';
+    title.innerHTML = '<i class="bi bi-pie-chart-fill"></i> ' + periodLabel + ' Conversion (' + (m.conversionRatio || 0) + '%)';
+    
+    var convertedDealers = breakdown.filter(function(d) { return d.isConverted && (d.convertedVisitsCount > 0 || d.sameDayOrdersCount > 0); });
+    var zeroSaleDealers = breakdown.filter(function(d) { return d.visitsCount > 0 && (!d.isConverted || d.convertedVisitsCount === 0); });
+    
+    var html = '<div class="alert alert-success py-2 px-3 mb-3 d-flex justify-content-between align-items-center" style="font-size:13px;">' +
+                 '<span><b>Strike Rate:</b> ' + (m.conversionRatio || 0) + '%</span>' +
+                 '<span><b>Converted Visits:</b> ' + (m.productiveVisits || 0) + ' / ' + (m.visits || 0) + '</span>' +
+               '</div>';
+               
+    html += '<h6 class="fw-bold text-success mb-2"><i class="bi bi-check-circle-fill"></i> Converted Visits (' + convertedDealers.length + ' Dealers)</h6>';
+    if (convertedDealers.length === 0) {
+      html += '<div class="text-muted small p-2 mb-3 bg-white rounded border">No same-day visit orders recorded in this period.</div>';
+    } else {
+      convertedDealers.forEach(function(d, idx) {
+        var ordDetails = "";
+        if (d.orders && d.orders.length > 0) {
+          ordDetails = '<div class="mt-2 pt-2 border-top text-muted small">' +
+                         '<div class="fw-bold text-success mb-1">Same-Day Booked Orders:</div>' +
+                         d.orders.map(function(o) {
+                           return '<div class="d-flex justify-content-between py-1 border-bottom" style="font-size:11.5px;">' +
+                                    '<span><i class="bi bi-calendar-event me-1"></i>' + (o.dateStr || '') + ' • ' + (o.items || 'Standard Order') + '</span>' +
+                                    '<span class="fw-bold text-success">₹' + (o.amount || 0).toLocaleString('en-IN') + '</span>' +
+                                  '</div>';
+                         }).join('') +
+                       '</div>';
+        }
+        html += '<div class="card mb-2 border-0 shadow-sm" style="border-radius:10px;">' +
+                  '<div class="card-body p-3">' +
+                    '<div class="d-flex justify-content-between align-items-start">' +
+                      '<div>' +
+                        '<h6 class="fw-bold text-dark mb-0">' + (idx + 1) + '. ' + d.dealerName + '</h6>' +
+                        '<span class="text-muted small">' + (d.area || '') + ' • ' + d.visitsCount + ' visits</span>' +
+                      '</div>' +
+                      '<div class="text-end">' +
+                        '<span class="badge bg-success mb-1">' + d.convertedVisitsCount + ' Converted</span>' +
+                        '<div class="fw-bold text-success">₹' + (d.sameDayRevenue || d.totalRevenue || 0).toLocaleString('en-IN') + '</div>' +
+                      '</div>' +
+                    '</div>' +
+                    ordDetails +
+                  '</div>' +
+                '</div>';
+      });
+    }
+
+    if (zeroSaleDealers.length > 0) {
+      html += '<h6 class="fw-bold text-secondary mt-3 mb-2"><i class="bi bi-x-circle-fill text-danger"></i> Visited But No Order (' + zeroSaleDealers.length + ' Dealers)</h6>';
+      zeroSaleDealers.forEach(function(d, idx) {
+        html += '<div class="card mb-2 border-0 bg-white shadow-sm" style="border-radius:10px; opacity:0.85;">' +
+                  '<div class="card-body p-2 px-3 d-flex justify-content-between align-items-center">' +
+                    '<div>' +
+                      '<span class="fw-bold text-dark" style="font-size:12.5px;">' + (idx + 1) + '. ' + d.dealerName + '</span>' +
+                      '<div class="text-muted" style="font-size:11px;">' + (d.area || '') + ' • ' + d.visitsCount + ' visits</div>' +
+                    '</div>' +
+                    '<span class="badge bg-secondary-subtle text-secondary" style="font-size:11px;">0 Orders</span>' +
+                  '</div>' +
+                '</div>';
+      });
+    }
+    body.innerHTML = html;
+  }
+  else if (metricType === 'avgSales') {
+    header.style.background = '#d97706';
+    title.innerHTML = '<i class="bi bi-cash-stack"></i> ' + periodLabel + ' Avg Sales / Order';
+    var html = '<div class="alert alert-warning py-2 px-3 mb-3" style="font-size:13px;">' +
+                 '<div class="d-flex justify-content-between"><span><b>Total Revenue:</b></span><span class="fw-bold">₹' + (m.revenue || 0).toLocaleString('en-IN') + '</span></div>' +
+                 '<div class="d-flex justify-content-between mt-1"><span><b>Visited Orders:</b></span><span class="fw-bold">' + (m.transactions || 0) + '</span></div>' +
+                 '<div class="d-flex justify-content-between mt-1 pt-1 border-top"><span><b>Avg Ticket Size:</b></span><span class="fw-bold text-dark">₹' + (m.avgRsSales || 0).toLocaleString('en-IN') + ' / order</span></div>' +
+                 '<div class="d-flex justify-content-between mt-1"><span><b>Avg Sales / Visit:</b></span><span class="fw-bold text-dark">₹' + (m.avgRsSalesPerVisit || 0).toLocaleString('en-IN') + ' / visit</span></div>' +
+               '</div>';
+    body.innerHTML = html;
+  }
+  else if (metricType === 'txnPerDealer') {
+    header.style.background = '#7c3aed';
+    title.innerHTML = '<i class="bi bi-receipt"></i> ' + periodLabel + ' Transactions / Dealer';
+    var html = '<div class="alert alert-info py-2 px-3 mb-3" style="font-size:13px;">' +
+                 '<div class="d-flex justify-content-between"><span><b>Total Orders:</b></span><span class="fw-bold">' + (m.transactions || 0) + '</span></div>' +
+                 '<div class="d-flex justify-content-between mt-1"><span><b>Visited Dealers:</b></span><span class="fw-bold">' + (m.uniqueDealersCount || 0) + '</span></div>' +
+                 '<div class="d-flex justify-content-between mt-1 pt-1 border-top"><span><b>Txn per Dealer:</b></span><span class="fw-bold text-dark">' + (m.txnPerDealer || 0) + ' orders / dealer</span></div>' +
+               '</div>';
+    body.innerHTML = html;
+  }
+  else if (metricType === 'revenue') {
+    header.style.background = '#1e293b';
+    title.innerHTML = '<i class="bi bi-currency-rupee text-warning"></i> ' + periodLabel + ' Revenue (₹' + (m.revenue || 0).toLocaleString('en-IN') + ')';
+    
+    var html = '<div class="card mb-3 border-0 text-white p-3 text-center shadow-sm" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius:12px;">' +
+                 '<div class="small text-uppercase opacity-75 fw-bold text-warning">Total Sales Booked</div>' +
+                 '<div class="display-6 fw-bold text-warning">₹' + (m.revenue || 0).toLocaleString('en-IN') + '</div>' +
+                 '<div class="small mt-1 opacity-90">' + ordersList.length + ' Orders Booked from Visited Dealers in ' + periodLabel + '</div>' +
+               '</div>';
+               
+    if (data.unvisitedOrdersList && data.unvisitedOrdersList.length > 0) {
+      html += '<div class="card mb-3 border-0 bg-light p-2 shadow-sm" style="border-radius:10px;">' +
+                '<div class="d-flex justify-content-between align-items-center">' +
+                  '<div style="font-size:12px;"><span class="badge bg-secondary me-1">Direct Orders</span> <b>' + data.unvisitedOrdersList.length + ' orders (0 visits):</b></div>' +
+                  '<div class="fw-bold text-muted">₹' + (m.unvisitedRevenue || 0).toLocaleString('en-IN') + '</div>' +
+                '</div>' +
+                '<div class="text-muted" style="font-size:10px; margin-top:3px;"><i class="bi bi-info-circle"></i> Excluded from Market Visit KPIs because staff did not physically visit these shops in ' + periodLabel + '.</div>' +
+              '</div>';
+    }
+    html += '<h6 class="fw-bold text-dark mb-2"><i class="bi bi-bag-check-fill text-success"></i> Orders from Visited Dealers (' + ordersList.length + ')</h6>';
+    if (ordersList.length === 0) {
+      body.innerHTML = html + '<div class="text-center p-4 text-muted fw-bold">No orders recorded for ' + periodLabel + '.</div>';
+    } else {
+      ordersList.forEach(function(ord, idx) {
+        var itemsHtml = "";
+        if (ord.items) {
+          var itemsArr = ord.items.split('|');
+          itemsHtml = '<div class="mt-2 pt-2 border-top text-muted" style="font-size:11px; line-height:1.4;">' +
+                        '<i class="bi bi-box-seam text-primary me-1"></i> ' + itemsArr.map(function(it){ return it.trim(); }).join('<br><i class="bi bi-box-seam text-primary me-1"></i> ') +
+                      '</div>';
+        }
+        
+        html += '<div class="card mb-2 border-0 shadow-sm" style="border-radius:10px;">' +
+                  '<div class="card-body p-3">' +
+                    '<div class="d-flex justify-content-between align-items-start">' +
+                      '<div>' +
+                        '<h6 class="fw-bold text-dark mb-0">' + (idx + 1) + '. ' + ord.shop + '</h6>' +
+                        '<span class="text-muted small">' + ord.dateStr + ' • ' + (ord.area || 'Direct') + '</span>' +
+                      '</div>' +
+                      '<h5 class="fw-bold text-success mb-0">₹' + (ord.amount || 0).toLocaleString('en-IN') + '</h5>' +
+                    '</div>' +
+                    itemsHtml +
+                  '</div>' +
+                '</div>';
+      });
+      body.innerHTML = html;
+    }
+  }
+  
+  new bootstrap.Modal(document.getElementById('perfDetailModal')).show();
+}
+
 
 function openCeoPerfModal(metricType, targetKey) {
   if (!masterData) return;
