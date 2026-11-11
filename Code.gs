@@ -808,11 +808,17 @@ function getStaffDashboardData(staffName) {
 function computeEntityMetrics(visits, orders) {
   var visitsList = visits || [];
   var ordersList = orders || [];
+  
+  function cleanDealerKey(name) {
+    return String(name || "").toUpperCase().replace(/[^A-Z0-9]/g, '');
+  }
+
   var dealersMap = {};
 
+  // 1. Process all visits
   for (var vi = 0; vi < visitsList.length; vi++) {
     var vItem = visitsList[vi];
-    var dClean = String(vItem.dealer || "").toUpperCase().replace(/[^A-Z0-9]/g, '');
+    var dClean = cleanDealerKey(vItem.dealer);
     if (!dClean) continue;
     
     if (!dealersMap[dClean]) {
@@ -822,24 +828,45 @@ function computeEntityMetrics(visits, orders) {
         staff: vItem.staff || "",
         visitsCount: 0,
         ordersCount: 0,
+        convertedVisitsCount: 0,
+        sameDayOrdersCount: 0,
+        sameDayRevenue: 0,
+        totalRevenue: 0,
         totalAmount: 0,
         isConverted: false,
-        tasks: []
+        tasks: [],
+        visits: [],
+        orders: []
       };
     }
     dealersMap[dClean].visitsCount++;
+    dealersMap[dClean].visits.push({
+      id: vItem.id || ("V" + vi),
+      dateStr: vItem.dateStr || "",
+      timeStr: vItem.timeStr || "",
+      dealer: vItem.dealer,
+      area: vItem.area || "",
+      staff: vItem.staff || "",
+      task: vItem.task || "Store Visit",
+      location: vItem.location || "",
+      isConverted: false,
+      sameDayAmount: 0,
+      sameDayOrders: []
+    });
     if (vItem.task && dealersMap[dClean].tasks.indexOf(vItem.task) === -1) {
       dealersMap[dClean].tasks.push(vItem.task);
     }
   }
 
+  // 2. Process all orders
   for (var oi = 0; oi < ordersList.length; oi++) {
     var oItem = ordersList[oi];
-    var oClean = String(oItem.shop || "").toUpperCase().replace(/[^A-Z0-9]/g, '');
+    var oClean = cleanDealerKey(oItem.shop);
+    if (!oClean) continue;
+    
     var matchKey = null;
-
     for (var dKey in dealersMap) {
-      if (dKey && oClean && (dKey.indexOf(oClean) !== -1 || oClean.indexOf(dKey) !== -1)) {
+      if (dKey && oClean && (dKey === oClean || dKey.indexOf(oClean) !== -1 || oClean.indexOf(dKey) !== -1)) {
         matchKey = dKey;
         break;
       }
@@ -854,35 +881,86 @@ function computeEntityMetrics(visits, orders) {
           staff: oItem.staff || "",
           visitsCount: 0,
           ordersCount: 0,
+          convertedVisitsCount: 0,
+          sameDayOrdersCount: 0,
+          sameDayRevenue: 0,
+          totalRevenue: 0,
           totalAmount: 0,
-          isConverted: true,
-          tasks: []
+          isConverted: false,
+          tasks: [],
+          visits: [],
+          orders: []
         };
       }
     }
 
+    var oAmt = parseFloat(oItem.amount) || 0;
     dealersMap[matchKey].ordersCount++;
-    dealersMap[matchKey].totalAmount += (parseFloat(oItem.amount) || 0);
-    dealersMap[matchKey].isConverted = true;
+    dealersMap[matchKey].totalRevenue += oAmt;
+    dealersMap[matchKey].totalAmount += oAmt;
+    dealersMap[matchKey].orders.push({
+      shop: oItem.shop,
+      amount: oAmt,
+      items: oItem.items || "",
+      dateStr: oItem.dateStr || "",
+      staff: oItem.staff || "",
+      area: oItem.area || "",
+      isSameDayConverted: false
+    });
+  }
+
+  // 3. MATCH SAME-DAY VISIT CONVERSIONS (Visit Date == Order Date)
+  var productiveVisitsTotal = 0;
+  var sameDayRevenueTotal = 0;
+  var sameDayOrdersTotal = 0;
+
+  for (var k in dealersMap) {
+    var dData = dealersMap[k];
+    
+    for (var vIdx = 0; vIdx < dData.visits.length; vIdx++) {
+      var vis = dData.visits[vIdx];
+      var vDate = vis.dateStr ? vis.dateStr.trim() : "";
+      
+      var matchedOrders = [];
+      for (var oIdx = 0; oIdx < dData.orders.length; oIdx++) {
+        var ord = dData.orders[oIdx];
+        var oDate = ord.dateStr ? ord.dateStr.trim() : "";
+        if (vDate && oDate && vDate === oDate) {
+          matchedOrders.push(ord);
+          ord.isSameDayConverted = true;
+        }
+      }
+      
+      if (matchedOrders.length > 0) {
+        vis.isConverted = true;
+        vis.sameDayOrders = matchedOrders;
+        vis.sameDayAmount = matchedOrders.reduce(function(sum, o) { return sum + (o.amount || 0); }, 0);
+        dData.convertedVisitsCount++;
+        dData.sameDayOrdersCount += matchedOrders.length;
+        dData.sameDayRevenue += vis.sameDayAmount;
+        productiveVisitsTotal++;
+      }
+    }
+    
+    dData.isConverted = (dData.convertedVisitsCount > 0);
+    sameDayRevenueTotal += dData.sameDayRevenue;
+    sameDayOrdersTotal += dData.sameDayOrdersCount;
   }
 
   var dealerBreakdown = [];
   var uniqueVisitedDealers = 0;
-  var productiveVisitsCount = 0;
 
   for (var k in dealersMap) {
     var dData = dealersMap[k];
     dealerBreakdown.push(dData);
     if (dData.visitsCount > 0) {
       uniqueVisitedDealers++;
-      if (dData.ordersCount > 0) {
-        productiveVisitsCount += dData.visitsCount;
-      }
     }
   }
 
   dealerBreakdown.sort(function(a, b) {
-    if (b.totalAmount !== a.totalAmount) return b.totalAmount - a.totalAmount;
+    if (b.sameDayRevenue !== a.sameDayRevenue) return b.sameDayRevenue - a.sameDayRevenue;
+    if (b.totalRevenue !== a.totalRevenue) return b.totalRevenue - a.totalRevenue;
     return b.visitsCount - a.visitsCount;
   });
 
@@ -890,15 +968,9 @@ function computeEntityMetrics(visits, orders) {
   var totalTxns = ordersList.length;
   var totalRev = ordersList.reduce(function(sum, o) { return sum + (parseFloat(o.amount) || 0); }, 0);
 
-  if (totalTxns > 0 && productiveVisitsCount === 0) {
-    productiveVisitsCount = Math.min(totalVisits, totalTxns);
-  }
-  if (productiveVisitsCount > totalVisits && totalVisits > 0) {
-    productiveVisitsCount = totalVisits;
-  }
-
+  // Conversion Ratio = (Productive Visits with Same-Day Order ÷ Total Visits) × 100
   var convRatio = totalVisits > 0 
-    ? Math.min(100, Math.round((productiveVisitsCount / totalVisits) * 100)) 
+    ? Math.min(100, Math.round((productiveVisitsTotal / totalVisits) * 100)) 
     : (totalTxns > 0 ? 100 : 0);
 
   var avgSalesOrder = totalTxns > 0 ? Math.round(totalRev / totalTxns) : 0;
@@ -911,13 +983,15 @@ function computeEntityMetrics(visits, orders) {
     metrics: {
       visits: totalVisits,
       conversionRatio: convRatio,
-      productiveVisits: productiveVisitsCount,
+      productiveVisits: productiveVisitsTotal,
       avgRsSales: avgSalesOrder,
       avgRsSalesPerVisit: avgSalesVisit,
       txnPerDealer: txnPerDealer,
       revenue: totalRev,
       transactions: totalTxns,
-      uniqueDealersCount: activeDealersForTxn
+      uniqueDealersCount: activeDealersForTxn,
+      sameDayRevenue: sameDayRevenueTotal,
+      sameDayOrders: sameDayOrdersTotal
     },
     dealerBreakdown: dealerBreakdown,
     visitsList: visitsList,
