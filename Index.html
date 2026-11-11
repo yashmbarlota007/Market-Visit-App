@@ -1278,36 +1278,94 @@ function makeSafePayload(obj) {
   return encodeURIComponent(JSON.stringify(obj)).replace(/'/g, "%27").replace(/"/g, "%22");
 }
 
-document.addEventListener("DOMContentLoaded", function() {
-  populateAreasSync();
-  initFastDealersPreload();
-  var savedName = localStorage.getItem("yashApp_staffName");
-  var savedRole = localStorage.getItem("yashApp_staffRole");
-  var activeRole = portalRole || savedRole;
-  
-  if (portalEmpId && portalEmpId.trim() !== "") {
-    document.getElementById('loginEmpId').value = portalEmpId;
-    document.getElementById('loginPass').value = "SSO_BYPASS";
-    doLogin();
-  } else if (savedName) {
-    currentUser = savedName;
-    document.getElementById('staffName').value = currentUser;
-    
-    // CEO, OWNER, ACCOUNTANT, MIS & CRM KO DIRECTLY CEO SCREEN DIKHAYEIN
-    if (isCeoOrAdmin(activeRole)) { 
-      showScreen('ceoScreen'); 
-      refreshCEOStats(); 
-    } else { 
-      loadStaffDashboard(currentUser); 
+
+function initFastDealersPreload() {
+  try {
+    if (window.cachedAreasData && window.cachedAreasData.areas && window.cachedAreasData.areas.length > 0) {
+      populateAreasSync();
+      return;
     }
-  } else if (isCeoOrAdmin(portalRole)) {
-    // Master App SSO without empId: Direct CEO screen entry!
-    currentUser = portalName || "CEO";
-    document.getElementById('staffName').value = currentUser;
-    showScreen('ceoScreen');
-    refreshCEOStats();
-  } else { 
-    showScreen('loginScreen'); 
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res && res.grouped) {
+            window.cachedAreasData = res;
+            populateAreasSync();
+          }
+        })
+        .getAllDealersGroupedByArea();
+    }
+  } catch(e) {
+    console.error("Fast dealers preload error:", e);
+  }
+}
+
+function loadAreasInBackground() {
+  try {
+    if (window.cachedAreasData && window.cachedAreasData.areas && window.cachedAreasData.areas.length > 0) {
+      populateAreasSync();
+      return;
+    }
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run.withSuccessHandler(function(areas) {
+        var sel = document.getElementById('area');
+        if (sel) {
+          sel.innerHTML = '<option value="">-- Select Area --</option>';
+          areas.forEach(function(a) {
+            sel.innerHTML += '<option value="' + a + '">' + a + '</option>';
+          });
+        }
+      }).getAreas();
+    }
+  } catch(e) {
+    console.error("Load areas in background error:", e);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+  try {
+    populateAreasSync();
+    initFastDealersPreload();
+  } catch(ePre) {
+    console.warn("Area preload warning:", ePre);
+  }
+
+  try {
+    var savedName = localStorage.getItem("yashApp_staffName");
+    var savedRole = localStorage.getItem("yashApp_staffRole");
+    var activeRole = portalRole || savedRole;
+    
+    if (portalEmpId && portalEmpId.trim() !== "") {
+      var inpEmp = document.getElementById('loginEmpId');
+      var inpPass = document.getElementById('loginPass');
+      if (inpEmp) inpEmp.value = portalEmpId;
+      if (inpPass) inpPass.value = "SSO_BYPASS";
+      doLogin();
+    } else if (savedName) {
+      currentUser = savedName;
+      var inpStaff = document.getElementById('staffName');
+      if (inpStaff) inpStaff.value = currentUser;
+      
+      // CEO, OWNER, ACCOUNTANT, MIS & CRM KO DIRECTLY CEO SCREEN DIKHAYEIN
+      if (isCeoOrAdmin(activeRole)) { 
+        showScreen('ceoScreen'); 
+        refreshCEOStats(); 
+      } else { 
+        loadStaffDashboard(currentUser); 
+      }
+    } else if (isCeoOrAdmin(portalRole)) {
+      // Master App SSO without empId: Direct CEO screen entry!
+      currentUser = portalName || "CEO";
+      var inpStaff2 = document.getElementById('staffName');
+      if (inpStaff2) inpStaff2.value = currentUser;
+      showScreen('ceoScreen');
+      refreshCEOStats();
+    } else { 
+      showScreen('loginScreen'); 
+    }
+  } catch(eInit) {
+    console.error("Auth init error:", eInit);
+    showScreen('loginScreen');
   }
 });
 
