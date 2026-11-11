@@ -1677,7 +1677,16 @@ function loadAreasInBackground() {
   }).getAreas();
 }
 
-function openVisitForm() { showScreen('visitScreen'); populateAreasSync(); }
+function openVisitForm() {
+  showScreen('visitScreen');
+  populateAreasSync();
+  var submitBtn = document.getElementById('submitBtn');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.className = "btn btn-secondary w-100 py-3 fw-bold";
+    submitBtn.innerHTML = '<b><i class="bi bi-shop"></i> Select Dealer to Continue</b>';
+  }
+}
 function backToDashboard() { showScreen('dashboardScreen'); }
 
 function initFastDealersPreload() {
@@ -1709,6 +1718,12 @@ function loadDealers() {
   if (nav) nav.style.display = 'none';
   if (lockCard) lockCard.style.display = 'none';
   if (geofenceBox) geofenceBox.style.display = 'none';
+  var submitBtn = document.getElementById('submitBtn');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.className = "btn btn-secondary w-100 py-3 fw-bold";
+    submitBtn.innerHTML = '<b><i class="bi bi-shop"></i> Select Dealer First</b>';
+  }
 
   if (!area) {
     sel.innerHTML = '<option value="">-- Select Area First --</option>';
@@ -1780,18 +1795,24 @@ function checkDealerDetails() {
   var nav = document.getElementById('navBtn');
   var lockCard = document.getElementById('dealerGpsLockCard');
   var geofenceBox = document.getElementById('geofenceAlertBox');
+  var submitBtn = document.getElementById('submitBtn');
   
   if (!dealerName) { 
     if (alertBox) alertBox.style.display = 'none'; 
     if (nav) nav.style.display = 'none'; 
     if (lockCard) lockCard.style.display = 'none';
     if (geofenceBox) geofenceBox.style.display = 'none';
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.className = "btn btn-secondary w-100 py-3 fw-bold";
+      submitBtn.innerHTML = '<b><i class="bi bi-shop"></i> Select Dealer First</b>';
+    }
     return; 
   }
   
-  var dealer = currentAreaDealers.find(function(d) {
+  var dealer = currentAreaDealers ? currentAreaDealers.find(function(d) {
     return d.name === dealerName;
-  });
+  }) : null;
   
   if (dealer) {
     // 1. Dues Alert
@@ -1815,10 +1836,12 @@ function checkDealerDetails() {
       alertBox.style.display = 'block';
     }
     
-    // 2. Navigation
-    if (dealer.gps) { 
-      dealerGPSCoords = dealer.gps; 
-      nav.href = "https://www.google.com/maps/dir/?api=1&destination=" + dealer.gps; 
+    var isLocked = !!(dealer.isLocked && dealer.lat && dealer.lng);
+
+    // 2. Navigation Button (Only shown if dealer GPS is confirmed)
+    if (isLocked) { 
+      dealerGPSCoords = dealer.gps || (dealer.lat + "," + dealer.lng); 
+      nav.href = "https://www.google.com/maps/dir/?api=1&destination=" + dealer.lat + "," + dealer.lng; 
       nav.style.display = 'inline-block'; 
     } else { 
       nav.style.display = 'none'; 
@@ -1827,27 +1850,45 @@ function checkDealerDetails() {
 
     // 3. Dealer GPS Geofence & Location Lock Card
     if (lockCard) {
-      if (dealer.isLocked && dealer.lat && dealer.lng) {
-        lockCard.innerHTML = '<div class="alert alert-info py-2 px-3 small d-flex justify-content-between align-items-center mb-0 border-info shadow-sm">' +
-          '<div><i class="bi bi-shield-lock-fill text-success"></i> <b>Shop GPS Locked:</b> 50m Geofence Active</div>' +
-          '<a href="https://www.google.com/maps?q=' + dealer.lat + ',' + dealer.lng + '" target="_blank" class="badge bg-primary text-decoration-none py-1 px-2"><i class="bi bi-map"></i> View Map</a>' +
+      if (isLocked) {
+        // PERMANENT LOCK: 'Lock Dealer GPS' button is COMPLETELY REMOVED!
+        lockCard.innerHTML = '<div class="alert alert-info py-2 px-3 small d-flex justify-content-between align-items-center mb-0 border-info shadow-sm" style="border-radius: 8px;">' +
+          '<div><i class="bi bi-shield-lock-fill text-success fs-6"></i> <b>Shop GPS Locked:</b> 50m Geofence Active</div>' +
+          '<a href="https://www.google.com/maps?q=' + dealer.lat + ',' + dealer.lng + '" target="_blank" class="badge bg-primary text-decoration-none py-1 px-2"><i class="bi bi-map"></i> View Shop</a>' +
         '</div>';
         lockCard.style.display = 'block';
+        
+        // Verify Geofence
+        verifyCurrentGeofence();
       } else {
-        lockCard.innerHTML = '<div class="alert alert-warning py-2 px-3 small mb-0 border-warning shadow-sm">' +
-          '<div class="d-flex justify-content-between align-items-center mb-1">' +
-            '<div><i class="bi bi-exclamation-triangle-fill text-warning"></i> <b>Shop GPS Not Locked Yet</b></div>' +
+        // NOT LOCKED: Visit punch is strictly blocked until staff locks dealer GPS!
+        lockCard.innerHTML = '<div class="alert alert-warning p-3 small mb-0 border-warning shadow-sm" style="border-radius: 10px; border-left: 5px solid #d97706 !important; background-color: #fffbeb;">' +
+          '<div class="d-flex align-items-center mb-1">' +
+            '<i class="bi bi-exclamation-octagon-fill text-danger fs-5 me-2"></i>' +
+            '<div class="fw-bold text-dark" style="font-size: 13.5px;">Shop GPS Not Locked!</div>' +
           '</div>' +
-          '<button type="button" class="btn btn-sm btn-outline-dark w-100 fw-bold mt-1" onclick="triggerLockDealerGPS()">' +
-            '<i class="bi bi-pin-map-fill text-danger"></i> 📍 Lock Current GPS as Dealer Location' +
+          '<div class="text-secondary mb-2" style="font-size: 12px; line-height: 1.4;">' +
+            'Is dealer ki location abhi system me lock nahi hai. <b>Shop par khade hokar button dabayein taaki accurate GPS lock ho sake. GPS lock hone ke baad hi visit punch chalu hogi.</b>' +
+          '</div>' +
+          '<button type="button" class="btn btn-warning w-100 fw-bold py-2 shadow-sm text-dark d-flex align-items-center justify-content-center gap-2" style="border-radius: 8px; font-size: 13px;" onclick="triggerLockDealerGPS()">' +
+            '<i class="bi bi-pin-map-fill text-danger fs-6"></i> <span>📍 Lock Dealer GPS Location (Shop par khade hokar dabayein)</span>' +
           '</button>' +
         '</div>';
         lockCard.style.display = 'block';
+        
+        if (geofenceBox) {
+          geofenceBox.className = "alert alert-danger mt-2 py-2 px-3 small fw-bold mb-0 border-danger shadow-sm";
+          geofenceBox.innerHTML = '🔒 <b>Visit Punch Blocked:</b> Is dealer ka GPS location lock nahi hai. Pehle upar diya gaya "Lock Dealer GPS Location" button dabayein.';
+          geofenceBox.style.display = 'block';
+        }
+        
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.className = "btn btn-secondary w-100 py-3 fw-bold";
+          submitBtn.innerHTML = '<b><i class="bi bi-lock-fill"></i> Visit Punch Blocked (Pehle Dealer GPS Lock Karein)</b>';
+        }
       }
     }
-
-    // 4. Verify geofence if GPS was already fetched
-    verifyCurrentGeofence();
   }
 }
 
@@ -1857,45 +1898,88 @@ function triggerLockDealerGPS() {
   var staff = document.getElementById('staffName').value || currentUser || "Staff";
   if (!dealerName) { alert("Please select a dealer first!"); return; }
   
-  if (!confirm("Kya aap abhi '" + dealerName + "' ki dukan par khade hain?\n\nYaha ka GPS lock karne ke baad, staff sirf is dukan ke 50 meters ke andar se hi punch kar payega.")) {
+  if (!confirm("Kya aap abhi '" + dealerName + "' ki dukan par khade hain?\n\nYaha ka GPS lock karne ke baad, yeh location permanent ho jayegi aur agle visits me sirf yahi 50 meters ke andar se visit punch ho payegi.")) {
     return;
   }
   
-  var btn = event.target.closest('button');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Locking Shop Coordinates...'; }
+  var btn = event ? (event.target.closest('button') || event.target) : null;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> High Accuracy GPS Fetching & Locking...';
+  }
   
   navigator.geolocation.getCurrentPosition(function(pos) {
     var lat = pos.coords.latitude;
     var lng = pos.coords.longitude;
+    var acc = Math.round(pos.coords.accuracy || 0);
     
     google.script.run
       .withSuccessHandler(function(res) {
         if (res.success) {
           alert("✅ " + res.message);
-          // Update in-memory dealer
+          
+          // 1. Update in-memory dealer object
           if (currentAreaDealers) {
             var d = currentAreaDealers.find(function(x) { return x.name === dealerName; });
-            if (d) { d.isLocked = true; d.gps = res.gps; d.lat = res.lat; d.lng = res.lng; d.radius = res.radius; }
+            if (d) {
+              d.isLocked = true;
+              d.gps = res.gps;
+              d.lat = res.lat;
+              d.lng = res.lng;
+              d.radius = res.radius || 50;
+            }
           }
           if (window.cachedAreasData && window.cachedAreasData.grouped && window.cachedAreasData.grouped[area]) {
             var d2 = window.cachedAreasData.grouped[area].find(function(x) { return x.name === dealerName; });
-            if (d2) { d2.isLocked = true; d2.gps = res.gps; d2.lat = res.lat; d2.lng = res.lng; d2.radius = res.radius; }
+            if (d2) {
+              d2.isLocked = true;
+              d2.gps = res.gps;
+              d2.lat = res.lat;
+              d2.lng = res.lng;
+              d2.radius = res.radius || 50;
+            }
           }
+          
+          // 2. Persist update in localStorage
+          try {
+            if (window.cachedAreasData) {
+              localStorage.setItem('ym_all_dealers_cache', JSON.stringify(window.cachedAreasData));
+            }
+          } catch(eLS) {}
+          
+          // 3. Auto-populate staff current location in visit form
+          document.getElementById('location').value = res.gps;
+          var stat = document.getElementById('gpsStatus');
+          if (stat) {
+            stat.innerText = "GPS Locked ✔️ (Fresh Accuracy: " + acc + "m)";
+            stat.className = "text-success fw-bold mt-1 d-block";
+          }
+          
+          // 4. Re-check dealer details -> Hides lock button, verifies geofence (dist 0m), enables submit button!
           checkDealerDetails();
         } else {
           alert("❌ " + res.message);
-          if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-pin-map-fill text-danger"></i> 📍 Lock Current GPS as Dealer Location'; }
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-pin-map-fill text-danger fs-6"></i> <span>📍 Lock Dealer GPS Location (Shop par khade hokar dabayein)</span>';
+          }
         }
       })
       .withFailureHandler(function(err) {
         alert("Error locking GPS: " + err.message);
-        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-pin-map-fill text-danger"></i> 📍 Lock Current GPS as Dealer Location'; }
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="bi bi-pin-map-fill text-danger fs-6"></i> <span>📍 Lock Dealer GPS Location (Shop par khade hokar dabayein)</span>';
+        }
       })
       .lockDealerGPS(dealerName, area, lat, lng, staff);
   }, function(err) {
-    alert("GPS Error: " + err.message + ". Phone ka Location / High Accuracy on karein.");
-    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-pin-map-fill text-danger"></i> 📍 Lock Current GPS as Dealer Location'; }
-  }, { enableHighAccuracy: true, timeout: 25000, maximumAge: 10000 });
+    alert("GPS Error: " + err.message + ". Phone ka Location / High Accuracy on karein aur dobara try karein.");
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-pin-map-fill text-danger fs-6"></i> <span>📍 Lock Dealer GPS Location (Shop par khade hokar dabayein)</span>';
+    }
+  }, { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 });
 }
 
 function verifyCurrentGeofence() {
@@ -1904,17 +1988,41 @@ function verifyCurrentGeofence() {
   var geofenceBox = document.getElementById('geofenceAlertBox');
   var submitBtn = document.getElementById('submitBtn');
   
-  if (!geofenceBox) return;
-  if (!locVal || !dealerName || !currentAreaDealers) {
-    geofenceBox.style.display = 'none';
-    if (submitBtn) submitBtn.disabled = false;
+  if (!dealerName || !currentAreaDealers) {
+    if (geofenceBox) geofenceBox.style.display = 'none';
     return;
   }
   
   var dealer = currentAreaDealers.find(function(d) { return d.name === dealerName; });
-  if (!dealer || !dealer.isLocked || !dealer.lat || !dealer.lng) {
-    geofenceBox.style.display = 'none';
-    if (submitBtn) submitBtn.disabled = false;
+  if (!dealer) return;
+  
+  // If dealer GPS is NOT locked, visit punch is strictly blocked!
+  if (!dealer.isLocked || !dealer.lat || !dealer.lng) {
+    if (geofenceBox) {
+      geofenceBox.className = "alert alert-danger mt-2 py-2 px-3 small fw-bold mb-0 border-danger shadow-sm";
+      geofenceBox.innerHTML = '🔒 <b>Visit Punch Blocked:</b> Is dealer ka GPS location lock nahi hai. Pehle upar diya gaya "Lock Dealer GPS Location" button dabayein.';
+      geofenceBox.style.display = 'block';
+    }
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.className = "btn btn-secondary w-100 py-3 fw-bold";
+      submitBtn.innerHTML = '<b><i class="bi bi-lock-fill"></i> Visit Punch Blocked (Pehle Dealer GPS Lock Karein)</b>';
+    }
+    return;
+  }
+  
+  // Dealer IS locked. Now verify staff location:
+  if (!locVal) {
+    if (geofenceBox) {
+      geofenceBox.className = "alert alert-warning mt-2 py-2 px-3 small fw-bold mb-0 border-warning shadow-sm";
+      geofenceBox.innerHTML = '📍 <b>GPS Verification Pending:</b> Kripya neeche "Fetch GPS" dabayein ya photo lein taaki 50m geofence verify ho sake.';
+      geofenceBox.style.display = 'block';
+    }
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.className = "btn btn-secondary w-100 py-3 fw-bold";
+      submitBtn.innerHTML = '<b><i class="bi bi-geo-alt-fill"></i> GPS Fetch Required to Punch</b>';
+    }
     return;
   }
   
@@ -1933,15 +2041,27 @@ function verifyCurrentGeofence() {
   var allowedRadius = dealer.radius || 50;
   
   if (distMeters <= allowedRadius) {
-    geofenceBox.className = "alert alert-success mt-2 py-2 px-3 small fw-bold mb-0 border-success shadow-sm";
-    geofenceBox.innerHTML = '✅ <b>Inside Shop Geofence:</b> Aap dukan se ' + distMeters + 'm dur hain (Limit: ' + allowedRadius + 'm). Punch allowed!';
-    geofenceBox.style.display = 'block';
-    if (submitBtn) submitBtn.disabled = false;
+    if (geofenceBox) {
+      geofenceBox.className = "alert alert-success mt-2 py-2 px-3 small fw-bold mb-0 border-success shadow-sm";
+      geofenceBox.innerHTML = '✅ <b>Inside Shop Geofence:</b> Aap dukan se ' + distMeters + 'm dur hain (Limit: ' + allowedRadius + 'm). Visit punch allowed!';
+      geofenceBox.style.display = 'block';
+    }
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.className = "btn btn-primary w-100 py-3";
+      submitBtn.innerHTML = '<b><i class="bi bi-cloud-arrow-up"></i> Submit & Upload</b>';
+    }
   } else {
-    geofenceBox.className = "alert alert-danger mt-2 py-2 px-3 small fw-bold mb-0 border-danger shadow-sm";
-    geofenceBox.innerHTML = '⛔ <b>Anti-Proxy Breach Block:</b> Aap dealer se ' + distMeters + ' meters dur hain! Punch sirf 50m ke andar allowed hai.';
-    geofenceBox.style.display = 'block';
-    if (submitBtn) submitBtn.disabled = true;
+    if (geofenceBox) {
+      geofenceBox.className = "alert alert-danger mt-2 py-2 px-3 small fw-bold mb-0 border-danger shadow-sm";
+      geofenceBox.innerHTML = '⛔ <b>Anti-Proxy Breach Block:</b> Aap dealer se ' + distMeters + ' meters dur hain! Punch sirf 50m ke andar allowed hai.';
+      geofenceBox.style.display = 'block';
+    }
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.className = "btn btn-danger w-100 py-3 fw-bold";
+      submitBtn.innerHTML = '<b><i class="bi bi-slash-circle-fill"></i> Punch Blocked (Dukan se ' + distMeters + 'm Dur)</b>';
+    }
   }
 }
 
@@ -1995,12 +2115,46 @@ function compressImage(event) {
 }
 
 function submitData() {
-  if (!document.getElementById('compressedPhotoData').value) { 
-    alert("❌ Selfie capture karna mandatory hai!"); 
+  var dealerName = document.getElementById('dealerName').value;
+  var area = document.getElementById('area').value;
+  if (!area || !dealerName) {
+    alert("❌ Kripya Area aur Dealer select karein!");
+    return;
+  }
+  
+  // Mandatory Dealer GPS Lock Check
+  var dealer = currentAreaDealers ? currentAreaDealers.find(function(d) { return d.name === dealerName; }) : null;
+  if (!dealer || !dealer.isLocked || !dealer.lat || !dealer.lng) {
+    alert("⛔ VISIT PUNCH BLOCKED!\n\nDealer '" + dealerName + "' ki accurate GPS location abhi system me lock nahi hai.\n\nKripya pehle dealer shop par khade hokar '📍 Lock Dealer GPS Location' button dabayein. GPS lock hone ke baad hi visit punch allow hogi.");
+    return;
+  }
+  
+  if (!document.getElementById('location').value) { 
+    alert("❌ GPS location fetch karna mandatory hai! Phone ka Location on karein."); 
     return; 
   }
-  if (!document.getElementById('location').value) { 
-    alert("❌ GPS location fetch karna mandatory hai!"); 
+  
+  // Geofence Check
+  var locParts = document.getElementById('location').value.split(',');
+  var staffLat = parseFloat(locParts[0]);
+  var staffLng = parseFloat(locParts[1]);
+  if (!isNaN(staffLat) && !isNaN(staffLng) && dealer.lat && dealer.lng) {
+    var R = 6371000;
+    var dLat = (dealer.lat - staffLat) * Math.PI / 180;
+    var dLon = (dealer.lng - staffLng) * Math.PI / 180;
+    var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(staffLat * Math.PI / 180) * Math.cos(dealer.lat * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+    var distMeters = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+    var allowedRadius = dealer.radius || 50;
+    if (distMeters > allowedRadius) {
+      alert("⛔ PROXY CHECK-IN REJECTED!\n\nAap dealer '" + dealerName + "' se " + distMeters + " meters dur hain.\n\nVisit punch sirf 50 meters ke andar hi allowed hai.");
+      return;
+    }
+  }
+
+  if (!document.getElementById('compressedPhotoData').value) { 
+    alert("❌ Selfie capture karna mandatory hai!"); 
     return; 
   }
 
@@ -2314,7 +2468,7 @@ function openPerfModal(metricType) {
                    '<div class="card p-2 text-center border-0 shadow-sm bg-white" style="border-radius:10px;">' +
                      '<div class="text-muted small fw-bold text-uppercase" style="font-size:10px;">Avg Per Visit</div>' +
                      '<div class="fs-4 fw-bold text-primary">₹' + (m.avgRsSalesPerVisit || 0).toLocaleString('en-IN') + '</div>' +
-                     '<div class="text-muted" style="font-size:10px;">Total Rev ÷ ' + (m.visits || 0) + ' Visits</div>' +
+                     '<div class="text-muted" style="font-size:10px;">Total Rev �� ' + (m.visits || 0) + ' Visits</div>' +
                    '</div>' +
                  '</div>' +
                '</div>';
