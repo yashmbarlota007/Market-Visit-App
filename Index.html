@@ -2067,7 +2067,7 @@ function openPerfModal(metricType) {
                     '<div class="d-flex justify-content-between align-items-start">' +
                       '<div>' +
                         '<h6 class="fw-bold text-dark mb-0">' + (idx + 1) + '. ' + ord.shop + '</h6>' +
-                        '<span class="text-muted small">' + ord.dateStr + ' • ' + (ord.area || 'Direct') + '</span>' +
+                        '<span class="text-muted small">' + ord.dateStr + ' ��� ' + (ord.area || 'Direct') + '</span>' +
                       '</div>' +
                       '<h5 class="fw-bold text-success mb-0">₹' + (ord.amount || 0).toLocaleString('en-IN') + '</h5>' +
                     '</div>' +
@@ -2457,12 +2457,31 @@ function renderStaffRadarError(errMsg) {
 }
 
 // Quick Telemetry Strip right on the CEO Dashboard
+function cleanTelemetryTime(rawTime) {
+  var t = String(rawTime || "").trim();
+  if (!t) return "--:--";
+  if (t.indexOf("1899") !== -1 || t.indexOf("GMT") !== -1) {
+    try {
+      var d = new Date(t);
+      if (!isNaN(d.getTime())) {
+        var h = d.getHours();
+        var m = d.getMinutes();
+        var ampm = h >= 12 ? "PM" : "AM";
+        var h12 = h % 12 || 12;
+        var mStr = m < 10 ? "0" + m : m;
+        return (h12 < 10 ? "0" + h12 : h12) + ":" + mStr + " " + ampm;
+      }
+    } catch(e) {}
+  }
+  return t;
+}
+
 function refreshCeoDashboardRadar(manual) {
   var container = document.getElementById('ceoLiveRadarWidgetContainer');
   if (!container) return;
 
   if (manual) {
-    container.innerHTML = '<div class="text-center py-3 text-muted small"><span class="spinner-border spinner-border-sm text-success me-2"></span> Pinging field GPS signals...</div>';
+    container.innerHTML = '<div class="text-center py-3 text-muted small"><span class="spinner-border spinner-border-sm text-success me-2"></span> Pinging live field GPS signals...</div>';
   }
 
   fetchStaffRadarTelemetry(function(res) {
@@ -2470,39 +2489,59 @@ function refreshCeoDashboardRadar(manual) {
       container.innerHTML = '<div class="p-3 bg-light rounded text-center text-muted" style="font-size:12px;">' +
                               '<i class="bi bi-broadcast text-secondary fs-4 d-block mb-1"></i>' +
                               '<b>No Live Staff Transmissions at this moment.</b><br>' +
-                              '<span class="text-muted">Field staff ke app kholte hi unka live location yahan automatically show hoga.</span>' +
+                              '<span class="text-muted">Field staff ke app open karte hi unka live location yahan automatically show hoga.</span>' +
                             '</div>';
       return;
     }
 
-    var html = '<div class="row g-2">';
+    // Client-side strict deduplication by staff name
+    var uniqueMap = {};
     res.staff.forEach(function(s) {
+      var rawName = String(s.name || "").trim();
+      if (!rawName) return;
+      var k = rawName.toUpperCase();
+      uniqueMap[k] = s;
+    });
+
+    var staffList = Object.values(uniqueMap);
+    staffList.sort(function(a, b) { return a.name.localeCompare(b.name); });
+
+    var html = '<div class="row g-2">';
+    staffList.forEach(function(s) {
       var hasCoords = s.lat && s.lng && !isNaN(s.lat) && !isNaN(s.lng) && s.lat !== 0;
-      var speedText = s.speed > 5 ? (Math.round(s.speed) + ' km/h (Moving)') : 'Stationary';
-      var speedColor = s.speed > 5 ? 'text-primary' : 'text-secondary';
-      var distText = s.distFromHQ ? (s.distFromHQ + ' km from HQ') : 'Near HQ';
+      var speedNum = Math.round(Number(s.speed) || 0);
+      var isMoving = speedNum > 5;
+      var speedBadge = isMoving 
+        ? '<span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size:10px;"><i class="bi bi-bicycle me-1"></i>' + speedNum + ' km/h (Moving)</span>'
+        : '<span class="badge bg-secondary-subtle text-secondary border" style="font-size:10px;"><i class="bi bi-p-square me-1"></i>Stationary</span>';
+
+      var distNum = Number(s.distFromHQ) || 0;
+      var distText = distNum > 0.1 ? (distNum.toFixed(1) + ' km from Warehouse') : 'At Warehouse / HQ';
       var mapsUrl = s.mapsUrl || (hasCoords ? ('https://www.google.com/maps?q=' + s.lat + ',' + s.lng) : '');
+      var displayTime = cleanTelemetryTime(s.lastTime);
+      var dateLabel = s.date && s.date.indexOf("1899") === -1 ? s.date : "Today";
 
       html += '<div class="col-12 col-md-6 col-lg-4">' +
-                '<div class="card h-100 border p-2 shadow-sm" style="border-radius:12px; background:#f8fafc;">' +
-                  '<div class="d-flex justify-content-between align-items-start mb-2">' +
+                '<div class="card h-100 border p-2 shadow-sm" style="border-radius:12px; background:#ffffff;">' +
+                  '<div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">' +
                     '<div class="d-flex align-items-center gap-2">' +
-                      '<div class="rounded-circle bg-dark text-white fw-bold d-flex align-items-center justify-content-center" style="width:34px; height:34px; font-size:13px;">' +
+                      '<div class="rounded-circle bg-dark text-white fw-bold d-flex align-items-center justify-content-center" style="width:36px; height:36px; font-size:14px;">' +
                         s.name.charAt(0) +
                       '</div>' +
                       '<div>' +
-                        '<div class="fw-bold text-dark" style="font-size:13px;">' + s.name + '</div>' +
-                        '<span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size:9.5px;">● Online in Field</span>' +
+                        '<div class="fw-bold text-dark fs-6">' + s.name + '</div>' +
+                        '<span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size:9.5px;">● Active in Field</span>' +
                       '</div>' +
                     '</div>' +
-                    (mapsUrl ? '<a href="' + mapsUrl + '" target="_blank" class="btn btn-sm btn-outline-primary py-0 px-2 fw-bold" style="font-size:11px;" title="Open in Google Maps"><i class="bi bi-geo-alt-fill"></i> Maps</a>' : '') +
+                    (mapsUrl ? '<a href="' + mapsUrl + '" target="_blank" class="btn btn-sm btn-outline-primary py-1 px-2 fw-bold" style="font-size:11.5px; border-radius:8px;" title="Open live Google Maps"><i class="bi bi-geo-alt-fill text-danger"></i> Maps</a>' : '') +
                   '</div>' +
-                  '<div class="d-flex justify-content-between align-items-center pt-2 border-top text-muted" style="font-size:11px;">' +
-                    '<span><i class="bi bi-speedometer2 ' + speedColor + '"></i> ' + speedText + '</span>' +
-                    '<span><i class="bi bi-pin-map"></i> ' + distText + '</span>' +
+                  '<div class="d-flex justify-content-between align-items-center mb-1 text-muted" style="font-size:11.5px;">' +
+                    speedBadge +
+                    '<span><i class="bi bi-pin-map text-danger me-1"></i>' + distText + '</span>' +
                   '</div>' +
-                  '<div class="text-muted mt-1" style="font-size:10.5px;">' +
-                    '<i class="bi bi-clock-history"></i> Last Ping: <b>' + (s.lastTime || '--') + '</b> (' + (s.date || 'Today') + ')' +
+                  '<div class="text-muted mt-2 pt-1 border-top d-flex justify-content-between align-items-center" style="font-size:10.5px;">' +
+                    '<span><i class="bi bi-clock-history me-1 text-primary"></i> Last Ping: <b>' + displayTime + '</b></span>' +
+                    '<span class="badge bg-light text-secondary border">' + dateLabel + '</span>' +
                   '</div>' +
                 '</div>' +
               '</div>';
