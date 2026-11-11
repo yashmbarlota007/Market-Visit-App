@@ -2436,50 +2436,29 @@ function openPerfModal(metricType) {
     header.style.background = '#16a34a';
     title.innerHTML = '<i class="bi bi-pie-chart-fill"></i> ' + periodLabel + ' Conversion (' + (m.conversionRatio || 0) + '%)';
     
-    var convertedDealers = breakdown.filter(function(d) { return d.isConverted && d.ordersCount > 0; });
-    var zeroSaleDealers = breakdown.filter(function(d) { return d.visitsCount > 0 && (!d.isConverted || d.ordersCount === 0); });
+    var convertedDealers = breakdown.filter(function(d) { return d.isConverted && (d.convertedVisitsCount > 0 || d.sameDayOrdersCount > 0); });
+    var zeroSaleDealers = breakdown.filter(function(d) { return d.visitsCount > 0 && (!d.isConverted || d.convertedVisitsCount === 0); });
     
     var html = '<div class="card mb-3 border-0 bg-success text-white p-3 text-center shadow-sm" style="border-radius:12px;">' +
-                 '<div class="small text-uppercase opacity-75 fw-bold">Conversion Strike Rate</div>' +
+                 '<div class="small text-uppercase opacity-75 fw-bold">Same-Day Visit Conversion Strike Rate</div>' +
                  '<div class="display-6 fw-bold">' + (m.conversionRatio || 0) + '%</div>' +
-                 '<div class="small mt-1 opacity-90">' + (m.productiveVisits || 0) + ' converted out of ' + (m.visits || 0) + ' visits</div>' +
-                 '<div class="badge bg-white text-success mx-auto mt-2 px-3 py-1 fw-bold" style="font-size:11px;">Formula: (Converted Visits ÷ Total Visits) × 100</div>' +
+                 '<div class="small mt-1 opacity-90">' + (m.productiveVisits || 0) + ' converted visits (with same-day order) out of ' + (m.visits || 0) + ' total visits</div>' +
+                 '<div class="badge bg-white text-success mx-auto mt-2 px-3 py-1 fw-bold" style="font-size:11px;">Formula: (Same-Day Converted Visits ÷ Total Visits) × 100</div>' +
                '</div>';
                
     html += '<h6 class="fw-bold text-success mb-2"><i class="bi bi-check-circle-fill"></i> Converted Visits (' + convertedDealers.length + ' Dealers)</h6>';
     if (convertedDealers.length === 0) {
-      html += '<div class="card mb-3 p-3 text-center text-muted border-0 shadow-sm" style="font-size:13px;">No converted orders in this period yet.</div>';
+      html += '<div class="card mb-3 p-3 text-center text-muted border-0 shadow-sm" style="font-size:13px;">No store visits converted into same-day orders in this period.</div>';
     } else {
-      convertedDealers.forEach(function(cd) {
-        html += '<div class="card mb-2 border-0 shadow-sm" style="border-left: 4px solid #16a34a !important; border-radius:8px;">' +
-                  '<div class="card-body p-2 d-flex justify-content-between align-items-center">' +
-                    '<div>' +
-                      '<div class="fw-bold text-dark" style="font-size:13px;">' + cd.dealerName + '</div>' +
-                      '<div class="text-muted" style="font-size:11px;">' + cd.visitsCount + ' Visits • ' + cd.ordersCount + ' Orders</div>' +
-                    '</div>' +
-                    '<div class="text-end">' +
-                      '<div class="fw-bold text-success fs-6">₹' + cd.totalAmount.toLocaleString('en-IN') + '</div>' +
-                      '<span class="badge bg-success-subtle text-success" style="font-size:10px;">Converted ✅</span>' +
-                    '</div>' +
-                  '</div>' +
-                '</div>';
+      convertedDealers.forEach(function(cd, idx) {
+        html += renderDealerConversionCard(cd, idx, 'staff_conv');
       });
     }
     
     if (zeroSaleDealers.length > 0) {
-      html += '<h6 class="fw-bold text-warning-emphasis mt-3 mb-2"><i class="bi bi-hourglass-split"></i> Visited Without Sale (' + zeroSaleDealers.length + ' Dealers)</h6>';
-      zeroSaleDealers.forEach(function(zd) {
-        html += '<div class="card mb-2 border-0 shadow-sm" style="border-left: 4px solid #f59e0b !important; border-radius:8px;">' +
-                  '<div class="card-body p-2 d-flex justify-content-between align-items-center">' +
-                    '<div>' +
-                      '<div class="fw-bold text-dark" style="font-size:13px;">' + zd.dealerName + '</div>' +
-                      '<div class="text-muted" style="font-size:11px;">' + (zd.tasks.join(', ') || 'Store Visit') + '</div>' +
-                    '</div>' +
-                    '<div class="text-end">' +
-                      '<span class="badge bg-warning-subtle text-warning-emphasis" style="font-size:10px;">Follow-up Needed ⏳</span>' +
-                    '</div>' +
-                  '</div>' +
-                '</div>';
+      html += '<h6 class="fw-bold text-warning-emphasis mt-3 mb-2"><i class="bi bi-hourglass-split"></i> Visited Without Same-Day Order (' + zeroSaleDealers.length + ' Dealers)</h6>';
+      zeroSaleDealers.forEach(function(zd, idx) {
+        html += renderDealerConversionCard(zd, idx, 'staff_zero');
       });
     }
     
@@ -2695,52 +2674,29 @@ function openCeoPerfModal(metricType, targetKey) {
     header.style.background = '#16a34a';
     title.innerHTML = '<i class="bi bi-pie-chart-fill"></i> ' + entityTitle + ' Conversion (' + (m.conversionRatio || 0) + '%)';
     
-    var convertedDealers = breakdown.filter(function(d) { return d.isConverted && d.ordersCount > 0; });
-    var zeroSaleDealers = breakdown.filter(function(d) { return d.visitsCount > 0 && (!d.isConverted || d.ordersCount === 0); });
+    var convertedDealers = breakdown.filter(function(d) { return d.isConverted && (d.convertedVisitsCount > 0 || d.sameDayOrdersCount > 0); });
+    var zeroSaleDealers = breakdown.filter(function(d) { return d.visitsCount > 0 && (!d.isConverted || d.convertedVisitsCount === 0); });
     
     var html = '<div class="card mb-3 border-0 bg-success text-white p-3 text-center shadow-sm" style="border-radius:12px;">' +
-                 '<div class="small text-uppercase opacity-75 fw-bold">Conversion Strike Rate</div>' +
+                 '<div class="small text-uppercase opacity-75 fw-bold">Same-Day Visit Conversion Strike Rate</div>' +
                  '<div class="display-6 fw-bold">' + (m.conversionRatio || 0) + '%</div>' +
-                 '<div class="small mt-1 opacity-90">' + (m.productiveVisits || 0) + ' converted out of ' + (m.visits || 0) + ' visits</div>' +
-                 '<div class="badge bg-white text-success mx-auto mt-2 px-3 py-1 fw-bold" style="font-size:11px;">Formula: (Converted Visits ÷ Total Visits) × 100</div>' +
+                 '<div class="small mt-1 opacity-90">' + (m.productiveVisits || 0) + ' converted visits (with same-day order) out of ' + (m.visits || 0) + ' total visits</div>' +
+                 '<div class="badge bg-white text-success mx-auto mt-2 px-3 py-1 fw-bold" style="font-size:11px;">Formula: (Same-Day Converted Visits ÷ Total Visits) × 100</div>' +
                '</div>';
                
     html += '<h6 class="fw-bold text-success mb-2"><i class="bi bi-check-circle-fill"></i> Converted Visits (' + convertedDealers.length + ' Dealers)</h6>';
     if (convertedDealers.length === 0) {
-      html += '<div class="card mb-3 p-3 text-center text-muted border-0 shadow-sm" style="font-size:13px;">No converted orders in this period.</div>';
+      html += '<div class="card mb-3 p-3 text-center text-muted border-0 shadow-sm" style="font-size:13px;">No store visits converted into same-day orders in this period.</div>';
     } else {
-      convertedDealers.forEach(function(cd) {
-        var staffInfo = cd.staff ? '<span class="badge bg-light text-dark border me-1">' + cd.staff.split(' ')[0] + '</span>' : '';
-        html += '<div class="card mb-2 border-0 shadow-sm" style="border-left: 4px solid #16a34a !important; border-radius:8px;">' +
-                  '<div class="card-body p-2 d-flex justify-content-between align-items-center">' +
-                    '<div>' +
-                      '<div class="fw-bold text-dark" style="font-size:13px;">' + cd.dealerName + '</div>' +
-                      '<div class="text-muted" style="font-size:11px;">' + staffInfo + cd.visitsCount + ' Visits • ' + cd.ordersCount + ' Orders</div>' +
-                    '</div>' +
-                    '<div class="text-end">' +
-                      '<div class="fw-bold text-success fs-6">₹' + cd.totalAmount.toLocaleString('en-IN') + '</div>' +
-                      '<span class="badge bg-success-subtle text-success" style="font-size:10px;">Converted ✅</span>' +
-                    '</div>' +
-                  '</div>' +
-                '</div>';
+      convertedDealers.forEach(function(cd, idx) {
+        html += renderDealerConversionCard(cd, idx, 'ceo_conv');
       });
     }
     
     if (zeroSaleDealers.length > 0) {
-      html += '<h6 class="fw-bold text-warning-emphasis mt-3 mb-2"><i class="bi bi-hourglass-split"></i> Visited Without Sale (' + zeroSaleDealers.length + ' Dealers)</h6>';
-      zeroSaleDealers.forEach(function(zd) {
-        var staffInfo = zd.staff ? '<span class="badge bg-light text-dark border me-1">' + zd.staff.split(' ')[0] + '</span>' : '';
-        html += '<div class="card mb-2 border-0 shadow-sm" style="border-left: 4px solid #f59e0b !important; border-radius:8px;">' +
-                  '<div class="card-body p-2 d-flex justify-content-between align-items-center">' +
-                    '<div>' +
-                      '<div class="fw-bold text-dark" style="font-size:13px;">' + zd.dealerName + '</div>' +
-                      '<div class="text-muted" style="font-size:11px;">' + staffInfo + (zd.tasks.join(', ') || 'Store Visit') + '</div>' +
-                    '</div>' +
-                    '<div class="text-end">' +
-                      '<span class="badge bg-warning-subtle text-warning-emphasis" style="font-size:10px;">Follow-up Needed ⏳</span>' +
-                    '</div>' +
-                  '</div>' +
-                '</div>';
+      html += '<h6 class="fw-bold text-warning-emphasis mt-3 mb-2"><i class="bi bi-hourglass-split"></i> Visited Without Same-Day Order (' + zeroSaleDealers.length + ' Dealers)</h6>';
+      zeroSaleDealers.forEach(function(zd, idx) {
+        html += renderDealerConversionCard(zd, idx, 'ceo_zero');
       });
     }
     
