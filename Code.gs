@@ -90,12 +90,14 @@ function doGet(e) {
 
   var template = HtmlService.createTemplateFromFile('Index');
   
-  if (e && e.parameter && e.parameter.empId) {
-    template.empId = e.parameter.empId;
-    template.role = e.parameter.role;
+  if (e && e.parameter && (e.parameter.empId || e.parameter.role)) {
+    template.empId = e.parameter.empId || "";
+    template.role = e.parameter.role || "";
+    template.name = e.parameter.name || "";
   } else {
     template.empId = "";
     template.role = "";
+    template.name = "";
   }
   
     // PRE-EMBED ALL DEALERS DIRECTLY INTO HTML TEMPLATE FOR 0-SECOND CLIENT SWITCH
@@ -2002,7 +2004,7 @@ function generateMorningBriefing(areaName) {
   report += "━━━━━━━━━━━━━━━━━━━" + nl;
   report += "��� *Area:* " + areaClean + nl;
   report += "👤 *Staff:* " + staffName + nl;
-  report += "📅 *Date:* " + Utilities.formatDate(now, Session.getScriptTimeZone(), "dd-MMM-yyyy") + nl + nl;
+  report += "�� *Date:* " + Utilities.formatDate(now, Session.getScriptTimeZone(), "dd-MMM-yyyy") + nl + nl;
   
   var totalTarget = 1000000; // 10 Lakhs Total
   var targetPct = Math.round((mtdSales / totalTarget) * 100);
