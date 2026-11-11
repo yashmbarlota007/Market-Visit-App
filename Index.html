@@ -745,6 +745,37 @@ window.loadAreasInBackground = function() {
 
         </div>
 
+        
+        <!-- 📡 LIVE FIELD FORCE TELEMETRY & GPS TRACKER -->
+        <div class="card border-0 shadow-sm p-3 mb-3 bg-white" style="border-radius: 16px;">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 border-bottom pb-2 mb-3">
+            <div>
+              <div class="d-flex align-items-center gap-2">
+                <span class="pulse-live-dot" style="background:#10b981; width:8px; height:8px; display:inline-block; border-radius:50%; box-shadow:0 0 8px #10b981;"></span>
+                <h5 class="fw-black mb-0 text-dark" style="font-size:15px;">
+                  <i class="bi bi-geo-alt-fill text-danger me-1"></i> Live Field Staff GPS & Activity Radar
+                </h5>
+              </div>
+              <div class="text-muted small mt-1" style="font-size:11.5px;">Real-time GPS telemetry, field speed, HQ distance, & live map routes</div>
+            </div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm btn-outline-success fw-bold px-3 py-1" onclick="refreshCeoDashboardRadar(true)" style="border-radius: 8px; font-size:12px;">
+                <i class="bi bi-arrow-clockwise"></i> Ping Staff GPS
+              </button>
+              <button class="btn btn-sm btn-success fw-bold px-3 py-1 shadow-sm" onclick="openStaffRadarModal()" style="border-radius: 8px; font-size:12px;">
+                <i class="bi bi-map-fill me-1"></i> Open Radar Map
+              </button>
+            </div>
+          </div>
+
+          <!-- Quick Telemetry Grid Container -->
+          <div id="ceoLiveRadarWidgetContainer">
+            <div class="text-center py-3 text-muted small">
+              <span class="spinner-border spinner-border-sm text-success me-2"></span> Scanning active field signals...
+            </div>
+          </div>
+        </div>
+
         <!-- 🏆 SALES FORCE LEADERBOARD & ROUTE EXECUTION -->
         <div class="card border-0 shadow-sm p-3 mb-3 bg-white" style="border-radius: 16px;">
           <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
@@ -1607,7 +1638,8 @@ function selectCeoTimeframe(filterKey, el) {
 
 function renderCeoDashboard(res) {
   if (!res) return;
-  masterData = res; 
+  masterData = res;
+  try { refreshCeoDashboardRadar(false); } catch(eR) {} 
   
   // 1. Populate Company-Wide KPI Cards
   var cm = res.companyMetrics || {};
@@ -2296,6 +2328,188 @@ function openCeoPerfModal(metricType, targetKey) {
   }
   
   new bootstrap.Modal(document.getElementById('perfDetailModal')).show();
+}
+
+
+
+
+// =============================================================
+// CEO LIVE STAFF RADAR & FIELD TRACKING ENGINE
+// =============================================================
+var ceoRadarMap = null;
+var ceoRadarMarkers = [];
+
+function openStaffRadarModal() {
+  var modalEl = document.getElementById('staffRadarModal');
+  if (!modalEl) return;
+  var bsModal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+  bsModal.show();
+  
+  setTimeout(function() {
+    initCeoRadarMap();
+    refreshStaffRadarData();
+  }, 350);
+}
+
+function initCeoRadarMap() {
+  var mapContainer = document.getElementById('ceoLiveStaffMap');
+  if (!mapContainer) return;
+  
+  if (!ceoRadarMap && typeof L !== 'undefined') {
+    // Default HQ centered: 19.0952, 74.7496 (Ahmednagar HQ)
+    ceoRadarMap = L.map('ceoLiveStaffMap').setView([19.0952, 74.7496], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(ceoRadarMap);
+  } else if (ceoRadarMap) {
+    ceoRadarMap.invalidateSize();
+  }
+}
+
+function refreshStaffRadarData() {
+  var content = document.getElementById('staffRadarContent');
+  if (content) {
+    content.innerHTML = '<div class="text-center py-4 text-muted"><span class="spinner-border spinner-border-sm text-success me-2"></span> Scanning live satellite signals from field...</div>';
+  }
+  
+  fetchStaffRadarTelemetry(function(res) {
+    if (res && res.success && res.staff) {
+      renderStaffRadar(res.staff);
+    } else {
+      renderStaffRadarError(res ? res.error : "Unable to fetch staff GPS data.");
+    }
+  });
+}
+
+function fetchStaffRadarTelemetry(callback) {
+  var activeRole = portalRole || localStorage.getItem('yashApp_staffRole') || 'CEO';
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (callback) callback(res);
+      })
+      .withFailureHandler(function(err) {
+        if (callback) callback({ success: false, error: err.message });
+      })
+      .getLiveStaffRadar(activeRole);
+  } else {
+    if (callback) callback({ success: false, error: "Google Script API not available" });
+  }
+}
+
+function renderStaffRadar(staffList) {
+  var content = document.getElementById('staffRadarContent');
+  if (!staffList || staffList.length === 0) {
+    if (content) {
+      content.innerHTML = '<div class="alert alert-light border text-center p-3 text-muted"><i class="bi bi-geo-alt-slash fs-4 d-block mb-1"></i>No field GPS signals active today. When sales staff open the app, their coordinates will automatically appear here.</div>';
+    }
+    return;
+  }
+
+  if (ceoRadarMap) {
+    ceoRadarMarkers.forEach(function(m) { ceoRadarMap.removeLayer(m); });
+    ceoRadarMarkers = [];
+  }
+
+  var bounds = [];
+  var html = '<div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0" style="font-size:12.5px;">' +
+             '<thead class="table-dark"><tr><th>Staff</th><th>Speed</th><th>HQ Distance</th><th>Last Active</th><th>Action</th></tr></thead><tbody>';
+
+  staffList.forEach(function(s) {
+    var hasValidCoords = s.lat && s.lng && !isNaN(s.lat) && !isNaN(s.lng) && s.lat !== 0;
+    var mapLink = hasValidCoords ? '<a href="https://www.google.com/maps?q=' + s.lat + ',' + s.lng + '" target="_blank" class="btn btn-xs btn-outline-primary py-0 px-2 fw-bold" style="font-size:11px;"><i class="bi bi-geo-alt"></i> Map</a>' : '<span class="text-muted small">No GPS</span>';
+    var speedBadge = s.speed > 5 ? '<span class="badge bg-primary">' + Math.round(s.speed) + ' km/h</span>' : '<span class="badge bg-secondary">Stationary</span>';
+
+    html += '<tr>' +
+              '<td><b>' + s.name + '</b><br><span class="badge bg-success-subtle text-success" style="font-size:10px;">● ' + (s.status || 'Active') + '</span></td>' +
+              '<td>' + speedBadge + '</td>' +
+              '<td>' + (s.distFromHQ ? s.distFromHQ + ' km' : '--') + '</td>' +
+              '<td><span class="text-muted">' + (s.lastTime || s.date || '--') + '</span></td>' +
+              '<td>' + mapLink + '</td>' +
+            '</tr>';
+
+    if (hasValidCoords && ceoRadarMap) {
+      bounds.push([s.lat, s.lng]);
+      var marker = L.marker([s.lat, s.lng]).addTo(ceoRadarMap);
+      marker.bindPopup('<b>' + s.name + '</b><br>Speed: ' + s.speed + ' km/h<br>Distance: ' + s.distFromHQ + ' km<br>Last Seen: ' + s.lastTime + '<br><a href="https://www.google.com/maps?q=' + s.lat + ',' + s.lng + '" target="_blank">Open Google Maps</a>');
+      ceoRadarMarkers.push(marker);
+    }
+  });
+
+  html += '</tbody></table></div>';
+  if (content) content.innerHTML = html;
+
+  if (ceoRadarMap && bounds.length > 0) {
+    if (bounds.length === 1) {
+      ceoRadarMap.setView(bounds[0], 14);
+    } else {
+      ceoRadarMap.fitBounds(bounds, { padding: [30, 30] });
+    }
+  }
+}
+
+function renderStaffRadarError(errMsg) {
+  var content = document.getElementById('staffRadarContent');
+  if (content) {
+    content.innerHTML = '<div class="alert alert-danger p-3 small mb-0"><i class="bi bi-exclamation-triangle-fill me-1"></i> Radar Error: ' + errMsg + '</div>';
+  }
+}
+
+// Quick Telemetry Strip right on the CEO Dashboard
+function refreshCeoDashboardRadar(manual) {
+  var container = document.getElementById('ceoLiveRadarWidgetContainer');
+  if (!container) return;
+
+  if (manual) {
+    container.innerHTML = '<div class="text-center py-3 text-muted small"><span class="spinner-border spinner-border-sm text-success me-2"></span> Pinging field GPS signals...</div>';
+  }
+
+  fetchStaffRadarTelemetry(function(res) {
+    if (!res || !res.success || !res.staff || res.staff.length === 0) {
+      container.innerHTML = '<div class="p-3 bg-light rounded text-center text-muted" style="font-size:12px;">' +
+                              '<i class="bi bi-broadcast text-secondary fs-4 d-block mb-1"></i>' +
+                              '<b>No Live Staff Transmissions at this moment.</b><br>' +
+                              '<span class="text-muted">Field staff ke app kholte hi unka live location yahan automatically show hoga.</span>' +
+                            '</div>';
+      return;
+    }
+
+    var html = '<div class="row g-2">';
+    res.staff.forEach(function(s) {
+      var hasCoords = s.lat && s.lng && !isNaN(s.lat) && !isNaN(s.lng) && s.lat !== 0;
+      var speedText = s.speed > 5 ? (Math.round(s.speed) + ' km/h (Moving)') : 'Stationary';
+      var speedColor = s.speed > 5 ? 'text-primary' : 'text-secondary';
+      var distText = s.distFromHQ ? (s.distFromHQ + ' km from HQ') : 'Near HQ';
+      var mapsUrl = s.mapsUrl || (hasCoords ? ('https://www.google.com/maps?q=' + s.lat + ',' + s.lng) : '');
+
+      html += '<div class="col-12 col-md-6 col-lg-4">' +
+                '<div class="card h-100 border p-2 shadow-sm" style="border-radius:12px; background:#f8fafc;">' +
+                  '<div class="d-flex justify-content-between align-items-start mb-2">' +
+                    '<div class="d-flex align-items-center gap-2">' +
+                      '<div class="rounded-circle bg-dark text-white fw-bold d-flex align-items-center justify-content-center" style="width:34px; height:34px; font-size:13px;">' +
+                        s.name.charAt(0) +
+                      '</div>' +
+                      '<div>' +
+                        '<div class="fw-bold text-dark" style="font-size:13px;">' + s.name + '</div>' +
+                        '<span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size:9.5px;">● Online in Field</span>' +
+                      '</div>' +
+                    '</div>' +
+                    (mapsUrl ? '<a href="' + mapsUrl + '" target="_blank" class="btn btn-sm btn-outline-primary py-0 px-2 fw-bold" style="font-size:11px;" title="Open in Google Maps"><i class="bi bi-geo-alt-fill"></i> Maps</a>' : '') +
+                  '</div>' +
+                  '<div class="d-flex justify-content-between align-items-center pt-2 border-top text-muted" style="font-size:11px;">' +
+                    '<span><i class="bi bi-speedometer2 ' + speedColor + '"></i> ' + speedText + '</span>' +
+                    '<span><i class="bi bi-pin-map"></i> ' + distText + '</span>' +
+                  '</div>' +
+                  '<div class="text-muted mt-1" style="font-size:10.5px;">' +
+                    '<i class="bi bi-clock-history"></i> Last Ping: <b>' + (s.lastTime || '--') + '</b> (' + (s.date || 'Today') + ')' +
+                  '</div>' +
+                '</div>' +
+              '</div>';
+    });
+    html += '</div>';
+    container.innerHTML = html;
+  });
 }
 
 </script>
