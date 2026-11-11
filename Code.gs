@@ -797,6 +797,8 @@ function getStaffDashboardData(staffName) {
     bObj.sales = computed.metrics.revenue;
     bObj.metrics = computed.metrics;
     bObj.dealerBreakdown = computed.dealerBreakdown;
+    bObj.ordersList = computed.ordersList;
+    bObj.unvisitedOrdersList = computed.unvisitedOrdersList;
   }
 
   return dashboard;
@@ -815,7 +817,7 @@ function computeEntityMetrics(visits, orders) {
 
   var dealersMap = {};
 
-  // 1. Process all visits
+  // 1. Process all visits (ONLY dealers who were physically visited enter dealersMap)
   for (var vi = 0; vi < visitsList.length; vi++) {
     var vItem = visitsList[vi];
     var dClean = cleanDealerKey(vItem.dealer);
@@ -858,7 +860,14 @@ function computeEntityMetrics(visits, orders) {
     }
   }
 
-  // 2. Process all orders
+  // 2. Process all orders:
+  // ZERO-VISIT EXCLUSION RULE:
+  // An order is counted in Market Visit metrics ONLY IF the dealer was physically visited at least once (visitsCount > 0).
+  // Orders from dealers with 0 visits are separated into unvisitedOrders to prevent artificial KPI inflation.
+  var visitedOrders = [];
+  var unvisitedOrders = [];
+  var unvisitedRevenue = 0;
+
   for (var oi = 0; oi < ordersList.length; oi++) {
     var oItem = ordersList[oi];
     var oClean = cleanDealerKey(oItem.shop);
@@ -872,41 +881,38 @@ function computeEntityMetrics(visits, orders) {
       }
     }
 
-    if (!matchKey) {
-      matchKey = oClean;
-      if (!dealersMap[matchKey]) {
-        dealersMap[matchKey] = {
-          dealerName: oItem.shop,
-          area: oItem.area || "",
-          staff: oItem.staff || "",
-          visitsCount: 0,
-          ordersCount: 0,
-          convertedVisitsCount: 0,
-          sameDayOrdersCount: 0,
-          sameDayRevenue: 0,
-          totalRevenue: 0,
-          totalAmount: 0,
-          isConverted: false,
-          tasks: [],
-          visits: [],
-          orders: []
-        };
-      }
-    }
-
     var oAmt = parseFloat(oItem.amount) || 0;
-    dealersMap[matchKey].ordersCount++;
-    dealersMap[matchKey].totalRevenue += oAmt;
-    dealersMap[matchKey].totalAmount += oAmt;
-    dealersMap[matchKey].orders.push({
-      shop: oItem.shop,
-      amount: oAmt,
-      items: oItem.items || "",
-      dateStr: oItem.dateStr || "",
-      staff: oItem.staff || "",
-      area: oItem.area || "",
-      isSameDayConverted: false
-    });
+
+    if (matchKey && dealersMap[matchKey]) {
+      // Visited Dealer Match (Visits >= 1)
+      dealersMap[matchKey].ordersCount++;
+      dealersMap[matchKey].totalRevenue += oAmt;
+      dealersMap[matchKey].totalAmount += oAmt;
+      
+      var visitedOrdRecord = {
+        shop: oItem.shop,
+        amount: oAmt,
+        items: oItem.items || "",
+        dateStr: oItem.dateStr || "",
+        staff: oItem.staff || "",
+        area: oItem.area || "",
+        isSameDayConverted: false
+      };
+      dealersMap[matchKey].orders.push(visitedOrdRecord);
+      visitedOrders.push(visitedOrdRecord);
+    } else {
+      // 0-VISIT ORDER (Dealer had 0 visits in this timeframe)
+      // Excluded from Market Visit KPIs!
+      unvisitedOrders.push({
+        shop: oItem.shop,
+        amount: oAmt,
+        items: oItem.items || "",
+        dateStr: oItem.dateStr || "",
+        staff: oItem.staff || "",
+        area: oItem.area || ""
+      });
+      unvisitedRevenue += oAmt;
+    }
   }
 
   // 3. MATCH SAME-DAY VISIT CONVERSIONS (Visit Date == Order Date)
@@ -948,14 +954,8 @@ function computeEntityMetrics(visits, orders) {
   }
 
   var dealerBreakdown = [];
-  var uniqueVisitedDealers = 0;
-
   for (var k in dealersMap) {
-    var dData = dealersMap[k];
-    dealerBreakdown.push(dData);
-    if (dData.visitsCount > 0) {
-      uniqueVisitedDealers++;
-    }
+    dealerBreakdown.push(dealersMap[k]);
   }
 
   dealerBreakdown.sort(function(a, b) {
@@ -965,19 +965,19 @@ function computeEntityMetrics(visits, orders) {
   });
 
   var totalVisits = visitsList.length;
-  var totalTxns = ordersList.length;
-  var totalRev = ordersList.reduce(function(sum, o) { return sum + (parseFloat(o.amount) || 0); }, 0);
+  var totalTxns = visitedOrders.length;
+  var totalRev = visitedOrders.reduce(function(sum, o) { return sum + (parseFloat(o.amount) || 0); }, 0);
+  var uniqueVisitedDealers = dealerBreakdown.length;
 
   // Conversion Ratio = (Productive Visits with Same-Day Order ÷ Total Visits) × 100
   var convRatio = totalVisits > 0 
     ? Math.min(100, Math.round((productiveVisitsTotal / totalVisits) * 100)) 
-    : (totalTxns > 0 ? 100 : 0);
+    : 0;
 
   var avgSalesOrder = totalTxns > 0 ? Math.round(totalRev / totalTxns) : 0;
   var avgSalesVisit = totalVisits > 0 ? Math.round(totalRev / totalVisits) : 0;
 
-  var activeDealersForTxn = uniqueVisitedDealers > 0 ? uniqueVisitedDealers : dealerBreakdown.length;
-  var txnPerDealer = activeDealersForTxn > 0 ? +(totalTxns / activeDealersForTxn).toFixed(2) : 0;
+  var txnPerDealer = uniqueVisitedDealers > 0 ? +(totalTxns / uniqueVisitedDealers).toFixed(2) : 0;
 
   return {
     metrics: {
@@ -989,13 +989,16 @@ function computeEntityMetrics(visits, orders) {
       txnPerDealer: txnPerDealer,
       revenue: totalRev,
       transactions: totalTxns,
-      uniqueDealersCount: activeDealersForTxn,
+      uniqueDealersCount: uniqueVisitedDealers,
       sameDayRevenue: sameDayRevenueTotal,
-      sameDayOrders: sameDayOrdersTotal
+      sameDayOrders: sameDayOrdersTotal,
+      unvisitedOrdersCount: unvisitedOrders.length,
+      unvisitedRevenue: unvisitedRevenue
     },
     dealerBreakdown: dealerBreakdown,
     visitsList: visitsList,
-    ordersList: ordersList
+    ordersList: visitedOrders,
+    unvisitedOrdersList: unvisitedOrders
   };
 }
 
@@ -1208,12 +1211,14 @@ function getCEOStats(filter, customStartStr, customEndStr) {
         name: name, 
         visits: sd.visits, 
         collections: sd.collections, 
-        sales: sd.sales, 
+        sales: staffMetricsObj.metrics.revenue,
+        orders: staffMetricsObj.metrics.transactions,
         strike: staffMetricsObj.metrics.conversionRatio,
         metrics: staffMetricsObj.metrics,
         dealerBreakdown: staffMetricsObj.dealerBreakdown,
         visitsList: staffMetricsObj.visitsList,
         ordersList: staffMetricsObj.ordersList,
+        unvisitedOrdersList: staffMetricsObj.unvisitedOrdersList,
         areas: sd.areas
      });
   }
