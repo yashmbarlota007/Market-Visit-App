@@ -1786,7 +1786,7 @@ function generateMorningBriefing(areaName) {
   var wtdPct = Math.round((wtdSales / wtdTarget) * 100);
 
   report += "🎯 *TARGET vs ACHIEVEMENT*" + nl;
-  report += "• *MTD (Is Mahine):* ₹" + (mtdSales/100000).toFixed(2) + "L / ₹10L (" + targetPct + "%)" + nl;
+  report += "��� *MTD (Is Mahine):* ₹" + (mtdSales/100000).toFixed(2) + "L / ₹10L (" + targetPct + "%)" + nl;
   report += "• *WTD (Is Hafte):* ₹" + (wtdSales/100000).toFixed(2) + "L / ₹2.5L (" + wtdPct + "%)" + nl + nl;
   
   report += "📊 *BRAND TARGETS (MTD)*" + nl;
