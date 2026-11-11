@@ -1005,6 +1005,8 @@ window.loadAreasInBackground = function() {
         </div>
       </div>
 
+      </div>
+
       <!-- Visit Form Screen -->
       <div id="visitScreen" class="page-section">
         <div class="card">
@@ -1377,6 +1379,55 @@ function populateAreasSync() {
   });
 }
 
+function initFastDealersPreload() {
+  try {
+    if (window.cachedAreasData && window.cachedAreasData.areas && window.cachedAreasData.areas.length > 0) {
+      populateAreasSync();
+      return;
+    }
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res && res.grouped) {
+            window.cachedAreasData = res;
+            populateAreasSync();
+          }
+        })
+        .withFailureHandler(function() {})
+        .getAllDealersGroupedByArea();
+    }
+  } catch(e) {
+    console.warn("initFastDealersPreload warning:", e);
+  }
+}
+
+function loadAreasInBackground() {
+  try {
+    if (window.cachedAreasData && window.cachedAreasData.areas && window.cachedAreasData.areas.length > 0) {
+      populateAreasSync();
+      return;
+    }
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(function(areas) {
+          if (areas && areas.length) {
+            var sel = document.getElementById('area');
+            if (sel) {
+              sel.innerHTML = '<option value="">-- Select Area --</option>';
+              areas.forEach(function(a) {
+                sel.innerHTML += '<option value="' + a + '">' + a + '</option>';
+              });
+            }
+          }
+        })
+        .withFailureHandler(function() {})
+        .getAreas();
+    }
+  } catch(e) {
+    console.warn("loadAreasInBackground warning:", e);
+  }
+}
+
 var currentUser = "";
 var dealerGPSCoords = "";
 var masterData = null;
@@ -1456,9 +1507,20 @@ function showScreen(screenId) {
 
 function openVisitForm() {
   showScreen('visitScreen');
-  if (typeof populateAreasSync === 'function') {
-    populateAreasSync();
-  }
+  try {
+    if (typeof populateAreasSync === 'function') {
+      populateAreasSync();
+    }
+  } catch(ePop) { console.warn("populateAreasSync warning:", ePop); }
+  
+  try {
+    if (!window.cachedAreasData || !window.cachedAreasData.areas || window.cachedAreasData.areas.length === 0) {
+      if (typeof loadAreasInBackground === 'function') {
+        loadAreasInBackground();
+      }
+    }
+  } catch(eLoad) {}
+
   var submitBtn = document.getElementById('submitBtn');
   if (submitBtn) {
     submitBtn.disabled = true;
@@ -1506,6 +1568,14 @@ document.addEventListener("DOMContentLoaded", function() {
     var effectiveRole = portalRole || savedRole;
     var effectiveName = portalName || savedName;
     
+    // Pre-fill login inputs if portalEmpId is provided
+    if (portalEmpId && portalEmpId.trim() !== "") {
+      var inpEmp = document.getElementById('loginEmpId');
+      var inpPass = document.getElementById('loginPass');
+      if (inpEmp) inpEmp.value = portalEmpId.trim();
+      if (inpPass) inpPass.value = "SSO_BYPASS";
+    }
+    
     // 1. Management / CEO Screen
     if (isCeoOrAdmin(effectiveRole)) {
       currentUser = effectiveName || "CEO";
@@ -1533,10 +1603,6 @@ document.addEventListener("DOMContentLoaded", function() {
     // 3. Fallback: Show Login Screen
     showScreen('loginScreen');
     if (portalEmpId && portalEmpId.trim() !== "") {
-      var inpEmp = document.getElementById('loginEmpId');
-      var inpPass = document.getElementById('loginPass');
-      if (inpEmp) inpEmp.value = portalEmpId;
-      if (inpPass) inpPass.value = "SSO_BYPASS";
       doLogin();
     }
   } catch(eInit) {
@@ -1549,12 +1615,15 @@ document.addEventListener("DOMContentLoaded", function() {
 // AUTHENTICATION & LOGIN CONTROLLER
 // =======================================================================
 function doLogin() {
-  var empId = document.getElementById('loginEmpId').value;
-  var pass = document.getElementById('loginPass').value;
+  var inpEmp = document.getElementById('loginEmpId');
+  var inpPass = document.getElementById('loginPass');
+  var empId = (inpEmp ? inpEmp.value : '') || portalEmpId || '';
+  var pass = (inpPass ? inpPass.value : '') || (portalEmpId ? 'SSO_BYPASS' : '');
   var btn = document.getElementById('loginBtn');
   
   if (!empId || !pass) {
-    return alert("Employee ID aur Password daliye");
+    if (typeof alert === 'function') alert("Employee ID aur Password daliye");
+    return;
   }
   
   btn.innerText = "Checking...";
@@ -2651,44 +2720,7 @@ function openDetailModal(logStrEnc) {
   new bootstrap.Modal(document.getElementById('detailModal')).show();
 }
 
-function loadAreasInBackground() {
-  google.script.run.withSuccessHandler(function(areas) {
-    var sel = document.getElementById('area');
-    sel.innerHTML = '<option value="">-- Select Area --</option>';
-    areas.forEach(function(a) {
-      sel.innerHTML += '<option value="' + a + '">' + a + '</option>';
-    });
-  }).getAreas();
-}
-
-function openVisitForm() {
-  showScreen('visitScreen');
-  populateAreasSync();
-  var submitBtn = document.getElementById('submitBtn');
-  if (submitBtn) {
-    submitBtn.disabled = true;
-    submitBtn.className = "btn btn-secondary w-100 py-3 fw-bold";
-    submitBtn.innerHTML = '<b><i class="bi bi-shop"></i> Select Dealer to Continue</b>';
-  }
-}
-function backToDashboard() { showScreen('dashboardScreen'); }
-
-function initFastDealersPreload() {
-  google.script.run
-    .withSuccessHandler(function(res) {
-      if (res && res.grouped) {
-        window.cachedAreasData = res;
-        var areaSel = document.getElementById('area');
-        if (areaSel && (areaSel.options.length <= 1)) {
-          areaSel.innerHTML = '<option value="">-- Select Area --</option>';
-          res.areas.forEach(function(a) {
-            areaSel.innerHTML += '<option value="' + a + '">' + a + '</option>';
-          });
-        }
-      }
-    })
-    .getAllDealersGroupedByArea();
-}
+// [Duplicate functions removed - unified in main controller]
 
 function loadDealers() {
   var area = document.getElementById('area').value;
@@ -3222,19 +3254,26 @@ function submitData() {
 }
 
 function populateBriefingAreas() {
+  if (typeof google === 'undefined' || !google.script || !google.script.run) return;
   google.script.run.withSuccessHandler(function(areas) {
     var sel = document.getElementById('briefingArea');
+    if (!sel) return;
     sel.innerHTML = '<option value="">Select Area for Today...</option>';
-    areas.forEach(function(a) {
-      sel.innerHTML += '<option value="' + a + '">' + a + '</option>';
-    });
+    if (Array.isArray(areas)) {
+      areas.forEach(function(a) {
+        sel.innerHTML += '<option value="' + a + '">' + a + '</option>';
+      });
+    }
   }).getAreas();
 }
 
 var originalRefreshCEO = refreshCEOStats;
 refreshCEOStats = function() {
-  originalRefreshCEO();
-  if (document.getElementById('briefingArea').options.length <= 1) {
+  if (typeof originalRefreshCEO === 'function') {
+    originalRefreshCEO();
+  }
+  var briefingEl = document.getElementById('briefingArea');
+  if (briefingEl && briefingEl.options && briefingEl.options.length <= 1) {
     populateBriefingAreas();
   }
 };
