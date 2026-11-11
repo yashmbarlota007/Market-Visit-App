@@ -505,8 +505,11 @@
       <!-- Agent Dashboard Screen -->
       <div id="dashboardScreen" class="page-section">
         <div class="card shadow-lg border-0 bg-white">
-          <div class="card-header py-3 bg-dark">
+          <div class="card-header py-3 bg-dark d-flex justify-content-between align-items-center">
             <h4 class="text-white mb-0"><i class="bi bi-speedometer2 text-warning"></i> Agent Dashboard</h4>
+            <button id="btnSwitchToCeo" onclick="showScreen('ceoScreen'); refreshCEOStats();" class="btn btn-sm btn-outline-warning fw-bold" style="display:none;">
+              <i class="bi bi-eye-fill"></i> CEO Dashboard
+            </button>
           </div>
           <div class="card-body p-3">
             <h5 class="mb-3 text-center border-bottom pb-2">Welcome, <span id="dashName" class="text-primary fw-bold"></span></h5>
@@ -979,10 +982,18 @@
 <script>
 var portalEmpId = "";
 var portalRole = "";
+var portalName = "";
 try {
   portalEmpId = "<?= typeof empId !== 'undefined' ? empId : '' ?>";
   portalRole = "<?= typeof role !== 'undefined' ? role : '' ?>";
+  portalName = "<?= typeof name !== 'undefined' ? name : '' ?>";
 } catch(e) {}
+
+function isCeoOrAdmin(role) {
+  if (!role) return false;
+  var r = String(role).trim().toUpperCase();
+  return r === "CEO" || r === "OWNER" || r === "ACCOUNTANT" || r === "MIS" || r === "CRM" || r === "DIRECTOR" || r === "ADMIN" || r === "MANAGER";
+}
 
 // ZERO-SECOND EMBEDDED DEALERS DATA DIRECT FROM SERVER AT INITIAL LOAD
 var embeddedDealersData = null;
@@ -1033,6 +1044,7 @@ document.addEventListener("DOMContentLoaded", function() {
   initFastDealersPreload();
   var savedName = localStorage.getItem("yashApp_staffName");
   var savedRole = localStorage.getItem("yashApp_staffRole");
+  var activeRole = portalRole || savedRole;
   
   if (portalEmpId && portalEmpId.trim() !== "") {
     document.getElementById('loginEmpId').value = portalEmpId;
@@ -1042,13 +1054,19 @@ document.addEventListener("DOMContentLoaded", function() {
     currentUser = savedName;
     document.getElementById('staffName').value = currentUser;
     
-    // ACCOUNTANT, MIS & CRM KO DIRECTLY CEO (GOD'S EYE) SCREEN DIKHAYEIN TAAKI WO MORNING BRIEFING BANA SAKE
-    if (savedRole === "Owner" || savedRole === "Accountant" || savedRole === "MIS" || savedRole === "CRM") { 
+    // CEO, OWNER, ACCOUNTANT, MIS & CRM KO DIRECTLY CEO SCREEN DIKHAYEIN
+    if (isCeoOrAdmin(activeRole)) { 
       showScreen('ceoScreen'); 
       refreshCEOStats(); 
     } else { 
       loadStaffDashboard(currentUser); 
     }
+  } else if (isCeoOrAdmin(portalRole)) {
+    // Master App SSO without empId: Direct CEO screen entry!
+    currentUser = portalName || "CEO";
+    document.getElementById('staffName').value = currentUser;
+    showScreen('ceoScreen');
+    refreshCEOStats();
   } else { 
     showScreen('loginScreen'); 
   }
@@ -1076,23 +1094,32 @@ function doLogin() {
   google.script.run.withSuccessHandler(function(res) {
     if (res.success) {
       currentUser = res.name;
+      var activeRole = portalRole || res.role;
       
-      if (pass !== "SSO_BYPASS") {
-        localStorage.setItem("yashApp_staffName", currentUser);
-        localStorage.setItem("yashApp_staffEmpId", res.empId);
-        localStorage.setItem("yashApp_staffRole", res.role); 
-      }
+      localStorage.setItem("yashApp_staffName", currentUser);
+      localStorage.setItem("yashApp_staffEmpId", res.empId);
+      localStorage.setItem("yashApp_staffRole", activeRole); 
       
       document.getElementById('staffName').value = currentUser;
       
-      // ACCOUNTANT, MIS & CRM KO DIRECTLY CEO (GOD'S EYE) SCREEN DIKHAYEIN
-      if (res.role === "Owner" || res.role === "Accountant" || res.role === "MIS" || res.role === "CRM") { 
+      // CEO / OWNER / ACCOUNTANT / MIS / CRM KO DIRECTLY CEO SCREEN DIKHAYEIN
+      if (isCeoOrAdmin(activeRole) || isCeoOrAdmin(res.role)) { 
         showScreen('ceoScreen'); 
         refreshCEOStats(); 
       } else { 
         loadStaffDashboard(currentUser); 
       }
     } else { 
+      // SSO Bypass failsafe: if CEO logs in via Master App but is not listed in Staff Master
+      if (pass === "SSO_BYPASS" && isCeoOrAdmin(portalRole)) {
+        currentUser = portalName || "CEO";
+        document.getElementById('staffName').value = currentUser;
+        localStorage.setItem("yashApp_staffName", currentUser);
+        localStorage.setItem("yashApp_staffRole", portalRole);
+        showScreen('ceoScreen');
+        refreshCEOStats();
+        return;
+      }
       document.getElementById('loginError').innerText = res.message; 
       btn.innerText = "Login"; 
     }
@@ -1103,6 +1130,12 @@ function loadStaffDashboard(name) {
   document.getElementById('dashName').innerText = name.split(" ")[0]; 
   showScreen('dashboardScreen'); 
   loadAreasInBackground();
+  
+  var role = portalRole || localStorage.getItem("yashApp_staffRole");
+  var ceoBtn = document.getElementById('btnSwitchToCeo');
+  if (ceoBtn) {
+    ceoBtn.style.display = isCeoOrAdmin(role) ? "inline-block" : "none";
+  }
   
   google.script.run.withSuccessHandler(function(res) {
     globalDashboardData = res; 
