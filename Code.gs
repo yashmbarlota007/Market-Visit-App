@@ -1390,13 +1390,12 @@ function getDealersByArea(area) {
           var gLat = parseFloat(gpsData[g][3]);
           var gLng = parseFloat(gpsData[g][4]);
           var gRad = parseFloat(gpsData[g][5]) || 50;
-          var gStatus = String(gpsData[g][10] || "").trim();
-          var isLocked = (!isNaN(gLat) && !isNaN(gLng) && gLat !== 0 && gLng !== 0) || (gStatus.indexOf("Locked") !== -1 && gStatus.indexOf("Unlocked") === -1);
+          var isLocked = !isNaN(gLat) && !isNaN(gLng) && gLat !== 0 && gLng !== 0 && Math.abs(gLat) > 1 && Math.abs(gLng) > 1;
           if (gName) {
             dealerGpsMap[gName] = {
-              gps: gCoords,
-              lat: isNaN(gLat) ? null : gLat,
-              lng: isNaN(gLng) ? null : gLng,
+              gps: isLocked ? (gCoords || (gLat + "," + gLng)) : "",
+              lat: isLocked ? gLat : null,
+              lng: isLocked ? gLng : null,
               radius: gRad,
               isLocked: !!isLocked
             };
@@ -1421,7 +1420,7 @@ function getDealersByArea(area) {
 
         var gpsInfo = dealerGpsMap[searchKey] || null;
         var hasLocked = (gpsInfo && gpsInfo.isLocked);
-        var finalGps = hasLocked ? gpsInfo.gps : (data[i][7] || "");
+        var finalGps = hasLocked ? gpsInfo.gps : "";
         var finalLat = hasLocked ? gpsInfo.lat : null;
         var finalLng = hasLocked ? gpsInfo.lng : null;
         var finalRadius = (gpsInfo && gpsInfo.radius) ? gpsInfo.radius : 50;
@@ -1477,48 +1476,113 @@ function uploadFileToDrive(base64Data, fileName) {
 }
 
 function saveFormRecord(formObject) {
-  // SERVER-SIDE 50M GEOFENCE ENFORCEMENT & ANTI-PROXY CHECK
-  if (formObject.location && formObject.location.indexOf(",") > -1) {
-    var locParts = formObject.location.split(",");
-    var staffLat = parseFloat(locParts[0]);
-    var staffLng = parseFloat(locParts[1]);
-    
-    var gpsSheet = getOrCreateDealerLocationGpsSheet();
-    var gpsRows = gpsSheet ? gpsSheet.getDataRange().getValues() : [];
-    var targetDealerName = String(formObject.dealerName || "").trim().toUpperCase();
-    
-    for (var g = 1; g < gpsRows.length; g++) {
-      if (String(gpsRows[g][0] || "").trim().toUpperCase() === targetDealerName) {
-        var lockedLat = parseFloat(gpsRows[g][3]);
-        var lockedLng = parseFloat(gpsRows[g][4]);
-        var allowedRadius = parseFloat(gpsRows[g][5]) || 50;
-        
-        if (!isNaN(lockedLat) && !isNaN(lockedLng) && lockedLat !== 0 && lockedLng !== 0) {
-          var distMeters = calculateHaversineDistanceMeters(lockedLat, lockedLng, staffLat, staffLng);
-          
-          if (distMeters > allowedRadius) {
-            // Log Proxy Breach Attempt
-            try {
-              var auditSheet = getOrCreateProxyAuditSheet();
-              auditSheet.appendRow([
-                new Date(),
-                formObject.staffName,
-                formObject.dealerName,
-                formObject.area,
-                Math.round(distMeters),
-                allowedRadius,
-                staffLat,
-                staffLng,
-                "REJECTED_PROXY_BREACH"
-              ]);
-            } catch(audErr) {}
-            
-            throw new Error("⛔ PROXY CHECK-IN REJECTED! Aap dealer '" + formObject.dealerName + "' se " + Math.round(distMeters) + " meters dur hain. Punch sirf 50 meters ke andar hi allowed hai.");
+  var targetDealerName = String(formObject.dealerName || "").trim().toUpperCase();
+  if (!targetDealerName) {
+    throw new Error("⛔ Dealer Name missing! Kripya dealer select karein.");
+  }
+  
+  // 1. MANDATORY DEALER GPS LOCK ENFORCEMENT
+  var gpsSheet = getOrCreateDealerLocationGpsSheet();
+  var gpsRows = gpsSheet ? gpsSheet.getDataRange().getValues() : [];
+  
+  var isDealerGpsLocked = false;
+  var lockedLat = 0;
+  var lockedLng = 0;
+  var allowedRadius = DEFAULT_GEOFENCE_RADIUS_METERS || 50;
+  
+  for (var g = 1; g < gpsRows.length; g++) {
+    if (String(gpsRows[g][0] || "").trim().toUpperCase() === targetDealerName) {
+      var latVal = parseFloat(gpsRows[g][3]);
+      var lngVal = parseFloat(gpsRows[g][4]);
+      var radVal = parseFloat(gpsRows[g][5]) || 50;
+      
+      if (!isNaN(latVal) && !isNaN(lngVal) && latVal !== 0 && lngVal !== 0 && Math.abs(latVal) > 1 && Math.abs(lngVal) > 1) {
+        isDealerGpsLocked = true;
+        lockedLat = latVal;
+        lockedLng = lngVal;
+        allowedRadius = radVal;
+      }
+      break;
+    }
+  }
+  
+  // Fallback check in Dealer Master if not yet synced to GPS sheet
+  if (!isDealerGpsLocked) {
+    try {
+      var dMaster = getSheetSafely("Dealer Master");
+      if (dMaster) {
+        var mData = dMaster.getDataRange().getValues();
+        for (var m = 1; m < mData.length; m++) {
+          if (String(mData[m][1] || "").trim().toUpperCase() === targetDealerName) {
+            var rawGps = String(mData[m][7] || "").trim();
+            if (rawGps.indexOf(",") > -1) {
+              var mParts = rawGps.split(",");
+              var mLat = parseFloat(mParts[0]);
+              var mLng = parseFloat(mParts[1]);
+              if (!isNaN(mLat) && !isNaN(mLng) && mLat !== 0 && mLng !== 0 && Math.abs(mLat) > 1 && Math.abs(mLng) > 1) {
+                isDealerGpsLocked = true;
+                lockedLat = mLat;
+                lockedLng = mLng;
+                try {
+                  gpsSheet.appendRow([
+                    mData[m][1],
+                    mData[m][2] || "",
+                    rawGps,
+                    mLat,
+                    mLng,
+                    DEFAULT_GEOFENCE_RADIUS_METERS,
+                    "Dealer Master Auto-Seed",
+                    Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy"),
+                    Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "HH:mm:ss"),
+                    "https://www.google.com/maps?q=" + mLat + "," + mLng,
+                    "Locked"
+                  ]);
+                } catch(eSeed) {}
+              }
+            }
+            break;
           }
         }
-        break;
       }
-    }
+    } catch(eMasterCheck) {}
+  }
+  
+  // STRICT REJECTION: If dealer GPS is NOT locked, block punch!
+  if (!isDealerGpsLocked) {
+    throw new Error("⛔ VISIT PUNCH BLOCKED! Dealer '" + formObject.dealerName + "' ki GPS location abhi system me lock nahi hai. Kripya pehle dealer shop par khade hokar 'Lock Dealer GPS' karein, uske baad hi visit punch allow hogi.");
+  }
+  
+  // 2. SERVER-SIDE 50M GEOFENCE ENFORCEMENT & ANTI-PROXY CHECK
+  if (!formObject.location || formObject.location.indexOf(",") === -1) {
+    throw new Error("⛔ Staff GPS location missing! Visit punch karne ke liye phone ka GPS on hona mandatory hai.");
+  }
+  
+  var locParts = formObject.location.split(",");
+  var staffLat = parseFloat(locParts[0]);
+  var staffLng = parseFloat(locParts[1]);
+  if (isNaN(staffLat) || isNaN(staffLng) || staffLat === 0 || staffLng === 0) {
+    throw new Error("⛔ Invalid GPS coordinates! Phone ka Location on karein aur GPS refresh karein.");
+  }
+  
+  var distMeters = calculateHaversineDistanceMeters(lockedLat, lockedLng, staffLat, staffLng);
+  if (distMeters > allowedRadius) {
+    // Log Proxy Breach Attempt
+    try {
+      var auditSheet = getOrCreateProxyAuditSheet();
+      auditSheet.appendRow([
+        new Date(),
+        formObject.staffName,
+        formObject.dealerName,
+        formObject.area,
+        Math.round(distMeters),
+        allowedRadius,
+        staffLat,
+        staffLng,
+        "REJECTED_PROXY_BREACH"
+      ]);
+    } catch(audErr) {}
+    
+    throw new Error("⛔ PROXY CHECK-IN REJECTED! Aap dealer '" + formObject.dealerName + "' se " + Math.round(distMeters) + " meters dur hain. Punch sirf 50 meters ke andar hi allowed hai.");
   }
   var sheet = getSheetSafely("Daily Operation");
   if (!sheet) throw new Error("Daily Operation missing");
@@ -1936,7 +2000,7 @@ function generateMorningBriefing(areaName) {
   var report = "━━━━━━━━━━━━━━━━━━━" + nl;
   report += "🌅 *MORNING ROUTE PLAN* 🌅" + nl;
   report += "━━━━━━━━━━━━━━━━━━━" + nl;
-  report += "📍 *Area:* " + areaClean + nl;
+  report += "��� *Area:* " + areaClean + nl;
   report += "👤 *Staff:* " + staffName + nl;
   report += "📅 *Date:* " + Utilities.formatDate(now, Session.getScriptTimeZone(), "dd-MMM-yyyy") + nl + nl;
   
@@ -2379,13 +2443,12 @@ function getAllDealersGroupedByArea() {
           var gLat = parseFloat(gpsData[g][3]);
           var gLng = parseFloat(gpsData[g][4]);
           var gRad = parseFloat(gpsData[g][5]) || 50;
-          var gStatus = String(gpsData[g][10] || "").trim();
-          var isLocked = (!isNaN(gLat) && !isNaN(gLng) && gLat !== 0 && gLng !== 0) || (gStatus.indexOf("Locked") !== -1 && gStatus.indexOf("Unlocked") === -1);
+          var isLocked = !isNaN(gLat) && !isNaN(gLng) && gLat !== 0 && gLng !== 0 && Math.abs(gLat) > 1 && Math.abs(gLng) > 1;
           if (gName) {
             dealerGpsMap[gName] = {
-              gps: gCoords,
-              lat: isNaN(gLat) ? null : gLat,
-              lng: isNaN(gLng) ? null : gLng,
+              gps: isLocked ? (gCoords || (gLat + "," + gLng)) : "",
+              lat: isLocked ? gLat : null,
+              lng: isLocked ? gLng : null,
               radius: gRad,
               isLocked: !!isLocked
             };
@@ -2408,7 +2471,7 @@ function getAllDealersGroupedByArea() {
         var searchKey = dName.toUpperCase();
         var gpsInfo = dealerGpsMap[searchKey] || null;
         var hasLocked = (gpsInfo && gpsInfo.isLocked);
-        var finalGps = hasLocked ? gpsInfo.gps : (data[i][7] || "");
+        var finalGps = hasLocked ? gpsInfo.gps : "";
         var finalLat = hasLocked ? gpsInfo.lat : null;
         var finalLng = hasLocked ? gpsInfo.lng : null;
         var finalRadius = (gpsInfo && gpsInfo.radius) ? gpsInfo.radius : 50;
