@@ -1481,6 +1481,50 @@ function showScreen(screenId) {
   for (var i = 0; i < sections.length; i++) {
     sections[i].classList.remove('active-section');
   }
+
+// =============================================================
+// NAVIGATION & STORE VISIT ENTRY CONTROLLERS
+// =============================================================
+function openVisitForm() {
+  showScreen('visitScreen');
+  if (typeof populateAreasSync === 'function') {
+    populateAreasSync();
+  }
+  var submitBtn = document.getElementById('submitBtn');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.className = "btn btn-secondary w-100 py-3 fw-bold";
+    submitBtn.innerHTML = '<b><i class="bi bi-shop"></i> Select Dealer to Continue</b>';
+  }
+  tryAutoSyncStaffGps();
+}
+
+function backToDashboard() {
+  showScreen('dashboardScreen');
+  if (currentUser && typeof loadStaffDashboard === 'function') {
+    loadStaffDashboard(currentUser);
+  }
+}
+
+function tryAutoSyncStaffGps() {
+  try {
+    if (navigator.geolocation && currentUser) {
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        if (pos && pos.coords && typeof google !== 'undefined' && google.script && google.script.run) {
+          var speed = pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : 0;
+          var acc = Math.round(pos.coords.accuracy || 0);
+          google.script.run.updateStaffLiveLocation(currentUser, pos.coords.latitude, pos.coords.longitude, speed, acc);
+        }
+      }, function() {}, { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
+    }
+  } catch(e) {}
+}
+
+window.openVisitForm = openVisitForm;
+window.backToDashboard = backToDashboard;
+window.tryAutoSyncStaffGps = tryAutoSyncStaffGps;
+
+
   document.getElementById(screenId).classList.add('active-section');
 }
 
@@ -1531,6 +1575,7 @@ function doLogin() {
 }
 
 function loadStaffDashboard(name) {
+  tryAutoSyncStaffGps();
   document.getElementById('dashName').innerText = name.split(" ")[0]; 
   showScreen('dashboardScreen'); 
   loadAreasInBackground();
@@ -2398,6 +2443,21 @@ function fetchStaffRadarTelemetry(callback) {
   }
 }
 
+function isDateToday(dateStr) {
+  if (!dateStr) return false;
+  var s = String(dateStr).trim();
+  if (s.indexOf("1899") !== -1) return false;
+  var now = new Date();
+  var d = String(now.getDate());
+  var m = String(now.getMonth() + 1);
+  var y = String(now.getFullYear());
+  var dd = d.length === 1 ? '0' + d : d;
+  var mm = m.length === 1 ? '0' + m : m;
+  var todayStr1 = dd + '/' + mm + '/' + y; // e.g. 11/11/2026
+  var todayStr2 = y + '-' + mm + '-' + dd;
+  return s.includes(todayStr1) || s.includes(todayStr2);
+}
+
 function renderStaffRadar(staffList) {
   var content = document.getElementById('staffRadarContent');
   if (!staffList || staffList.length === 0) {
@@ -2412,27 +2472,53 @@ function renderStaffRadar(staffList) {
     ceoRadarMarkers = [];
   }
 
+  // Unique staff map
+  var uniqueMap = {};
+  staffList.forEach(function(s) {
+    var rawName = String(s.name || "").trim();
+    if (rawName) uniqueMap[rawName.toUpperCase()] = s;
+  });
+  var dedupedList = Object.values(uniqueMap);
+
   var bounds = [];
   var html = '<div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0" style="font-size:12.5px;">' +
-             '<thead class="table-dark"><tr><th>Staff</th><th>Speed</th><th>HQ Distance</th><th>Last Active</th><th>Action</th></tr></thead><tbody>';
+             '<thead class="table-dark"><tr><th>Staff</th><th>Status / Speed</th><th>HQ Distance</th><th>Last Active</th><th>Action</th></tr></thead><tbody>';
 
-  staffList.forEach(function(s) {
-    var hasValidCoords = s.lat && s.lng && !isNaN(s.lat) && !isNaN(s.lng) && s.lat !== 0;
-    var mapLink = hasValidCoords ? '<a href="https://www.google.com/maps?q=' + s.lat + ',' + s.lng + '" target="_blank" class="btn btn-xs btn-outline-primary py-0 px-2 fw-bold" style="font-size:11px;"><i class="bi bi-geo-alt"></i> Map</a>' : '<span class="text-muted small">No GPS</span>';
-    var speedBadge = s.speed > 5 ? '<span class="badge bg-primary">' + Math.round(s.speed) + ' km/h</span>' : '<span class="badge bg-secondary">Stationary</span>';
+  dedupedList.forEach(function(s) {
+    var hasValidCoords = s.lat && s.lng && !isNaN(s.lat) && !isNaN(s.lng) && Number(s.lat) !== 0;
+    var isToday = isDateToday(s.date);
+    var speedNum = Math.round(Number(s.speed) || 0);
+
+    var statusBadge = isToday
+      ? '<span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size:9.5px;">● Online Today</span>'
+      : '<span class="badge bg-secondary-subtle text-secondary border" style="font-size:9.5px;">○ Offline</span>';
+
+    var speedBadge = isToday
+      ? (speedNum > 5 ? '<span class="badge bg-primary ms-1">' + speedNum + ' km/h</span>' : '<span class="badge bg-secondary ms-1">Stationary</span>')
+      : '<span class="text-muted ms-1">--</span>';
+
+    var distNum = Number(s.distFromHQ) || 0;
+    var distText = (hasValidCoords && isToday) ? (distNum > 0.1 ? distNum.toFixed(1) + ' km' : 'Near HQ') : '--';
+
+    var displayTime = cleanTelemetryTime(s.lastTime);
+    var timeDateDisplay = isToday ? (displayTime !== '--:--' ? displayTime + ' (Today)' : 'Today') : (s.date || '--');
+
+    var mapLink = (hasValidCoords && isToday)
+      ? '<a href="https://www.google.com/maps?q=' + s.lat + ',' + s.lng + '" target="_blank" class="btn btn-xs btn-outline-primary py-0 px-2 fw-bold" style="font-size:11px;"><i class="bi bi-geo-alt"></i> Map</a>'
+      : '<span class="text-muted small" style="font-size:10.5px;">Awaiting GPS</span>';
 
     html += '<tr>' +
-              '<td><b>' + s.name + '</b><br><span class="badge bg-success-subtle text-success" style="font-size:10px;">● ' + (s.status || 'Active') + '</span></td>' +
-              '<td>' + speedBadge + '</td>' +
-              '<td>' + (s.distFromHQ ? s.distFromHQ + ' km' : '--') + '</td>' +
-              '<td><span class="text-muted">' + (s.lastTime || s.date || '--') + '</span></td>' +
+              '<td><b>' + s.name + '</b></td>' +
+              '<td>' + statusBadge + speedBadge + '</td>' +
+              '<td>' + distText + '</td>' +
+              '<td><span class="text-muted">' + timeDateDisplay + '</span></td>' +
               '<td>' + mapLink + '</td>' +
             '</tr>';
 
-    if (hasValidCoords && ceoRadarMap) {
+    if (hasValidCoords && isToday && ceoRadarMap) {
       bounds.push([s.lat, s.lng]);
       var marker = L.marker([s.lat, s.lng]).addTo(ceoRadarMap);
-      marker.bindPopup('<b>' + s.name + '</b><br>Speed: ' + s.speed + ' km/h<br>Distance: ' + s.distFromHQ + ' km<br>Last Seen: ' + s.lastTime + '<br><a href="https://www.google.com/maps?q=' + s.lat + ',' + s.lng + '" target="_blank">Open Google Maps</a>');
+      marker.bindPopup('<b>' + s.name + '</b><br>Status: Online Today<br>Speed: ' + speedNum + ' km/h<br>Distance: ' + distText + '<br>Last Active: ' + timeDateDisplay + '<br><a href="https://www.google.com/maps?q=' + s.lat + ',' + s.lng + '" target="_blank">Open Google Maps</a>');
       ceoRadarMarkers.push(marker);
     }
   });
@@ -2447,33 +2533,6 @@ function renderStaffRadar(staffList) {
       ceoRadarMap.fitBounds(bounds, { padding: [30, 30] });
     }
   }
-}
-
-function renderStaffRadarError(errMsg) {
-  var content = document.getElementById('staffRadarContent');
-  if (content) {
-    content.innerHTML = '<div class="alert alert-danger p-3 small mb-0"><i class="bi bi-exclamation-triangle-fill me-1"></i> Radar Error: ' + errMsg + '</div>';
-  }
-}
-
-// Quick Telemetry Strip right on the CEO Dashboard
-function cleanTelemetryTime(rawTime) {
-  var t = String(rawTime || "").trim();
-  if (!t) return "--:--";
-  if (t.indexOf("1899") !== -1 || t.indexOf("GMT") !== -1) {
-    try {
-      var d = new Date(t);
-      if (!isNaN(d.getTime())) {
-        var h = d.getHours();
-        var m = d.getMinutes();
-        var ampm = h >= 12 ? "PM" : "AM";
-        var h12 = h % 12 || 12;
-        var mStr = m < 10 ? "0" + m : m;
-        return (h12 < 10 ? "0" + h12 : h12) + ":" + mStr + " " + ampm;
-      }
-    } catch(e) {}
-  }
-  return t;
 }
 
 function refreshCeoDashboardRadar(manual) {
@@ -2494,13 +2553,10 @@ function refreshCeoDashboardRadar(manual) {
       return;
     }
 
-    // Client-side strict deduplication by staff name
     var uniqueMap = {};
     res.staff.forEach(function(s) {
       var rawName = String(s.name || "").trim();
-      if (!rawName) return;
-      var k = rawName.toUpperCase();
-      uniqueMap[k] = s;
+      if (rawName) uniqueMap[rawName.toUpperCase()] = s;
     });
 
     var staffList = Object.values(uniqueMap);
@@ -2508,18 +2564,25 @@ function refreshCeoDashboardRadar(manual) {
 
     var html = '<div class="row g-2">';
     staffList.forEach(function(s) {
-      var hasCoords = s.lat && s.lng && !isNaN(s.lat) && !isNaN(s.lng) && s.lat !== 0;
+      var hasCoords = s.lat && s.lng && !isNaN(s.lat) && !isNaN(s.lng) && Number(s.lat) !== 0;
+      var isToday = isDateToday(s.date);
       var speedNum = Math.round(Number(s.speed) || 0);
-      var isMoving = speedNum > 5;
-      var speedBadge = isMoving 
-        ? '<span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size:10px;"><i class="bi bi-bicycle me-1"></i>' + speedNum + ' km/h (Moving)</span>'
-        : '<span class="badge bg-secondary-subtle text-secondary border" style="font-size:10px;"><i class="bi bi-p-square me-1"></i>Stationary</span>';
+
+      var statusBadge = isToday
+        ? '<span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size:9.5px;">● Online in Field</span>'
+        : '<span class="badge bg-secondary-subtle text-secondary border" style="font-size:9.5px;">○ Last Seen: ' + (s.date || 'Earlier') + '</span>';
+
+      var speedBadge = isToday
+        ? (speedNum > 5 
+            ? '<span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size:10px;"><i class="bi bi-bicycle me-1"></i>' + speedNum + ' km/h (Moving)</span>'
+            : '<span class="badge bg-secondary-subtle text-secondary border" style="font-size:10px;"><i class="bi bi-p-square me-1"></i>Stationary</span>')
+        : '<span class="badge bg-light text-muted border" style="font-size:10px;">Offline</span>';
 
       var distNum = Number(s.distFromHQ) || 0;
-      var distText = distNum > 0.1 ? (distNum.toFixed(1) + ' km from Warehouse') : 'At Warehouse / HQ';
-      var mapsUrl = s.mapsUrl || (hasCoords ? ('https://www.google.com/maps?q=' + s.lat + ',' + s.lng) : '');
+      var distText = (hasCoords && isToday) ? (distNum > 0.1 ? (distNum.toFixed(1) + ' km from HQ') : 'Near Warehouse HQ') : 'GPS Awaiting';
+      var mapsUrl = (hasCoords && isToday) ? (s.mapsUrl || ('https://www.google.com/maps?q=' + s.lat + ',' + s.lng)) : '';
       var displayTime = cleanTelemetryTime(s.lastTime);
-      var dateLabel = s.date && s.date.indexOf("1899") === -1 ? s.date : "Today";
+      var timeLabel = isToday ? (displayTime !== '--:--' ? displayTime + ' • Today' : 'Today') : (s.date || 'Earlier');
 
       html += '<div class="col-12 col-md-6 col-lg-4">' +
                 '<div class="card h-100 border p-2 shadow-sm" style="border-radius:12px; background:#ffffff;">' +
@@ -2530,18 +2593,18 @@ function refreshCeoDashboardRadar(manual) {
                       '</div>' +
                       '<div>' +
                         '<div class="fw-bold text-dark fs-6">' + s.name + '</div>' +
-                        '<span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size:9.5px;">● Active in Field</span>' +
+                        statusBadge +
                       '</div>' +
                     '</div>' +
-                    (mapsUrl ? '<a href="' + mapsUrl + '" target="_blank" class="btn btn-sm btn-outline-primary py-1 px-2 fw-bold" style="font-size:11.5px; border-radius:8px;" title="Open live Google Maps"><i class="bi bi-geo-alt-fill text-danger"></i> Maps</a>' : '') +
+                    (mapsUrl ? '<a href="' + mapsUrl + '" target="_blank" class="btn btn-sm btn-outline-primary py-1 px-2 fw-bold" style="font-size:11.5px; border-radius:8px;" title="Open live Google Maps"><i class="bi bi-geo-alt-fill text-danger"></i> Maps</a>' : '<span class="text-muted small" style="font-size:10.5px;">No GPS</span>') +
                   '</div>' +
                   '<div class="d-flex justify-content-between align-items-center mb-1 text-muted" style="font-size:11.5px;">' +
                     speedBadge +
                     '<span><i class="bi bi-pin-map text-danger me-1"></i>' + distText + '</span>' +
                   '</div>' +
                   '<div class="text-muted mt-2 pt-1 border-top d-flex justify-content-between align-items-center" style="font-size:10.5px;">' +
-                    '<span><i class="bi bi-clock-history me-1 text-primary"></i> Last Ping: <b>' + displayTime + '</b></span>' +
-                    '<span class="badge bg-light text-secondary border">' + dateLabel + '</span>' +
+                    '<span><i class="bi bi-clock-history me-1 text-primary"></i> Last Ping: <b>' + timeLabel + '</b></span>' +
+                    '<span class="badge bg-light text-secondary border">' + (isToday ? 'Live' : 'History') + '</span>' +
                   '</div>' +
                 '</div>' +
               '</div>';
