@@ -1326,6 +1326,10 @@ window.loadAreasInBackground = function() {
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
+// =======================================================================
+// YASH MARKETING FIELD FORCE & GOD'S EYE C-SUITE OS - MASTER ENGINE
+// =======================================================================
+
 var portalEmpId = "";
 var portalRole = "";
 var portalName = "";
@@ -1379,112 +1383,77 @@ var masterData = null;
 var currentAreaDealers = []; 
 var globalEODMessage = ""; 
 var globalDashboardData = null; 
+var currentKpiPeriod = "today";
 
 function makeSafePayload(obj) {
   if (!obj) return "";
   return encodeURIComponent(JSON.stringify(obj)).replace(/'/g, "%27").replace(/"/g, "%22");
 }
 
-
-function initFastDealersPreload() {
-  try {
-    if (window.cachedAreasData && window.cachedAreasData.areas && window.cachedAreasData.areas.length > 0) {
-      populateAreasSync();
-      return;
+function cleanTelemetryTime(t) {
+  if (!t) return '--:--';
+  var str = String(t).trim();
+  if (str.includes('GMT') || str.includes('1899') || str.includes('1970')) {
+    var d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
     }
-    if (typeof google !== 'undefined' && google.script && google.script.run) {
-      google.script.run
-        .withSuccessHandler(function(res) {
-          if (res && res.grouped) {
-            window.cachedAreasData = res;
-            populateAreasSync();
-          }
-        })
-        .getAllDealersGroupedByArea();
-    }
-  } catch(e) {
-    console.error("Fast dealers preload error:", e);
+    var timeMatch = str.match(/(\d{1,2}:\d{2}(?::\d{2})?)/);
+    if (timeMatch) return timeMatch[1];
   }
+  return str;
 }
 
-function loadAreasInBackground() {
-  try {
-    if (window.cachedAreasData && window.cachedAreasData.areas && window.cachedAreasData.areas.length > 0) {
-      populateAreasSync();
-      return;
+window.formatVisitDateTime = function(dateStr, timeStr) {
+  if (!dateStr) return 'Recent';
+  var displayDate = dateStr;
+  var displayTime = '';
+  
+  if (dateStr.includes('T') || dateStr.includes('GMT') || dateStr.includes('Z')) {
+    var d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      displayDate = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+      displayTime = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
     }
-    if (typeof google !== 'undefined' && google.script && google.script.run) {
-      google.script.run.withSuccessHandler(function(areas) {
-        var sel = document.getElementById('area');
-        if (sel) {
-          sel.innerHTML = '<option value="">-- Select Area --</option>';
-          areas.forEach(function(a) {
-            sel.innerHTML += '<option value="' + a + '">' + a + '</option>';
-          });
-        }
-      }).getAreas();
-    }
-  } catch(e) {
-    console.error("Load areas in background error:", e);
   }
-}
-
-document.addEventListener("DOMContentLoaded", function() {
-  try {
-    populateAreasSync();
-    initFastDealersPreload();
-  } catch(ePre) {
-    console.warn("Area preload warning:", ePre);
-  }
-
-  try {
-    var savedName = localStorage.getItem("yashApp_staffName");
-    var savedRole = localStorage.getItem("yashApp_staffRole");
-    var activeRole = portalRole || savedRole;
-    
-    if (portalEmpId && portalEmpId.trim() !== "") {
-      var inpEmp = document.getElementById('loginEmpId');
-      var inpPass = document.getElementById('loginPass');
-      if (inpEmp) inpEmp.value = portalEmpId;
-      if (inpPass) inpPass.value = "SSO_BYPASS";
-      doLogin();
-    } else if (savedName) {
-      currentUser = savedName;
-      var inpStaff = document.getElementById('staffName');
-      if (inpStaff) inpStaff.value = currentUser;
-      
-      // CEO, OWNER, ACCOUNTANT, MIS & CRM KO DIRECTLY CEO SCREEN DIKHAYEIN
-      if (isCeoOrAdmin(activeRole)) { 
-        showScreen('ceoScreen'); 
-        refreshCEOStats(); 
-      } else { 
-        loadStaffDashboard(currentUser); 
+  
+  if (timeStr && !displayTime) {
+    if (timeStr.includes('GMT') || timeStr.includes('1899')) {
+      var dt = new Date(timeStr);
+      if (!isNaN(dt.getTime())) {
+        displayTime = dt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+      } else {
+        var match = timeStr.match(/(\d{1,2}:\d{2}(?::\d{2})?)/);
+        displayTime = match ? match[1] : timeStr;
       }
-    } else if (isCeoOrAdmin(portalRole)) {
-      // Master App SSO without empId: Direct CEO screen entry!
-      currentUser = portalName || "CEO";
-      var inpStaff2 = document.getElementById('staffName');
-      if (inpStaff2) inpStaff2.value = currentUser;
-      showScreen('ceoScreen');
-      refreshCEOStats();
-    } else { 
-      showScreen('loginScreen'); 
+    } else {
+      displayTime = timeStr;
     }
-  } catch(eInit) {
-    console.error("Auth init error:", eInit);
-    showScreen('loginScreen');
   }
-});
+  
+  return displayDate + (displayTime ? ' • ' + displayTime : '');
+};
 
+function formatVisitDateTime(dateStr, timeStr) {
+  return window.formatVisitDateTime(dateStr, timeStr);
+}
+
+// =======================================================================
+// SCREEN DISPLAY CONTROLLER
+// =======================================================================
 function showScreen(screenId) {
   var sections = document.querySelectorAll('.page-section');
   for (var i = 0; i < sections.length; i++) {
     sections[i].classList.remove('active-section');
   }
+  var el = document.getElementById(screenId);
+  if (el) {
+    el.classList.add('active-section');
+  } else {
+    console.error("Target screen not found:", screenId);
+  }
+}
 
-// =============================================================
-// NAVIGATION & STORE VISIT ENTRY CONTROLLERS
-// =============================================================
 function openVisitForm() {
   showScreen('visitScreen');
   if (typeof populateAreasSync === 'function') {
@@ -1520,14 +1489,65 @@ function tryAutoSyncStaffGps() {
   } catch(e) {}
 }
 
-window.openVisitForm = openVisitForm;
-window.backToDashboard = backToDashboard;
-window.tryAutoSyncStaffGps = tryAutoSyncStaffGps;
+// =======================================================================
+// DOM READY & OPTIMISTIC INSTANT BOOT
+// =======================================================================
+document.addEventListener("DOMContentLoaded", function() {
+  try {
+    populateAreasSync();
+    initFastDealersPreload();
+  } catch(ePre) {
+    console.warn("Area preload warning:", ePre);
+  }
 
+  try {
+    var savedName = localStorage.getItem("yashApp_staffName") || "";
+    var savedRole = localStorage.getItem("yashApp_staffRole") || "";
+    var effectiveRole = portalRole || savedRole;
+    var effectiveName = portalName || savedName;
+    
+    // 1. Management / CEO Screen
+    if (isCeoOrAdmin(effectiveRole)) {
+      currentUser = effectiveName || "CEO";
+      var inpStaff = document.getElementById('staffName');
+      if (inpStaff) inpStaff.value = currentUser;
+      showScreen('ceoScreen');
+      refreshCEOStats();
+      if (portalEmpId && portalEmpId.trim() !== "") doLogin();
+      return;
+    }
+    
+    // 2. Field Staff / Sales Boy Dashboard
+    if (effectiveName && effectiveName.trim() !== "") {
+      currentUser = effectiveName.trim();
+      var inpStaff2 = document.getElementById('staffName');
+      if (inpStaff2) inpStaff2.value = currentUser;
+      var dashNameEl = document.getElementById('dashName');
+      if (dashNameEl) dashNameEl.innerText = currentUser.split(" ")[0];
+      showScreen('dashboardScreen');
+      loadStaffDashboard(currentUser);
+      if (portalEmpId && portalEmpId.trim() !== "") doLogin();
+      return;
+    }
+    
+    // 3. Fallback: Show Login Screen
+    showScreen('loginScreen');
+    if (portalEmpId && portalEmpId.trim() !== "") {
+      var inpEmp = document.getElementById('loginEmpId');
+      var inpPass = document.getElementById('loginPass');
+      if (inpEmp) inpEmp.value = portalEmpId;
+      if (inpPass) inpPass.value = "SSO_BYPASS";
+      doLogin();
+    }
+  } catch(eInit) {
+    console.error("Auth init error:", eInit);
+    showScreen('loginScreen');
+  }
+});
 
-  document.getElementById(screenId).classList.add('active-section');
-}
-
+// =======================================================================
+// AUTHENTICATION & LOGIN CONTROLLER
+// =======================================================================
 function doLogin() {
   var empId = document.getElementById('loginEmpId').value;
   var pass = document.getElementById('loginPass').value;
@@ -1539,44 +1559,74 @@ function doLogin() {
   
   btn.innerText = "Checking...";
   
-  google.script.run.withSuccessHandler(function(res) {
-    if (res.success) {
-      currentUser = res.name;
-      var activeRole = portalRole || res.role;
-      
-      localStorage.setItem("yashApp_staffName", currentUser);
-      localStorage.setItem("yashApp_staffEmpId", res.empId);
-      localStorage.setItem("yashApp_staffRole", activeRole); 
-      
-      document.getElementById('staffName').value = currentUser;
-      
-      // CEO / OWNER / ACCOUNTANT / MIS / CRM KO DIRECTLY CEO SCREEN DIKHAYEIN
-      if (isCeoOrAdmin(activeRole) || isCeoOrAdmin(res.role)) { 
-        showScreen('ceoScreen'); 
-        refreshCEOStats(); 
-      } else { 
-        loadStaffDashboard(currentUser); 
-      }
-    } else { 
-      // SSO Bypass failsafe: if CEO logs in via Master App but is not listed in Staff Master
-      if (pass === "SSO_BYPASS" && isCeoOrAdmin(portalRole)) {
-        currentUser = portalName || "CEO";
-        document.getElementById('staffName').value = currentUser;
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.success) {
+        currentUser = res.name;
+        var activeRole = portalRole || res.role;
+        
         localStorage.setItem("yashApp_staffName", currentUser);
-        localStorage.setItem("yashApp_staffRole", portalRole);
-        showScreen('ceoScreen');
-        refreshCEOStats();
-        return;
+        localStorage.setItem("yashApp_staffEmpId", res.empId);
+        localStorage.setItem("yashApp_staffRole", activeRole); 
+        
+        document.getElementById('staffName').value = currentUser;
+        
+        if (isCeoOrAdmin(activeRole) || isCeoOrAdmin(res.role)) { 
+          showScreen('ceoScreen'); 
+          refreshCEOStats(); 
+        } else { 
+          loadStaffDashboard(currentUser); 
+        }
+      } else { 
+        // SSO Bypass failsafe
+        if (pass === "SSO_BYPASS") {
+          if (isCeoOrAdmin(portalRole)) {
+            currentUser = portalName || "CEO";
+            document.getElementById('staffName').value = currentUser;
+            localStorage.setItem("yashApp_staffName", currentUser);
+            localStorage.setItem("yashApp_staffRole", portalRole);
+            showScreen('ceoScreen');
+            refreshCEOStats();
+            return;
+          } else if (portalName && portalName.trim() !== "") {
+            currentUser = portalName.trim();
+            document.getElementById('staffName').value = currentUser;
+            localStorage.setItem("yashApp_staffName", currentUser);
+            localStorage.setItem("yashApp_staffRole", portalRole || "SALES BOY");
+            showScreen('dashboardScreen');
+            loadStaffDashboard(currentUser);
+            return;
+          }
+        }
+        document.getElementById('loginError').innerText = (res && res.message) ? res.message : "Authentication error."; 
+        btn.innerText = "Login"; 
       }
-      document.getElementById('loginError').innerText = res.message; 
-      btn.innerText = "Login"; 
-    }
-  }).verifyLogin(empId, pass);
+    })
+    .withFailureHandler(function(err) {
+      console.error("verifyLogin server failure:", err);
+      if (pass === "SSO_BYPASS" && (portalName || portalRole)) {
+        if (isCeoOrAdmin(portalRole)) {
+          currentUser = portalName || "CEO";
+          showScreen('ceoScreen');
+          refreshCEOStats();
+        } else {
+          currentUser = portalName || "Staff";
+          showScreen('dashboardScreen');
+          loadStaffDashboard(currentUser);
+        }
+      } else {
+        btn.innerText = "Login";
+        showScreen('loginScreen');
+      }
+    })
+    .verifyLogin(empId, pass);
 }
 
 function loadStaffDashboard(name) {
+  if (!name) name = currentUser || "Staff";
   tryAutoSyncStaffGps();
-  document.getElementById('dashName').innerText = name.split(" ")[0]; 
+  var dashNameEl = document.getElementById('dashName');
+  if (dashNameEl) dashNameEl.innerText = name.split(" ")[0]; 
   showScreen('dashboardScreen'); 
   loadAreasInBackground();
   
@@ -1586,20 +1636,30 @@ function loadStaffDashboard(name) {
     ceoBtn.style.display = isCeoOrAdmin(role) ? "inline-block" : "none";
   }
   
-  google.script.run.withSuccessHandler(function(res) {
-    globalDashboardData = res; 
-    var loader = document.getElementById('incentiveLoader');
-    if (loader) loader.style.display = 'none';
-    var dash = document.getElementById('incentiveDashboard');
-    if (dash) dash.style.display = 'block';
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (!res) return;
+        globalDashboardData = res; 
+        var loader = document.getElementById('incentiveLoader');
+        if (loader) loader.style.display = 'none';
+        var dash = document.getElementById('incentiveDashboard');
+        if (dash) dash.style.display = 'block';
 
-    renderKpiDashboard(currentKpiPeriod || 'today');
-  }).getStaffDashboardData(name);
+        renderKpiDashboard(currentKpiPeriod || 'today');
+      })
+      .withFailureHandler(function(e) {
+        console.error("Staff dashboard fetch error:", e);
+        var loader = document.getElementById('incentiveLoader');
+        if (loader) loader.innerHTML = '<div class="text-danger fw-bold"><i class="bi bi-exclamation-triangle"></i> Network sync timeout. Please refresh.</div>';
+      })
+      .getStaffDashboardData(name);
+  }
 }
 
 function openLedger(bucketKey, title) {
-  if (!globalDashboardData) return;
-  var ledgerArray = globalDashboardData[bucketKey].ledger;
+  if (!globalDashboardData || !globalDashboardData[bucketKey]) return;
+  var ledgerArray = globalDashboardData[bucketKey].ledger || [];
   
   document.getElementById('ledgerModalTitle').innerHTML = '<i class="bi bi-wallet2"></i> ' + title + ' Ledger';
   
@@ -1634,322 +1694,111 @@ function generateEOD() {
   var btn = document.getElementById('btnEOD');
   btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Compiling Metrics...';
   btn.disabled = true;
-
-  google.script.run.withSuccessHandler(function(encodedReport) {
-    globalEODMessage = decodeURIComponent(encodedReport);
-    document.getElementById('eodPreviewText').value = globalEODMessage;
-    new bootstrap.Modal(document.getElementById('eodModal')).show();
-    
-    btn.innerHTML = '<b><i class="bi bi-file-earmark-bar-graph"></i> Generate EOD Report</b>';
-    btn.disabled = false;
-  }).withFailureHandler(function(err) {
-    alert("Error generating EOD: " + err.message);
-    
-    btn.innerHTML = '<b><i class="bi bi-file-earmark-bar-graph"></i> Generate EOD Report</b>';
-    btn.disabled = false;
-  }).generateWhatsAppEOD(currentUser);
+  
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run.withSuccessHandler(function(msg) {
+      globalEODMessage = msg;
+      btn.innerHTML = '<i class="bi bi-whatsapp"></i> Generate EOD Report';
+      btn.disabled = false;
+      document.getElementById('eodReportText').innerText = msg;
+      new bootstrap.Modal(document.getElementById('eodModal')).show();
+    }).withFailureHandler(function(err) {
+      btn.innerHTML = '<i class="bi bi-whatsapp"></i> Generate EOD Report';
+      btn.disabled = false;
+      alert("Error compiling EOD: " + (err && err.message ? err.message : err));
+    }).compileEODReport(currentUser);
+  }
 }
 
 function sendToWhatsApp() {
-  if (!globalEODMessage) {
-    return;
-  }
-  var waUrl = "https://wa.me/?text=" + encodeURIComponent(globalEODMessage);
-  window.open(waUrl, '_blank');
+  if (!globalEODMessage) return;
+  var encoded = encodeURIComponent(globalEODMessage);
+  window.open('https://api.whatsapp.com/send?text=' + encoded, '_blank');
 }
 
-function logout() { 
-  localStorage.clear(); 
-  location.reload(); 
+function logout() {
+  localStorage.removeItem("yashApp_staffName");
+  localStorage.removeItem("yashApp_staffRole");
+  localStorage.removeItem("yashApp_staffEmpId");
+  showScreen('loginScreen');
 }
 
-var ceoBucketsCache = null;
+// =======================================================================
+// SALES BOY 5-KPI PERFORMANCE TAB ENGINE
+// =======================================================================
+var KPI_PERIOD_LABELS = {
+  today: 'Today',
+  yesterday: 'Yesterday',
+  thisWeek: 'This Week',
+  lastWeek: 'Last Week',
+  thisMonth: 'This Month',
+  lastMonth: 'Last Month',
+  thisQuarter: 'This Quarter',
+  lastQuarter: 'Last Quarter',
+  thisYear: 'This Year'
+};
 
-function selectCeoTimeframe(filterKey, el) {
-  var container = document.getElementById('ceoFilterPills');
+function switchKpiPeriod(periodKey, btn) {
+  currentKpiPeriod = periodKey;
+  var container = document.getElementById('kpiPeriodTabs');
   if (container) {
-    var pills = container.querySelectorAll('.ceo-nav-pill');
-    pills.forEach(function(p) { p.classList.remove('active'); });
-    if (el) el.classList.add('active');
-  }
-
-  var select = document.getElementById('ceoFilter');
-  if (select) {
-    select.value = filterKey;
-  }
-
-  onCeoFilterChange();
-}
-
-function renderCeoDashboard(res) {
-  if (!res) return;
-  masterData = res;
-  try { refreshCeoDashboardRadar(false); } catch(eR) {} 
-  
-  // 1. Populate Company-Wide KPI Cards
-  var cm = res.companyMetrics || {};
-  var cVisits = cm.visits !== undefined ? cm.visits : (res.metrics ? res.metrics.totalVisits : 0);
-  var cConv = (cm.conversionRatio !== undefined ? cm.conversionRatio : 0) + "%";
-  var cAvgSales = "₹" + (cm.avgRsSales || 0).toLocaleString('en-IN');
-  var cTxnDealer = cm.txnPerDealer !== undefined ? cm.txnPerDealer : 0;
-  var cRev = "₹" + (cm.revenue !== undefined ? cm.revenue : (res.metrics ? res.metrics.totalSales : 0)).toLocaleString('en-IN');
-  
-  var elCVisits = document.getElementById('ceoVisitsVal');
-  var elCConv = document.getElementById('ceoConversionVal');
-  var elCAvg = document.getElementById('ceoAvgSalesVal');
-  var elCTxn = document.getElementById('ceoTxnDealerVal');
-  var elCRev = document.getElementById('ceoRevenueVal');
-  
-  if (elCVisits) elCVisits.innerText = cVisits;
-  if (elCConv) elCConv.innerText = cConv;
-  if (elCAvg) elCAvg.innerText = cAvgSales;
-  if (elCTxn) elCTxn.innerText = cTxnDealer;
-  if (elCRev) elCRev.innerText = cRev;
-  
-  var elCVisitsSub = document.getElementById('ceoVisitsSub');
-  var elCConvSub = document.getElementById('ceoConversionSub');
-  var elCAvgSub = document.getElementById('ceoAvgSalesSub');
-  var elCTxnSub = document.getElementById('ceoTxnDealerSub');
-  var elCRevBadge = document.getElementById('ceoRevenueOrdersBadge');
-  
-  var cDealers = cm.uniqueDealersCount || 0;
-  var cProd = cm.productiveVisits || 0;
-  var cAvgPerVisit = "₹" + (cm.avgRsSalesPerVisit || 0).toLocaleString('en-IN');
-  var cOrders = cm.transactions || 0;
-  
-  if (elCVisitsSub) elCVisitsSub.innerText = cDealers + (cDealers === 1 ? ' dealer' : ' dealers');
-  if (elCConvSub) elCConvSub.innerText = cProd + '/' + cVisits + ' converted';
-  if (elCAvgSub) elCAvgSub.innerText = cAvgPerVisit + ' / visit';
-  if (elCTxnSub) elCTxnSub.innerText = cOrders + (cOrders === 1 ? ' order' : ' orders');
-  if (elCRevBadge) elCRevBadge.innerText = cOrders + (cOrders === 1 ? ' Order' : ' Orders');
-
-  // 2. Render Team Leaderboard with 5 Clickable Metrics for Each Sales Boy
-  var boardHtml = '<div class="accordion accordion-flush" id="staffAccordion">';
-  
-  if (!res.leaderboard || res.leaderboard.length === 0) {
-    boardHtml += '<div class="text-center p-3 text-muted border rounded">No data found for this period.</div>';
-  } else {
-    res.leaderboard.forEach(function(staff, index) {
-      var rankBadge = '';
-      if (index === 0) {
-        rankBadge = '<span class="badge bg-warning text-dark ms-2 fw-bold" style="font-size:10.5px;"><i class="bi bi-trophy-fill text-dark me-1"></i>#1 TOP PERFORMER</span>';
-      } else if (index === 1) {
-        rankBadge = '<span class="badge bg-secondary-subtle text-dark border ms-2 fw-semibold" style="font-size:10.5px;">#2</span>';
-      } else if (index === 2) {
-        rankBadge = '<span class="badge bg-secondary-subtle text-dark border ms-2 fw-semibold" style="font-size:10.5px;">#3</span>';
-      } else {
-        rankBadge = '<span class="badge bg-light text-muted border ms-2" style="font-size:10.5px;">#' + (index + 1) + '</span>';
-      }
-      var badge = rankBadge;
-      var collapseId = 'collapse' + index;
-      var sm = staff.metrics || {
-        visits: staff.visits,
-        conversionRatio: staff.strike || 0,
-        productiveVisits: 0,
-        avgRsSales: 0,
-        avgRsSalesPerVisit: 0,
-        txnPerDealer: 0,
-        revenue: staff.sales,
-        transactions: 0,
-        uniqueDealersCount: 0
-      };
-      
-      var safeStaffName = encodeURIComponent(staff.name);
-      
-      var areasHtml = '<div class="text-muted small p-2">No Orders or Visits in this timeframe</div>';
-      
-      if (staff.areas && Object.keys(staff.areas).length > 0) {
-        areasHtml = '<div class="accordion accordion-flush border-top" id="areaAcc' + index + '">';
-        var aIdx = 0;
-        
-        for (var areaName in staff.areas) {
-          var areaData = staff.areas[areaName];
-          var areaColId = 'areaCol_' + index + '_' + aIdx;
-          var dealersHtml = "";
-          
-          for (var dName in areaData.dealers) {
-            var dData = areaData.dealers[dName];
-            var safePayload = makeSafePayload({ dealer: dName, data: dData });
-            
-            dealersHtml += '<div class="d-flex justify-content-between p-2 border-bottom dealer-row" onclick="openDealerModal(\'' + safePayload + '\')">' +
-                             '<div>' +
-                               '<div class="fw-bold text-dark" style="font-size:13px;">' + dName + '</div>' +
-                               '<div class="text-muted" style="font-size:11px;">' + dData.visits + ' Visits • ' + (dData.orders ? dData.orders.length : 0) + ' Orders</div>' +
-                             '</div>' +
-                             '<div class="text-end">' +
-                               '<div class="fw-bold text-success fs-6">₹' + (dData.sales || 0).toLocaleString('en-IN') + '</div>' +
-                               '<span class="badge bg-light text-muted border" style="font-size:10px;">View Logs <i class="bi bi-chevron-right"></i></span>' +
-                             '</div>' +
-                           '</div>';
-          }
-          
-          areasHtml += '<div class="accordion-item border-0">' +
-                         '<h2 class="accordion-header" id="heading_' + areaColId + '">' +
-                           '<button class="accordion-button collapsed py-2 px-3 bg-light fw-bold text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#' + areaColId + '" style="font-size:12.5px;">' +
-                             '<i class="bi bi-geo-alt-fill text-danger me-2"></i> ' + areaName + ' (' + areaData.visits + ' Visits • ₹' + areaData.sales.toLocaleString('en-IN') + ')' +
-                           '</button>' +
-                         '</h2>' +
-                         '<div id="' + areaColId + '" class="accordion-collapse collapse" data-bs-parent="#areaAcc' + index + '">' +
-                           '<div class="accordion-body p-0">' + dealersHtml + '</div>' +
-                         '</div>' +
-                       '</div>';
-          aIdx++;
-        }
-        areasHtml += '</div>';
-      }
-
-      boardHtml += '<div class="staff-perf-card">' +
-                     '<div class="p-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2 bg-white">' +
-                       '<div class="d-flex align-items-center gap-2">' +
-                         '<div class="rounded-circle bg-dark text-white fw-bold d-flex align-items-center justify-content-center" style="width:36px; height:36px; font-size:14px;">' +
-                           staff.name.charAt(0) +
-                         '</div>' +
-                         '<div>' +
-                           '<div class="fw-bold text-dark fs-6 d-flex align-items-center">' + staff.name + rankBadge + '</div>' +
-                           '<small class="text-muted" style="font-size:11px;">Field Sales Representative</small>' +
-                         '</div>' +
-                       '</div>' +
-                       '<div>' +
-                         '<button class="btn btn-sm btn-outline-secondary fw-bold px-3 py-1" type="button" data-bs-toggle="collapse" data-bs-target="#' + collapseId + '" style="font-size:11.5px; border-radius: 8px;">' +
-                           '<i class="bi bi-map"></i> Routes & Shops <i class="bi bi-chevron-down ms-1"></i>' +
-                         '</button>' +
-                       '</div>' +
-                     '</div>' +
-                     '<div class="p-2 bg-light border-bottom">' +
-                       '<div class="row g-2 text-center">' +
-                         '<div class="col-6 col-md-2" style="cursor:pointer;" onclick="openCeoPerfModal(\'visits\', \'' + safeStaffName + '\')">' +
-                           '<div class="staff-metric-box border-primary-subtle">' +
-                             '<div class="text-muted fw-bold" style="font-size:10px; text-transform:uppercase;">1. Visits</div>' +
-                             '<div class="fw-bold text-primary fs-5 mt-1">' + sm.visits + '</div>' +
-                             '<div class="text-muted" style="font-size:10px;">' + sm.uniqueDealersCount + ' dealers</div>' +
-                           '</div>' +
-                         '</div>' +
-                         '<div class="col-6 col-md-2" style="cursor:pointer;" onclick="openCeoPerfModal(\'conversion\', \'' + safeStaffName + '\')">' +
-                           '<div class="staff-metric-box border-success-subtle">' +
-                             '<div class="text-muted fw-bold" style="font-size:10px; text-transform:uppercase;">2. Strike Rate</div>' +
-                             '<div class="fw-bold text-success fs-5 mt-1">' + sm.conversionRatio + '%</div>' +
-                             '<div class="text-muted" style="font-size:10px;">' + sm.productiveVisits + '/' + sm.visits + ' converted</div>' +
-                           '</div>' +
-                         '</div>' +
-                         '<div class="col-6 col-md-2" style="cursor:pointer;" onclick="openCeoPerfModal(\'avgSales\', \'' + safeStaffName + '\')">' +
-                           '<div class="staff-metric-box border-warning-subtle">' +
-                             '<div class="text-muted fw-bold" style="font-size:10px; text-transform:uppercase;">3. Avg / Visit</div>' +
-                             '<div class="fw-bold text-warning-emphasis fs-5 mt-1">₹' + (sm.avgRsSalesPerVisit || 0).toLocaleString('en-IN') + '</div>' +
-                             '<div class="text-muted" style="font-size:10px;">₹' + (sm.avgRsSales || 0).toLocaleString('en-IN') + ' / order</div>' +
-                           '</div>' +
-                         '</div>' +
-                         '<div class="col-6 col-md-2" style="cursor:pointer;" onclick="openCeoPerfModal(\'txnPerDealer\', \'' + safeStaffName + '\')">' +
-                           '<div class="staff-metric-box border-purple-subtle">' +
-                             '<div class="text-muted fw-bold" style="font-size:10px; text-transform:uppercase;">4. Txn / Dealer</div>' +
-                             '<div class="fw-bold text-dark fs-5 mt-1">' + (sm.txnPerDealer || 0) + '</div>' +
-                             '<div class="text-muted" style="font-size:10px;">' + sm.transactions + ' orders</div>' +
-                           '</div>' +
-                         '</div>' +
-                         '<div class="col-12 col-md-4" style="cursor:pointer;" onclick="openCeoPerfModal(\'revenue\', \'' + safeStaffName + '\')">' +
-                           '<div class="staff-metric-box bg-dark text-white border-0 shadow-sm">' +
-                             '<div class="text-white-50 fw-bold" style="font-size:10px; text-transform:uppercase;">5. Total Field Sales</div>' +
-                             '<div class="fw-bold text-warning fs-5 mt-1">₹' + (sm.revenue || 0).toLocaleString('en-IN') + '</div>' +
-                             '<div class="text-white-50" style="font-size:10px;">' + sm.transactions + ' Verified Orders</div>' +
-                           '</div>' +
-                         '</div>' +
-                       '</div>' +
-                     '</div>' +
-                     '<div id="' + collapseId + '" class="collapse">' +
-                       '<div class="p-2">' + areasHtml + '</div>' +
-                     '</div>' +
-                   '</div>';
+    var btns = container.querySelectorAll('button');
+    btns.forEach(function(b) {
+      b.className = 'btn btn-sm btn-outline-secondary fw-semibold px-3';
     });
-    boardHtml += '</div>';
-  }
-  
-  var lbContainer = document.getElementById('leaderboardList') || document.getElementById('ceoLeaderboardContainer');
-  if (lbContainer) lbContainer.innerHTML = boardHtml;
-}
-
-function onCeoFilterChange() {
-  var filter = document.getElementById('ceoFilter').value;
-  var customRow = document.getElementById('customDateRow');
-  
-  if (filter === 'custom') {
-    if (customRow) customRow.style.display = 'flex';
-    var startStr = document.getElementById('ceoStartDate').value;
-    var endStr = document.getElementById('ceoEndDate').value;
-    if (!startStr || !endStr) return;
-    refreshCEOStatsFromServer('custom', false, startStr, endStr);
-    return;
-  }
-  
-  if (customRow) customRow.style.display = 'none';
-
-  // ⚡ 0-SECOND INSTANT DISPLAY FROM IN-MEMORY CACHE!
-  if (ceoBucketsCache && ceoBucketsCache[filter]) {
-    renderCeoDashboard(ceoBucketsCache[filter]);
-    return;
-  }
-  
-  // If not yet loaded into cache, fetch from server
-  refreshCEOStatsFromServer(filter);
-}
-
-function refreshCEOStatsFromServer(targetFilter, forceSync, customStartStr, customEndStr) {
-  var filter = targetFilter || document.getElementById('ceoFilter').value || 'today';
-  var btn = document.getElementById('btnRefreshCEO');
-  if (btn) { 
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Syncing God\'s Eye...'; 
-    btn.disabled = true; 
-  }
-
-  google.script.run.withFailureHandler(function(err) {
-    alert("Backend Error: " + err.message);
-    if (btn) { 
-      btn.innerHTML = '<b><i class="bi bi-arrow-clockwise"></i> Force Sync Data</b>'; 
-      btn.disabled = false; 
+    if (btn) {
+      btn.className = 'btn btn-sm btn-primary fw-bold px-3';
     }
-  }).withSuccessHandler(function(res) {
-    if (btn) { 
-      btn.innerHTML = '<b><i class="bi bi-arrow-clockwise"></i> Force Sync Data</b>'; 
-      btn.disabled = false; 
-    }
-
-    if (res && res.allBuckets && res.buckets) {
-      ceoBucketsCache = res.buckets;
-      var curFilter = document.getElementById('ceoFilter').value;
-      if (curFilter !== 'custom' && ceoBucketsCache[curFilter]) {
-        renderCeoDashboard(ceoBucketsCache[curFilter]);
-      } else {
-        renderCeoDashboard(ceoBucketsCache['today'] || res);
-      }
-    } else {
-      renderCeoDashboard(res);
-    }
-  }).getCEOStats(filter, customStartStr, customEndStr);
+  }
+  renderKpiDashboard(periodKey);
 }
 
-// Backward-compatible alias
-function refreshCEOStats() {
-  onCeoFilterChange();
+function renderKpiDashboard(periodKey) {
+  if (!globalDashboardData || !globalDashboardData[periodKey]) return;
+  var data = globalDashboardData[periodKey];
+  var m = data.metrics || {};
+  
+  var visits = m.visits !== undefined ? m.visits : (data.visits || 0);
+  var conv = (m.conversionRatio !== undefined ? m.conversionRatio : 0) + '%';
+  var avgSales = '₹' + (m.avgRsSales || 0).toLocaleString('en-IN');
+  var txnDealer = (m.txnPerDealer !== undefined ? m.txnPerDealer : 0);
+  var rev = '₹' + (m.revenue !== undefined ? m.revenue : (data.sales || 0)).toLocaleString('en-IN');
+  
+  var elVisits = document.getElementById('kpiVisitsVal');
+  var elConv = document.getElementById('kpiConversionVal');
+  var elAvg = document.getElementById('kpiAvgSalesVal');
+  var elTxn = document.getElementById('kpiTxnDealerVal');
+  var elRev = document.getElementById('kpiRevenueVal');
+  
+  if (elVisits) elVisits.innerText = visits;
+  if (elConv) elConv.innerText = conv;
+  if (elAvg) elAvg.innerText = avgSales;
+  if (elTxn) elTxn.innerText = txnDealer;
+  if (elRev) elRev.innerText = rev;
+  
+  var elVisitsSub = document.getElementById('kpiVisitsSub');
+  var elConvSub = document.getElementById('kpiConversionSub');
+  var elAvgSub = document.getElementById('kpiAvgSalesSub');
+  var elTxnSub = document.getElementById('kpiTxnDealerSub');
+  var elRevBadge = document.getElementById('kpiRevenueOrdersBadge');
+  
+  var uniqueDealers = m.uniqueDealersCount || 0;
+  var prodVisits = m.productiveVisits || 0;
+  var avgPerVisit = '₹' + (m.avgRsSalesPerVisit || 0).toLocaleString('en-IN');
+  var txns = m.transactions || 0;
+  
+  if (elVisitsSub) elVisitsSub.innerText = uniqueDealers + (uniqueDealers === 1 ? ' dealer' : ' dealers');
+  if (elConvSub) elConvSub.innerText = prodVisits + '/' + visits + ' converted';
+  if (elAvgSub) elAvgSub.innerText = avgPerVisit + ' / visit';
+  if (elTxnSub) elTxnSub.innerText = txns + (txns === 1 ? ' order' : ' orders');
+  if (elRevBadge) elRevBadge.innerText = txns + (txns === 1 ? ' Order' : ' Orders');
 }
 
-
-// -------------------------------------------------------------
-// SALES BOY / STAFF 5-KPI INTERACTIVE DRILLDOWN MODAL
-// -------------------------------------------------------------
 function openPerfModal(metricType) {
   if (!globalDashboardData || !globalDashboardData[currentKpiPeriod]) return;
   var data = globalDashboardData[currentKpiPeriod];
   var m = data.metrics || {};
-  var periodLabels = {
-    today: 'Today',
-    yesterday: 'Yesterday',
-    thisWeek: 'This Week',
-    lastWeek: 'Last Week',
-    thisMonth: 'This Month',
-    lastMonth: 'Last Month',
-    thisQuarter: 'This Quarter',
-    lastQuarter: 'Last Quarter',
-    thisYear: 'This Year'
-  };
-  var periodLabel = periodLabels[currentKpiPeriod] || 'Selected Period';
+  var periodLabel = KPI_PERIOD_LABELS[currentKpiPeriod] || 'Selected Period';
   
   var header = document.getElementById('perfModalHeader');
   var title = document.getElementById('perfModalTitle');
@@ -1995,467 +1844,386 @@ function openPerfModal(metricType) {
     header.style.background = '#16a34a';
     title.innerHTML = '<i class="bi bi-pie-chart-fill"></i> ' + periodLabel + ' Conversion (' + (m.conversionRatio || 0) + '%)';
     
-    var convertedDealers = breakdown.filter(function(d) { return d.isConverted && (d.convertedVisitsCount > 0 || d.sameDayOrdersCount > 0); });
-    var zeroSaleDealers = breakdown.filter(function(d) { return d.visitsCount > 0 && (!d.isConverted || d.convertedVisitsCount === 0); });
-    
-    var html = '<div class="alert alert-success py-2 px-3 mb-3 d-flex justify-content-between align-items-center" style="font-size:13px;">' +
-                 '<span><b>Strike Rate:</b> ' + (m.conversionRatio || 0) + '%</span>' +
-                 '<span><b>Converted Visits:</b> ' + (m.productiveVisits || 0) + ' / ' + (m.visits || 0) + '</span>' +
-               '</div>';
-               
-    html += '<h6 class="fw-bold text-success mb-2"><i class="bi bi-check-circle-fill"></i> Converted Visits (' + convertedDealers.length + ' Dealers)</h6>';
-    if (convertedDealers.length === 0) {
-      html += '<div class="text-muted small p-2 mb-3 bg-white rounded border">No same-day visit orders recorded in this period.</div>';
-    } else {
-      convertedDealers.forEach(function(d, idx) {
-        var ordDetails = "";
-        if (d.orders && d.orders.length > 0) {
-          ordDetails = '<div class="mt-2 pt-2 border-top text-muted small">' +
-                         '<div class="fw-bold text-success mb-1">Same-Day Booked Orders:</div>' +
-                         d.orders.map(function(o) {
-                           return '<div class="d-flex justify-content-between py-1 border-bottom" style="font-size:11.5px;">' +
-                                    '<span><i class="bi bi-calendar-event me-1"></i>' + (o.dateStr || '') + ' • ' + (o.items || 'Standard Order') + '</span>' +
-                                    '<span class="fw-bold text-success">₹' + (o.amount || 0).toLocaleString('en-IN') + '</span>' +
-                                  '</div>';
-                         }).join('') +
-                       '</div>';
-        }
-        html += '<div class="card mb-2 border-0 shadow-sm" style="border-radius:10px;">' +
-                  '<div class="card-body p-3">' +
-                    '<div class="d-flex justify-content-between align-items-start">' +
-                      '<div>' +
-                        '<h6 class="fw-bold text-dark mb-0">' + (idx + 1) + '. ' + d.dealerName + '</h6>' +
-                        '<span class="text-muted small">' + (d.area || '') + ' • ' + d.visitsCount + ' visits</span>' +
-                      '</div>' +
-                      '<div class="text-end">' +
-                        '<span class="badge bg-success mb-1">' + d.convertedVisitsCount + ' Converted</span>' +
-                        '<div class="fw-bold text-success">₹' + (d.sameDayRevenue || d.totalRevenue || 0).toLocaleString('en-IN') + '</div>' +
-                      '</div>' +
-                    '</div>' +
-                    ordDetails +
-                  '</div>' +
-                '</div>';
-      });
-    }
-
-    if (zeroSaleDealers.length > 0) {
-      html += '<h6 class="fw-bold text-secondary mt-3 mb-2"><i class="bi bi-x-circle-fill text-danger"></i> Visited But No Order (' + zeroSaleDealers.length + ' Dealers)</h6>';
-      zeroSaleDealers.forEach(function(d, idx) {
-        html += '<div class="card mb-2 border-0 bg-white shadow-sm" style="border-radius:10px; opacity:0.85;">' +
-                  '<div class="card-body p-2 px-3 d-flex justify-content-between align-items-center">' +
-                    '<div>' +
-                      '<span class="fw-bold text-dark" style="font-size:12.5px;">' + (idx + 1) + '. ' + d.dealerName + '</span>' +
-                      '<div class="text-muted" style="font-size:11px;">' + (d.area || '') + ' • ' + d.visitsCount + ' visits</div>' +
-                    '</div>' +
-                    '<span class="badge bg-secondary-subtle text-secondary" style="font-size:11px;">0 Orders</span>' +
-                  '</div>' +
-                '</div>';
-      });
-    }
-    body.innerHTML = html;
-  }
-  else if (metricType === 'avgSales') {
-    header.style.background = '#d97706';
-    title.innerHTML = '<i class="bi bi-cash-stack"></i> ' + periodLabel + ' Avg Sales / Order';
-    var html = '<div class="alert alert-warning py-2 px-3 mb-3" style="font-size:13px;">' +
-                 '<div class="d-flex justify-content-between"><span><b>Total Revenue:</b></span><span class="fw-bold">₹' + (m.revenue || 0).toLocaleString('en-IN') + '</span></div>' +
-                 '<div class="d-flex justify-content-between mt-1"><span><b>Visited Orders:</b></span><span class="fw-bold">' + (m.transactions || 0) + '</span></div>' +
-                 '<div class="d-flex justify-content-between mt-1 pt-1 border-top"><span><b>Avg Ticket Size:</b></span><span class="fw-bold text-dark">₹' + (m.avgRsSales || 0).toLocaleString('en-IN') + ' / order</span></div>' +
-                 '<div class="d-flex justify-content-between mt-1"><span><b>Avg Sales / Visit:</b></span><span class="fw-bold text-dark">₹' + (m.avgRsSalesPerVisit || 0).toLocaleString('en-IN') + ' / visit</span></div>' +
-               '</div>';
-    body.innerHTML = html;
-  }
-  else if (metricType === 'txnPerDealer') {
-    header.style.background = '#7c3aed';
-    title.innerHTML = '<i class="bi bi-receipt"></i> ' + periodLabel + ' Transactions / Dealer';
-    var html = '<div class="alert alert-info py-2 px-3 mb-3" style="font-size:13px;">' +
-                 '<div class="d-flex justify-content-between"><span><b>Total Orders:</b></span><span class="fw-bold">' + (m.transactions || 0) + '</span></div>' +
-                 '<div class="d-flex justify-content-between mt-1"><span><b>Visited Dealers:</b></span><span class="fw-bold">' + (m.uniqueDealersCount || 0) + '</span></div>' +
-                 '<div class="d-flex justify-content-between mt-1 pt-1 border-top"><span><b>Txn per Dealer:</b></span><span class="fw-bold text-dark">' + (m.txnPerDealer || 0) + ' orders / dealer</span></div>' +
-               '</div>';
-    body.innerHTML = html;
-  }
-  else if (metricType === 'revenue') {
-    header.style.background = '#1e293b';
-    title.innerHTML = '<i class="bi bi-currency-rupee text-warning"></i> ' + periodLabel + ' Revenue (₹' + (m.revenue || 0).toLocaleString('en-IN') + ')';
-    
-    var html = '<div class="card mb-3 border-0 text-white p-3 text-center shadow-sm" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius:12px;">' +
-                 '<div class="small text-uppercase opacity-75 fw-bold text-warning">Total Sales Booked</div>' +
-                 '<div class="display-6 fw-bold text-warning">₹' + (m.revenue || 0).toLocaleString('en-IN') + '</div>' +
-                 '<div class="small mt-1 opacity-90">' + ordersList.length + ' Orders Booked from Visited Dealers in ' + periodLabel + '</div>' +
-               '</div>';
-               
-    if (data.unvisitedOrdersList && data.unvisitedOrdersList.length > 0) {
-      html += '<div class="card mb-3 border-0 bg-light p-2 shadow-sm" style="border-radius:10px;">' +
-                '<div class="d-flex justify-content-between align-items-center">' +
-                  '<div style="font-size:12px;"><span class="badge bg-secondary me-1">Direct Orders</span> <b>' + data.unvisitedOrdersList.length + ' orders (0 visits):</b></div>' +
-                  '<div class="fw-bold text-muted">₹' + (m.unvisitedRevenue || 0).toLocaleString('en-IN') + '</div>' +
-                '</div>' +
-                '<div class="text-muted" style="font-size:10px; margin-top:3px;"><i class="bi bi-info-circle"></i> Excluded from Market Visit KPIs because staff did not physically visit these shops in ' + periodLabel + '.</div>' +
-              '</div>';
-    }
-    html += '<h6 class="fw-bold text-dark mb-2"><i class="bi bi-bag-check-fill text-success"></i> Orders from Visited Dealers (' + ordersList.length + ')</h6>';
-    if (ordersList.length === 0) {
-      body.innerHTML = html + '<div class="text-center p-4 text-muted fw-bold">No orders recorded for ' + periodLabel + '.</div>';
-    } else {
-      ordersList.forEach(function(ord, idx) {
-        var itemsHtml = "";
-        if (ord.items) {
-          var itemsArr = ord.items.split('|');
-          itemsHtml = '<div class="mt-2 pt-2 border-top text-muted" style="font-size:11px; line-height:1.4;">' +
-                        '<i class="bi bi-box-seam text-primary me-1"></i> ' + itemsArr.map(function(it){ return it.trim(); }).join('<br><i class="bi bi-box-seam text-primary me-1"></i> ') +
-                      '</div>';
-        }
-        
-        html += '<div class="card mb-2 border-0 shadow-sm" style="border-radius:10px;">' +
-                  '<div class="card-body p-3">' +
-                    '<div class="d-flex justify-content-between align-items-start">' +
-                      '<div>' +
-                        '<h6 class="fw-bold text-dark mb-0">' + (idx + 1) + '. ' + ord.shop + '</h6>' +
-                        '<span class="text-muted small">' + ord.dateStr + ' ��� ' + (ord.area || 'Direct') + '</span>' +
-                      '</div>' +
-                      '<h5 class="fw-bold text-success mb-0">₹' + (ord.amount || 0).toLocaleString('en-IN') + '</h5>' +
-                    '</div>' +
-                    itemsHtml +
-                  '</div>' +
-                '</div>';
-      });
-      body.innerHTML = html;
-    }
-  }
-  
-  new bootstrap.Modal(document.getElementById('perfDetailModal')).show();
-}
-
-
-function openCeoPerfModal(metricType, targetKey) {
-  if (!masterData) return;
-  
-  var isCompany = targetKey === 'company';
-  var dataObj = null;
-  var entityTitle = "";
-  
-  if (isCompany) {
-    dataObj = {
-      metrics: masterData.companyMetrics || {},
-      visitsList: masterData.companyVisitsList || [],
-      ordersList: masterData.companyOrdersList || [],
-      unvisitedOrdersList: masterData.companyUnvisitedOrdersList || [],
-      dealerBreakdown: masterData.companyDealerBreakdown || []
-    };
-    entityTitle = "🏢 Company-Wide";
-  } else {
-    var foundStaff = (masterData.leaderboard || []).find(function(s) { return s.name === targetKey; });
-    if (!foundStaff) return;
-    dataObj = {
-      metrics: foundStaff.metrics || {},
-      visitsList: foundStaff.visitsList || [],
-      ordersList: foundStaff.ordersList || [],
-      unvisitedOrdersList: foundStaff.unvisitedOrdersList || [],
-      dealerBreakdown: foundStaff.dealerBreakdown || []
-    };
-    entityTitle = "👤 " + targetKey;
-  }
-  
-  var filterSelect = document.getElementById('ceoFilter');
-  var filterLabel = filterSelect ? filterSelect.options[filterSelect.selectedIndex].text : "Selected Period";
-  
-  var m = dataObj.metrics || {};
-  var header = document.getElementById('perfModalHeader');
-  var title = document.getElementById('perfModalTitle');
-  var body = document.getElementById('perfModalBody');
-  
-  var visitsList = dataObj.visitsList || [];
-  var ordersList = dataObj.ordersList || [];
-  var breakdown = dataObj.dealerBreakdown || [];
-  
-  if (metricType === 'visits') {
-    header.style.background = '#0d6efd';
-    title.innerHTML = '<i class="bi bi-shop"></i> ' + entityTitle + ' Visits (' + visitsList.length + ')';
-    
-    if (visitsList.length === 0) {
-      body.innerHTML = '<div class="text-center p-4 text-muted fw-bold"><i class="bi bi-calendar-x fs-1 d-block mb-2 text-secondary"></i>No store visits recorded for ' + filterLabel + '.</div>';
-    } else {
-      var html = '<div class="alert alert-primary py-2 px-3 mb-3 d-flex justify-content-between align-items-center" style="font-size:13px;">' +
-                   '<span><b>Total Visits:</b> ' + visitsList.length + '</span>' +
-                   '<span><b>Dealers:</b> ' + (m.uniqueDealersCount || 0) + '</span>' +
-                 '</div>';
-      
-      visitsList.forEach(function(v, idx) {
-        var mapLink = v.location ? '<a href="https://www.google.com/maps?q=' + encodeURIComponent(v.location) + '" target="_blank" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size:11px;"><i class="bi bi-geo-alt-fill"></i> Map</a>' : '';
-        var staffBadge = isCompany ? '<span class="badge bg-dark me-1" style="font-size:10px;"><i class="bi bi-person"></i> ' + (v.staff ? v.staff.split(' ')[0] : 'Staff') + '</span>' : '';
-        html += '<div class="card mb-2 border-0 shadow-sm" style="border-radius:10px;">' +
-                  '<div class="card-body p-3">' +
-                    '<div class="d-flex justify-content-between align-items-start mb-1">' +
-                      '<h6 class="fw-bold text-dark mb-0">' + (idx + 1) + '. ' + v.dealer + '</h6>' +
-                      '<span class="badge bg-primary-subtle text-primary border border-primary-subtle fw-semibold" style="font-size:11.5px;"><i class="bi bi-clock-history me-1"></i>' + formatVisitDateTime(v.dateStr, v.timeStr) + '</span>' +
-                    '</div>' +
-                    '<div class="text-muted small mb-2"><i class="bi bi-pin-map"></i> ' + v.area + '</div>' +
-                    '<div class="d-flex justify-content-between align-items-center pt-2 border-top">' +
-                      '<div>' + staffBadge + '<span class="badge bg-secondary-subtle text-secondary">' + v.task + '</span></div>' +
-                      mapLink +
-                    '</div>' +
-                  '</div>' +
-                '</div>';
-      });
-      body.innerHTML = html;
-    }
-  } 
-  else if (metricType === 'conversion') {
-    header.style.background = '#16a34a';
-    title.innerHTML = '<i class="bi bi-pie-chart-fill"></i> ' + entityTitle + ' Conversion (' + (m.conversionRatio || 0) + '%)';
-    
-    var convertedDealers = breakdown.filter(function(d) { return d.isConverted && (d.convertedVisitsCount > 0 || d.sameDayOrdersCount > 0); });
-    var zeroSaleDealers = breakdown.filter(function(d) { return d.visitsCount > 0 && (!d.isConverted || d.convertedVisitsCount === 0); });
-    
-    var html = '<div class="card mb-3 border-0 bg-success text-white p-3 text-center shadow-sm" style="border-radius:12px;">' +
-                 '<div class="small text-uppercase opacity-75 fw-bold">Same-Day Visit Conversion Strike Rate</div>' +
-                 '<div class="display-6 fw-bold">' + (m.conversionRatio || 0) + '%</div>' +
-                 '<div class="small mt-1 opacity-90">' + (m.productiveVisits || 0) + ' converted visits (with same-day order) out of ' + (m.visits || 0) + ' total visits</div>' +
-                 '<div class="badge bg-white text-success mx-auto mt-2 px-3 py-1 fw-bold" style="font-size:11px;">Formula: (Same-Day Converted Visits ÷ Total Visits) × 100</div>' +
-               '</div>';
-               
-    html += '<h6 class="fw-bold text-success mb-2"><i class="bi bi-check-circle-fill"></i> Converted Visits (' + convertedDealers.length + ' Dealers)</h6>';
-    if (convertedDealers.length === 0) {
-      html += '<div class="card mb-3 p-3 text-center text-muted border-0 shadow-sm" style="font-size:13px;">No store visits converted into same-day orders in this period.</div>';
-    } else {
-      convertedDealers.forEach(function(cd, idx) {
-        html += renderDealerConversionCard(cd, idx, 'ceo_conv');
-      });
-    }
-    
-    if (zeroSaleDealers.length > 0) {
-      html += '<h6 class="fw-bold text-warning-emphasis mt-3 mb-2"><i class="bi bi-hourglass-split"></i> Visited Without Same-Day Order (' + zeroSaleDealers.length + ' Dealers)</h6>';
-      zeroSaleDealers.forEach(function(zd, idx) {
-        html += renderDealerConversionCard(zd, idx, 'ceo_zero');
-      });
-    }
-    
-    body.innerHTML = html;
-  }
-  else if (metricType === 'avgSales') {
-    header.style.background = '#d97706';
-    title.innerHTML = '<i class="bi bi-cash-stack"></i> ' + entityTitle + ' Avg Rs Sales';
-    
-    var html = '<div class="row g-2 mb-3">' +
-                 '<div class="col-6">' +
-                   '<div class="card p-2 text-center border-0 shadow-sm bg-white" style="border-radius:10px;">' +
-                     '<div class="text-muted small fw-bold text-uppercase" style="font-size:10px;">Avg Per Order</div>' +
-                     '<div class="fs-4 fw-bold text-warning-emphasis">₹' + (m.avgRsSales || 0).toLocaleString('en-IN') + '</div>' +
-                     '<div class="text-muted" style="font-size:10px;">Total Rev ÷ ' + (m.transactions || 0) + ' Orders</div>' +
-                   '</div>' +
+    var html = '<div class="alert alert-success py-2 px-3 mb-3" style="font-size:13px;">' +
+                 '<div class="d-flex justify-content-between mb-1">' +
+                   '<span><b>Productive Visits:</b> ' + (m.productiveVisits || 0) + ' / ' + (m.visits || 0) + '</span>' +
+                   '<span><b>Conversion Ratio:</b> ' + (m.conversionRatio || 0) + '%</span>' +
                  '</div>' +
-                 '<div class="col-6">' +
-                   '<div class="card p-2 text-center border-0 shadow-sm bg-white" style="border-radius:10px;">' +
-                     '<div class="text-muted small fw-bold text-uppercase" style="font-size:10px;">Avg Per Visit</div>' +
-                     '<div class="fs-4 fw-bold text-primary">₹' + (m.avgRsSalesPerVisit || 0).toLocaleString('en-IN') + '</div>' +
-                     '<div class="text-muted" style="font-size:10px;">Total Rev ÷ ' + (m.visits || 0) + ' Visits</div>' +
-                   '</div>' +
+                 '<div class="progress" style="height: 6px;">' +
+                   '<div class="progress-bar bg-success" style="width: ' + (m.conversionRatio || 0) + '%;"></div>' +
                  '</div>' +
                '</div>';
                
-    html += '<h6 class="fw-bold text-dark mb-2"><i class="bi bi-receipt"></i> Orders from Visited Dealers (' + ordersList.length + ')</h6>';
-    if (ordersList.length === 0) {
-      body.innerHTML = html + '<div class="text-center p-4 text-muted fw-bold">No orders booked in ' + filterLabel + '.</div>';
-    } else {
-      ordersList.forEach(function(ord, idx) {
-        var staffInfo = isCompany && ord.staff ? '<span class="badge bg-dark me-1" style="font-size:10px;">' + ord.staff.split(' ')[0] + '</span>' : '';
-        html += '<div class="card mb-2 border-0 shadow-sm" style="border-radius:10px;">' +
-                  '<div class="card-body p-2 d-flex justify-content-between align-items-center">' +
-                    '<div>' +
-                      '<div class="fw-bold text-dark" style="font-size:13px;">' + (idx + 1) + '. ' + ord.shop + '</div>' +
-                      '<div class="text-muted" style="font-size:11px;">' + staffInfo + ord.dateStr + ' • ' + (ord.area || 'Direct') + '</div>' +
-                    '</div>' +
-                    '<div class="text-end">' +
-                      '<div class="fw-bold text-dark fs-6">₹' + ord.amount.toLocaleString('en-IN') + '</div>' +
-                    '</div>' +
-                  '</div>' +
-                '</div>';
-      });
-      body.innerHTML = html;
-    }
-  }
-  else if (metricType === 'txnPerDealer') {
-    header.style.background = '#7c3aed';
-    title.innerHTML = '<i class="bi bi-receipt-cutoff"></i> ' + entityTitle + ' Txn / Dealer (' + (m.txnPerDealer || 0) + ')';
-    
-    var html = '<div class="card mb-3 border-0 text-white p-3 text-center shadow-sm" style="background:#7c3aed; border-radius:12px;">' +
-                 '<div class="small text-uppercase opacity-75 fw-bold">Average Orders Per Dealer</div>' +
-                 '<div class="display-6 fw-bold">' + (m.txnPerDealer || 0) + '</div>' +
-                 '<div class="small mt-1 opacity-90">' + (m.transactions || 0) + ' Orders across ' + (m.uniqueDealersCount || 0) + ' Dealers</div>' +
-                 '<div class="badge bg-white text-purple mx-auto mt-2 px-3 py-1 fw-bold" style="color:#7c3aed; font-size:11px;">Formula: Total Orders ÷ Visited Dealers</div>' +
-               '</div>';
-               
-    html += '<h6 class="fw-bold text-dark mb-2"><i class="bi bi-building"></i> Dealer-Wise Breakdown</h6>';
     if (breakdown.length === 0) {
-      body.innerHTML = html + '<div class="text-center p-4 text-muted fw-bold">No dealer interactions in ' + filterLabel + '.</div>';
+      html += '<div class="text-center p-4 text-muted fw-bold">No visit or sales activity recorded for ' + periodLabel + '.</div>';
     } else {
-      breakdown.forEach(function(d) {
-        var statusBadge = d.ordersCount > 0 ? '<span class="badge bg-success-subtle text-success">Active ✅</span>' : '<span class="badge bg-secondary-subtle text-secondary">Visit Only</span>';
-        var staffBadge = isCompany && d.staff ? '<span class="badge bg-light text-dark border me-1">' + d.staff.split(' ')[0] + '</span>' : '';
-        html += '<div class="card mb-2 border-0 shadow-sm" style="border-radius:10px;">' +
-                  '<div class="card-body p-3">' +
-                    '<div class="d-flex justify-content-between align-items-start mb-2">' +
-                      '<div>' +
-                        '<h6 class="fw-bold text-dark mb-0">' + d.dealerName + '</h6>' +
-                        '<span class="text-muted small">' + staffBadge + (d.area || 'All Areas') + '</span>' +
-                      '</div>' +
-                      statusBadge +
-                    '</div>' +
-                    '<div class="row g-1 text-center pt-2 border-top" style="font-size:12px;">' +
-                      '<div class="col-4 border-end">' +
-                        '<div class="text-muted" style="font-size:10px;">VISITS</div>' +
-                        '<div class="fw-bold text-primary">' + d.visitsCount + '</div>' +
-                      '</div>' +
-                      '<div class="col-4 border-end">' +
-                        '<div class="text-muted" style="font-size:10px;">ORDERS</div>' +
-                        '<div class="fw-bold text-success">' + d.ordersCount + '</div>' +
-                      '</div>' +
-                      '<div class="col-4">' +
-                        '<div class="text-muted" style="font-size:10px;">SALES</div>' +
-                        '<div class="fw-bold text-dark">₹' + d.totalAmount.toLocaleString('en-IN') + '</div>' +
-                      '</div>' +
-                    '</div>' +
-                  '</div>' +
-                '</div>';
-      });
-      body.innerHTML = html;
-    }
-  }
-  else if (metricType === 'revenue') {
-    header.style.background = '#1e293b';
-    title.innerHTML = '<i class="bi bi-currency-rupee text-warning"></i> ' + entityTitle + ' Revenue (₹' + (m.revenue || 0).toLocaleString('en-IN') + ')';
-    
-    var html = '<div class="card mb-3 border-0 text-white p-3 text-center shadow-sm" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius:12px;">' +
-                 '<div class="small text-uppercase opacity-75 fw-bold text-warning">Total Sales Booked</div>' +
-                 '<div class="display-6 fw-bold text-warning">₹' + (m.revenue || 0).toLocaleString('en-IN') + '</div>' +
-                 '<div class="small mt-1 opacity-90">' + ordersList.length + ' Orders Booked from Visited Dealers in ' + filterLabel + '</div>' +
-               '</div>';
-               
-    if (dataObj.unvisitedOrdersList && dataObj.unvisitedOrdersList.length > 0) {
-      html += '<div class="card mb-3 border-0 bg-light p-2 shadow-sm" style="border-radius:10px;">' +
-                '<div class="d-flex justify-content-between align-items-center">' +
-                  '<div style="font-size:12px;"><span class="badge bg-secondary me-1">Direct / Unvisited Orders</span> <b>' + dataObj.unvisitedOrdersList.length + ' orders (0 visits):</b></div>' +
-                  '<div class="fw-bold text-muted">₹' + (m.unvisitedRevenue || 0).toLocaleString('en-IN') + '</div>' +
-                '</div>' +
-                '<div class="text-muted" style="font-size:10px; margin-top:3px;"><i class="bi bi-info-circle"></i> Excluded from Market Visit KPIs because no store visits were recorded for these dealers in ' + filterLabel + '.</div>' +
-              '</div>';
-    }
-    html += '<h6 class="fw-bold text-dark mb-2"><i class="bi bi-bag-check-fill text-success"></i> Orders from Visited Dealers (' + ordersList.length + ')</h6>';
-    if (ordersList.length === 0) {
-      body.innerHTML = html + '<div class="text-center p-4 text-muted fw-bold">No orders recorded for ' + filterLabel + '.</div>';
-    } else {
-      ordersList.forEach(function(ord, idx) {
-        var itemsHtml = "";
-        if (ord.items) {
-          var itemsArr = ord.items.split('|');
-          itemsHtml = '<div class="mt-2 pt-2 border-top text-muted" style="font-size:11px; line-height:1.4;">' +
-                        '<i class="bi bi-box-seam text-primary me-1"></i> ' + itemsArr.map(function(it){ return it.trim(); }).join('<br><i class="bi bi-box-seam text-primary me-1"></i> ') +
-                      '</div>';
-        }
-        var staffBadge = isCompany && ord.staff ? '<span class="badge bg-dark me-1" style="font-size:10px;"><i class="bi bi-person"></i> ' + ord.staff + '</span>' : '';
+      breakdown.forEach(function(b, idx) {
+        var isConv = b.isConverted;
+        var badge = isConv ? '<span class="badge bg-success">Converted (₹' + (b.sales || 0).toLocaleString('en-IN') + ')</span>' : '<span class="badge bg-secondary">Visit Only (₹0)</span>';
+        var borderLeft = isConv ? 'border-left: 4px solid #16a34a !important;' : 'border-left: 4px solid #6c757d !important;';
         
-        html += '<div class="card mb-2 border-0 shadow-sm" style="border-radius:10px;">' +
+        html += '<div class="card mb-2 border-0 shadow-sm" style="border-radius:10px; ' + borderLeft + '">' +
                   '<div class="card-body p-3">' +
                     '<div class="d-flex justify-content-between align-items-start">' +
                       '<div>' +
-                        '<h6 class="fw-bold text-dark mb-0">' + (idx + 1) + '. ' + ord.shop + '</h6>' +
-                        '<span class="text-muted small">' + staffBadge + ord.dateStr + ' • ' + (ord.area || 'Direct') + '</span>' +
+                        '<h6 class="fw-bold text-dark mb-1">' + (idx + 1) + '. ' + b.dealer + '</h6>' +
+                        '<div class="text-muted small"><i class="bi bi-pin-map"></i> ' + (b.area || '') + '</div>' +
                       '</div>' +
-                      '<h5 class="fw-bold text-success mb-0">₹' + ord.amount.toLocaleString('en-IN') + '</h5>' +
+                      '<div>' + badge + '</div>' +
                     '</div>' +
-                    itemsHtml +
+                    '<div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top small text-muted">' +
+                      '<span>Visits: ' + b.visits + '</span>' +
+                      '<span>Orders: ' + b.ordersCount + '</span>' +
+                    '</div>' +
                   '</div>' +
                 '</div>';
       });
-      body.innerHTML = html;
     }
+    body.innerHTML = html;
+  }
+  else if (metricType === 'avgSales') {
+    header.style.background = '#d97706';
+    title.innerHTML = '<i class="bi bi-currency-rupee"></i> ' + periodLabel + ' Avg Order Size (₹' + (m.avgRsSales || 0).toLocaleString('en-IN') + ')';
+    
+    var html = '<div class="alert alert-warning py-2 px-3 mb-3 d-flex justify-content-between align-items-center" style="font-size:13px;">' +
+                 '<span><b>Avg Rs / Order:</b> ₹' + (m.avgRsSales || 0).toLocaleString('en-IN') + '</span>' +
+                 '<span><b>Avg Rs / Visit:</b> ₹' + (m.avgRsSalesPerVisit || 0).toLocaleString('en-IN') + '</span>' +
+               '</div>';
+               
+    if (ordersList.length === 0) {
+      html += '<div class="text-center p-4 text-muted fw-bold">No orders recorded for ' + periodLabel + '.</div>';
+    } else {
+      ordersList.forEach(function(o, idx) {
+        html += '<div class="card mb-2 border-0 shadow-sm" style="border-radius:10px;">' +
+                  '<div class="card-body p-3">' +
+                    '<div class="d-flex justify-content-between align-items-center mb-1">' +
+                      '<h6 class="fw-bold text-dark mb-0">' + (idx + 1) + '. ' + o.dealer + '</h6>' +
+                      '<h5 class="fw-bold text-success mb-0">₹' + (o.amount || 0).toLocaleString('en-IN') + '</h5>' +
+                    '</div>' +
+                    '<div class="text-muted small d-flex justify-content-between">' +
+                      '<span><i class="bi bi-pin-map"></i> ' + (o.area || '') + '</span>' +
+                      '<span><i class="bi bi-clock-history"></i> ' + formatVisitDateTime(o.dateStr, o.timeStr) + '</span>' +
+                    '</div>' +
+                  '</div>' +
+                '</div>';
+      });
+    }
+    body.innerHTML = html;
+  }
+  else if (metricType === 'txnPerDealer') {
+    header.style.background = '#7c3aed';
+    title.innerHTML = '<i class="bi bi-layers-fill"></i> ' + periodLabel + ' Frequency (' + (m.txnPerDealer || 0) + ' txns/dealer)';
+    
+    var html = '<div class="alert alert-info py-2 px-3 mb-3 d-flex justify-content-between align-items-center" style="font-size:13px; background-color:#f5f3ff; color:#6b21a8; border-color:#e9d5ff;">' +
+                 '<span><b>Total Orders:</b> ' + (m.transactions || 0) + '</span>' +
+                 '<span><b>Unique Dealers:</b> ' + (m.uniqueDealersCount || 0) + '</span>' +
+                 '<span><b>Txn Ratio:</b> ' + (m.txnPerDealer || 0) + '</span>' +
+               '</div>';
+               
+    if (breakdown.length === 0) {
+      html += '<div class="text-center p-4 text-muted fw-bold">No dealer transactions for ' + periodLabel + '.</div>';
+    } else {
+      var sortedByTxn = breakdown.slice().sort(function(a, b) { return b.ordersCount - a.ordersCount; });
+      sortedByTxn.forEach(function(b, idx) {
+        html += '<div class="card mb-2 border-0 shadow-sm" style="border-radius:10px;">' +
+                  '<div class="card-body p-3">' +
+                    '<div class="d-flex justify-content-between align-items-center mb-1">' +
+                      '<h6 class="fw-bold text-dark mb-0">' + (idx + 1) + '. ' + b.dealer + '</h6>' +
+                      '<span class="badge bg-purple text-white px-2 py-1" style="background:#7c3aed;">' + b.ordersCount + (b.ordersCount === 1 ? ' Order' : ' Orders') + '</span>' +
+                    '</div>' +
+                    '<div class="text-muted small d-flex justify-content-between mt-2 pt-2 border-top">' +
+                      '<span><i class="bi bi-pin-map"></i> ' + (b.area || '') + '</span>' +
+                      '<span class="fw-bold text-success">Total: ₹' + (b.sales || 0).toLocaleString('en-IN') + '</span>' +
+                    '</div>' +
+                  '</div>' +
+                '</div>';
+      });
+    }
+    body.innerHTML = html;
+  }
+  else if (metricType === 'revenue') {
+    header.style.background = '#0f172a';
+    title.innerHTML = '<i class="bi bi-cash-stack text-warning"></i> ' + periodLabel + ' Revenue (₹' + (m.revenue || 0).toLocaleString('en-IN') + ')';
+    
+    var html = '<div class="alert alert-dark py-2 px-3 mb-3 d-flex justify-content-between align-items-center" style="font-size:13px;">' +
+                 '<span><b>Total Revenue:</b> ₹' + (m.revenue || 0).toLocaleString('en-IN') + '</span>' +
+                 '<span><b>Orders Count:</b> ' + (m.transactions || 0) + '</span>' +
+               '</div>';
+               
+    if (ordersList.length === 0) {
+      html += '<div class="text-center p-4 text-muted fw-bold">No sales revenue for ' + periodLabel + '.</div>';
+    } else {
+      ordersList.forEach(function(o, idx) {
+        html += '<div class="card mb-2 border-0 shadow-sm" style="border-radius:10px;">' +
+                  '<div class="card-body p-3">' +
+                    '<div class="d-flex justify-content-between align-items-center mb-1">' +
+                      '<h6 class="fw-bold text-dark mb-0">' + (idx + 1) + '. ' + o.dealer + '</h6>' +
+                      '<h5 class="fw-bold text-success mb-0">₹' + (o.amount || 0).toLocaleString('en-IN') + '</h5>' +
+                    '</div>' +
+                    '<div class="text-muted small d-flex justify-content-between mt-1">' +
+                      '<span><i class="bi bi-pin-map"></i> ' + (o.area || '') + '</span>' +
+                      '<span><i class="bi bi-clock-history"></i> ' + formatVisitDateTime(o.dateStr, o.timeStr) + '</span>' +
+                    '</div>' +
+                  '</div>' +
+                '</div>';
+      });
+    }
+    body.innerHTML = html;
   }
   
   new bootstrap.Modal(document.getElementById('perfDetailModal')).show();
 }
 
-
-
-
-// =============================================================
-// CEO LIVE STAFF RADAR & FIELD TRACKING ENGINE
-// =============================================================
+// =======================================================================
+// EXECUTIVE C-SUITE CEO DASHBOARD SUITE
+// =======================================================================
+var ceoSelectedTimeframe = 'today';
+var cachedCeoServerData = null;
 var ceoRadarMap = null;
 var ceoRadarMarkers = [];
 
-function openStaffRadarModal() {
-  var modalEl = document.getElementById('staffRadarModal');
-  if (!modalEl) return;
-  var bsModal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
-  bsModal.show();
+function selectCeoTimeframe(timeframeKey, btn) {
+  ceoSelectedTimeframe = timeframeKey;
+  var customPicker = document.getElementById('ceoCustomDatePicker');
+  if (customPicker) {
+    customPicker.style.display = (timeframeKey === 'custom') ? 'block' : 'none';
+  }
+  var container = document.getElementById('ceoTimeframeTabs');
+  if (container) {
+    var btns = container.querySelectorAll('.ceo-tf-btn');
+    btns.forEach(function(b) { b.classList.remove('active'); });
+    if (btn) btn.classList.add('active');
+  }
+  renderCeoDashboard(timeframeKey);
+}
+
+function renderCeoDashboard(timeframeKey) {
+  if (!cachedCeoServerData) return;
+  var res = cachedCeoServerData;
+  var tb = (res.timeframeBuckets && res.timeframeBuckets[timeframeKey]) ? res.timeframeBuckets[timeframeKey] : null;
+
+  var revenueVal = tb ? tb.revenue : (res.revenueToday || 0);
+  var ordersVal = tb ? tb.ordersCount : (res.ordersToday || 0);
+  var visitsVal = tb ? tb.visitsCount : (res.visitsToday || 0);
+  var conversionVal = tb ? tb.strikeRate : (res.conversionRatio || 0);
+  var avgSalesVal = tb ? tb.avgSales : (res.avgRsSales || 0);
+  var txnDealerVal = tb ? tb.txnPerDealer : (res.txnPerDealer || 0);
+  var uniqueDealersVal = tb ? tb.uniqueDealersCount : (res.uniqueDealersCount || 0);
+
+  var elRev = document.getElementById('ceoStatRevenue');
+  var elOrd = document.getElementById('ceoStatOrders');
+  var elVis = document.getElementById('ceoStatVisits');
+  var elConv = document.getElementById('ceoStatConversion');
+  var elAvg = document.getElementById('ceoStatAvgSales');
+  var elTxn = document.getElementById('ceoStatTxnDealer');
+  var elDealers = document.getElementById('ceoStatUniqueDealers');
+
+  if (elRev) elRev.innerText = '₹' + Number(revenueVal).toLocaleString('en-IN');
+  if (elOrd) elOrd.innerText = ordersVal + (ordersVal === 1 ? ' order' : ' orders');
+  if (elVis) elVis.innerText = visitsVal;
+  if (elConv) elConv.innerText = conversionVal + '%';
+  if (elAvg) elAvg.innerText = '₹' + Number(avgSalesVal).toLocaleString('en-IN');
+  if (elTxn) elTxn.innerText = txnDealerVal;
+  if (elDealers) elDealers.innerText = uniqueDealersVal + ' dealers';
+
+  // Render Leaderboard
+  var board = document.getElementById('ceoLeaderboard');
+  if (board && res.leaderboard) {
+    var filterStaff = (document.getElementById('ceoFilterStaff') ? document.getElementById('ceoFilterStaff').value : "") || "";
+    var html = "";
+    var currentRank = 1;
+    res.leaderboard.forEach(function(s) {
+      if (filterStaff && s.name !== filterStaff) return;
+      var rankBadge = currentRank === 1 ? '<span class="badge bg-warning text-dark fw-bold">🏆 #1 TOP PERFORMER</span>' : '<span class="badge bg-light text-secondary border">#' + currentRank + '</span>';
+      var sKey = s.name.replace(/\s+/g, '_');
+      var safeStaffName = s.name.replace(/'/g, "\\'");
+      var sMetrics = (tb && tb.staffBreakdown && tb.staffBreakdown[s.name]) ? tb.staffBreakdown[s.name] : { revenue: s.sales || 0, orders: s.orders || 0, visits: s.visits || 0, conversionRatio: s.strikeRate || 0, avgRsSales: s.avgSales || 0, txnPerDealer: s.txnDealer || 0 };
+
+      html += '<div class="card mb-3 border-0 shadow-sm" style="border-radius:12px; background:#ffffff; border:1px solid #e2e8f0;">' +
+                '<div class="card-body p-3">' +
+                  '<div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">' +
+                    '<div class="d-flex align-items-center gap-2">' +
+                      '<div class="rounded-circle bg-dark text-white fw-bold d-flex align-items-center justify-content-center" style="width:36px; height:36px; font-size:14px;">' + s.name.charAt(0) + '</div>' +
+                      '<div>' +
+                        '<h6 class="mb-0 fw-bold text-dark">' + s.name + ' ' + rankBadge + '</h6>' +
+                        '<small class="text-muted" style="font-size:11px;">Field Sales Representative</small>' +
+                      '</div>' +
+                    '</div>' +
+                    '<div class="d-flex align-items-center gap-1">' +
+                      '<button class="btn btn-sm btn-outline-secondary py-1 px-2" type="button" data-bs-toggle="collapse" data-bs-target="#drill_' + sKey + '" style="font-size:11.5px; border-radius:8px;">' +
+                        '<i class="bi bi-map"></i> Routes & Shops <i class="bi bi-chevron-down"></i>' +
+                      '</button>' +
+                    '</div>' +
+                  '</div>' +
+                  '<div class="row g-2 text-center">' +
+                    '<div class="col-4 col-md-2" onclick="openCeoPerfModal(\'revenue\', \'' + safeStaffName + '\')" style="cursor:pointer;">' +
+                      '<div class="p-2 rounded bg-light border"><small class="text-muted d-block" style="font-size:10px;">REVENUE</small><b class="text-dark" style="font-size:13px;">₹' + Number(sMetrics.revenue || 0).toLocaleString('en-IN') + '</b></div>' +
+                    '</div>' +
+                    '<div class="col-4 col-md-2" onclick="openCeoPerfModal(\'visits\', \'' + safeStaffName + '\')" style="cursor:pointer;">' +
+                      '<div class="p-2 rounded bg-light border"><small class="text-muted d-block" style="font-size:10px;">VISITS</small><b class="text-primary" style="font-size:13px;">' + (sMetrics.visits || 0) + '</b></div>' +
+                    '</div>' +
+                    '<div class="col-4 col-md-2" onclick="openCeoPerfModal(\'conversion\', \'' + safeStaffName + '\')" style="cursor:pointer;">' +
+                      '<div class="p-2 rounded bg-light border"><small class="text-muted d-block" style="font-size:10px;">STRIKE %</small><b class="text-success" style="font-size:13px;">' + (sMetrics.conversionRatio || 0) + '%</b></div>' +
+                    '</div>' +
+                    '<div class="col-4 col-md-2" onclick="openCeoPerfModal(\'avgSales\', \'' + safeStaffName + '\')" style="cursor:pointer;">' +
+                      '<div class="p-2 rounded bg-light border"><small class="text-muted d-block" style="font-size:10px;">AVG TICKET</small><b class="text-warning" style="font-size:13px;">₹' + Number(sMetrics.avgRsSales || 0).toLocaleString('en-IN') + '</b></div>' +
+                    '</div>' +
+                    '<div class="col-4 col-md-2" onclick="openCeoPerfModal(\'txnPerDealer\', \'' + safeStaffName + '\')" style="cursor:pointer;">' +
+                      '<div class="p-2 rounded bg-light border"><small class="text-muted d-block" style="font-size:10px;">TXN/DEALER</small><b class="text-purple" style="font-size:13px;">' + (sMetrics.txnPerDealer || 0) + '</b></div>' +
+                    '</div>' +
+                    '<div class="col-4 col-md-2">' +
+                      '<div class="p-2 rounded bg-light border"><small class="text-muted d-block" style="font-size:10px;">STATUS</small><span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size:9.5px;">Active Field</span></div>' +
+                    '</div>' +
+                  '</div>' +
+                '</div>' +
+              '</div>';
+      currentRank++;
+    });
+    board.innerHTML = html;
+  }
+}
+
+function onCeoFilterChange() {
+  renderCeoDashboard(ceoSelectedTimeframe);
+}
+
+function refreshCEOStatsFromServer(callback, manual) {
+  var spin = document.getElementById('ceoSyncSpinner');
+  if (spin) spin.style.display = 'inline-block';
   
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (spin) spin.style.display = 'none';
+        if (res && !res.error) {
+          cachedCeoServerData = res;
+          renderCeoDashboard(ceoSelectedTimeframe);
+          if (callback) callback(res);
+        }
+      })
+      .withFailureHandler(function(err) {
+        if (spin) spin.style.display = 'none';
+        console.error("CEO stats fetch error:", err);
+      })
+      .getCEOStats();
+  }
+}
+
+function refreshCEOStats() {
+  refreshCEOStatsFromServer();
+  refreshCeoDashboardRadar(false);
+}
+
+function openCeoPerfModal(metricType, filterStaff) {
+  if (!cachedCeoServerData) return;
+  var res = cachedCeoServerData;
+  var tb = (res.timeframeBuckets && res.timeframeBuckets[ceoSelectedTimeframe]) ? res.timeframeBuckets[ceoSelectedTimeframe] : null;
+  var periodLabel = KPI_PERIOD_LABELS[ceoSelectedTimeframe] || 'Selected Timeframe';
+  var titlePrefix = filterStaff === 'company' ? 'Company-Wide' : filterStaff;
+
+  var header = document.getElementById('perfModalHeader');
+  var title = document.getElementById('perfModalTitle');
+  var body = document.getElementById('perfModalBody');
+  if (!header || !title || !body) return;
+
+  var rawVisits = (tb && tb.visitsList) ? tb.visitsList : (res.recentVisits || []);
+  var visitsList = (filterStaff === 'company') ? rawVisits : rawVisits.filter(function(v) { return v.staff === filterStaff; });
+
+  if (metricType === 'visits') {
+    header.style.background = '#0d6efd';
+    title.innerHTML = '<i class="bi bi-shop"></i> ' + titlePrefix + ' Visits (' + visitsList.length + ')';
+    if (visitsList.length === 0) {
+      body.innerHTML = '<div class="text-center p-4 text-muted fw-bold">No store visits recorded for ' + periodLabel + '.</div>';
+    } else {
+      var html = '<div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0" style="font-size:12.5px;">' +
+                 '<thead class="table-dark"><tr><th>#</th><th>Dealer</th><th>Staff</th><th>Area</th><th>Time</th><th>GPS</th></tr></thead><tbody>';
+      visitsList.forEach(function(v, idx) {
+        var mapLink = v.location ? '<a href="https://www.google.com/maps?q=' + encodeURIComponent(v.location) + '" target="_blank" class="btn btn-xs btn-outline-primary py-0 px-1" style="font-size:10.5px;"><i class="bi bi-geo-alt"></i> Map</a>' : '--';
+        html += '<tr><td>' + (idx + 1) + '</td><td><b>' + v.dealer + '</b></td><td>' + (v.staff || '--') + '</td><td>' + (v.area || '--') + '</td><td>' + formatVisitDateTime(v.dateStr, v.timeStr) + '</td><td>' + mapLink + '</td></tr>';
+      });
+      html += '</tbody></table></div>';
+      body.innerHTML = html;
+    }
+  } else if (metricType === 'conversion') {
+    header.style.background = '#16a34a';
+    title.innerHTML = '<i class="bi bi-pie-chart-fill"></i> ' + titlePrefix + ' Conversion Strike Rate';
+    body.innerHTML = '<div class="p-3 text-center"><h3 class="fw-bold text-success">' + (tb ? tb.strikeRate : (res.conversionRatio || 0)) + '%</h3><p class="text-muted small">Converted store visits into verified transactions in ' + periodLabel + '</p></div>';
+  } else if (metricType === 'avgSales') {
+    header.style.background = '#d97706';
+    title.innerHTML = '<i class="bi bi-currency-rupee"></i> ' + titlePrefix + ' Average Order Value';
+    body.innerHTML = '<div class="p-3 text-center"><h3 class="fw-bold text-warning">₹' + Number(tb ? tb.avgSales : (res.avgRsSales || 0)).toLocaleString('en-IN') + '</h3><p class="text-muted small">Average ticket size per closed order</p></div>';
+  } else if (metricType === 'txnPerDealer') {
+    header.style.background = '#7c3aed';
+    title.innerHTML = '<i class="bi bi-layers-fill"></i> ' + titlePrefix + ' Transactions per Dealer';
+    body.innerHTML = '<div class="p-3 text-center"><h3 class="fw-bold text-purple">' + (tb ? tb.txnPerDealer : (res.txnPerDealer || 0)) + '</h3><p class="text-muted small">Average order frequency per dealer in ' + periodLabel + '</p></div>';
+  } else if (metricType === 'revenue') {
+    header.style.background = '#0f172a';
+    title.innerHTML = '<i class="bi bi-cash-stack text-warning"></i> ' + titlePrefix + ' Revenue Breakdown';
+    body.innerHTML = '<div class="p-3 text-center"><h3 class="fw-bold text-dark">₹' + Number(tb ? tb.revenue : (res.revenueToday || 0)).toLocaleString('en-IN') + '</h3><p class="text-muted small">Total verified field billing recorded in ' + periodLabel + '</p></div>';
+  }
+  new bootstrap.Modal(document.getElementById('perfDetailModal')).show();
+}
+
+function openStaffRadarModal() {
+  new bootstrap.Modal(document.getElementById('staffRadarModal')).show();
   setTimeout(function() {
     initCeoRadarMap();
     refreshStaffRadarData();
-  }, 350);
+  }, 400);
 }
 
 function initCeoRadarMap() {
-  var mapContainer = document.getElementById('ceoLiveStaffMap');
-  if (!mapContainer) return;
-  
-  if (!ceoRadarMap && typeof L !== 'undefined') {
-    // Default HQ centered: 19.0952, 74.7496 (Ahmednagar HQ)
-    ceoRadarMap = L.map('ceoLiveStaffMap').setView([19.0952, 74.7496], 12);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© OpenStreetMap'
-    }).addTo(ceoRadarMap);
-  } else if (ceoRadarMap) {
+  if (ceoRadarMap) {
     ceoRadarMap.invalidateSize();
+    return;
   }
+  var container = document.getElementById('ceoLiveStaffMap');
+  if (!container || typeof L === 'undefined') return;
+  ceoRadarMap = L.map('ceoLiveStaffMap').setView([19.0948, 74.7480], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap'
+  }).addTo(ceoRadarMap);
 }
 
 function refreshStaffRadarData() {
-  var content = document.getElementById('staffRadarContent');
-  if (content) {
-    content.innerHTML = '<div class="text-center py-4 text-muted"><span class="spinner-border spinner-border-sm text-success me-2"></span> Scanning live satellite signals from field...</div>';
-  }
-  
-  fetchStaffRadarTelemetry(function(res) {
-    if (res && res.success && res.staff) {
-      renderStaffRadar(res.staff);
-    } else {
-      renderStaffRadarError(res ? res.error : "Unable to fetch staff GPS data.");
-    }
+  fetchStaffRadarTelemetry(function(staffList) {
+    renderStaffRadar(staffList);
   });
 }
 
 function fetchStaffRadarTelemetry(callback) {
-  var activeRole = portalRole || localStorage.getItem('yashApp_staffRole') || 'CEO';
   if (typeof google !== 'undefined' && google.script && google.script.run) {
     google.script.run
       .withSuccessHandler(function(res) {
-        if (callback) callback(res);
+        if (res && res.success && res.staff) {
+          callback(res.staff);
+        } else {
+          callback([]);
+        }
       })
-      .withFailureHandler(function(err) {
-        if (callback) callback({ success: false, error: err.message });
-      })
-      .getLiveStaffRadar(activeRole);
-  } else {
-    if (callback) callback({ success: false, error: "Google Script API not available" });
+      .withFailureHandler(function() { callback([]); })
+      .getLiveStaffRadar();
   }
 }
 
-function isDateToday(dateStr) {
-  if (!dateStr) return false;
-  var s = String(dateStr).trim();
-  if (s.indexOf("1899") !== -1) return false;
-  var now = new Date();
-  var d = String(now.getDate());
-  var m = String(now.getMonth() + 1);
-  var y = String(now.getFullYear());
-  var dd = d.length === 1 ? '0' + d : d;
-  var mm = m.length === 1 ? '0' + m : m;
-  var todayStr1 = dd + '/' + mm + '/' + y; // e.g. 11/11/2026
-  var todayStr2 = y + '-' + mm + '-' + dd;
-  return s.includes(todayStr1) || s.includes(todayStr2);
+function isDateToday(dateVal, timeVal) {
+  if (!dateVal && !timeVal) return false;
+  var d = new Date();
+  var todayDateStr = d.toLocaleDateString('en-GB'); 
+  var checkStr = String(dateVal || '');
+  if (checkStr.includes(todayDateStr)) return true;
+  
+  if (checkStr.includes('T') || checkStr.includes('GMT') || (timeVal && String(timeVal).includes('GMT'))) {
+    var testDate = new Date(checkStr || timeVal);
+    if (!isNaN(testDate.getTime())) {
+      var isSame = (testDate.getDate() === d.getDate() && testDate.getMonth() === d.getMonth() && testDate.getFullYear() === d.getFullYear());
+      if (isSame) return true;
+      var diffHours = Math.abs(d.getTime() - testDate.getTime()) / (1000 * 60 * 60);
+      return diffHours <= 12;
+    }
+  }
+  return false;
 }
 
 function renderStaffRadar(staffList) {
@@ -2472,7 +2240,7 @@ function renderStaffRadar(staffList) {
     ceoRadarMarkers = [];
   }
 
-  // Unique staff map
+  // Deduplicate staff list by name
   var uniqueMap = {};
   staffList.forEach(function(s) {
     var rawName = String(s.name || "").trim();
@@ -2486,11 +2254,11 @@ function renderStaffRadar(staffList) {
 
   dedupedList.forEach(function(s) {
     var hasValidCoords = s.lat && s.lng && !isNaN(s.lat) && !isNaN(s.lng) && Number(s.lat) !== 0;
-    var isToday = isDateToday(s.date);
+    var isToday = isDateToday(s.date, s.time || s.lastTime);
     var speedNum = Math.round(Number(s.speed) || 0);
 
     var statusBadge = isToday
-      ? '<span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size:9.5px;">● Online Today</span>'
+      ? '<span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size:9.5px;">● Online</span>'
       : '<span class="badge bg-secondary-subtle text-secondary border" style="font-size:9.5px;">○ Offline</span>';
 
     var speedBadge = isToday
@@ -2500,8 +2268,8 @@ function renderStaffRadar(staffList) {
     var distNum = Number(s.distFromHQ) || 0;
     var distText = (hasValidCoords && isToday) ? (distNum > 0.1 ? distNum.toFixed(1) + ' km' : 'Near HQ') : '--';
 
-    var displayTime = cleanTelemetryTime(s.lastTime);
-    var timeDateDisplay = isToday ? (displayTime !== '--:--' ? displayTime + ' (Today)' : 'Today') : (s.date || '--');
+    var displayTime = cleanTelemetryTime(s.lastTime || s.time);
+    var timeDateDisplay = isToday ? (displayTime !== '--:--' ? displayTime : 'Today') : (s.date || '--');
 
     var mapLink = (hasValidCoords && isToday)
       ? '<a href="https://www.google.com/maps?q=' + s.lat + ',' + s.lng + '" target="_blank" class="btn btn-xs btn-outline-primary py-0 px-2 fw-bold" style="font-size:11px;"><i class="bi bi-geo-alt"></i> Map</a>'
@@ -2509,16 +2277,24 @@ function renderStaffRadar(staffList) {
 
     html += '<tr>' +
               '<td><b>' + s.name + '</b></td>' +
-              '<td>' + statusBadge + speedBadge + '</td>' +
+              '<td>' + statusBadge + ' ' + speedBadge + '</td>' +
               '<td>' + distText + '</td>' +
-              '<td><span class="text-muted">' + timeDateDisplay + '</span></td>' +
+              '<td>' + timeDateDisplay + '</td>' +
               '<td>' + mapLink + '</td>' +
             '</tr>';
 
-    if (hasValidCoords && isToday && ceoRadarMap) {
-      bounds.push([s.lat, s.lng]);
-      var marker = L.marker([s.lat, s.lng]).addTo(ceoRadarMap);
-      marker.bindPopup('<b>' + s.name + '</b><br>Status: Online Today<br>Speed: ' + speedNum + ' km/h<br>Distance: ' + distText + '<br>Last Active: ' + timeDateDisplay + '<br><a href="https://www.google.com/maps?q=' + s.lat + ',' + s.lng + '" target="_blank">Open Google Maps</a>');
+    if (hasValidCoords && ceoRadarMap && isToday) {
+      var latLng = [Number(s.lat), Number(s.lng)];
+      bounds.push(latLng);
+      var marker = L.circleMarker(latLng, {
+        radius: 8,
+        fillColor: '#16a34a',
+        color: '#ffffff',
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.9
+      }).addTo(ceoRadarMap);
+      marker.bindPopup('<b>' + s.name + '</b><br>Speed: ' + speedNum + ' km/h<br>Dist: ' + distText + '<br>Time: ' + displayTime);
       ceoRadarMarkers.push(marker);
     }
   });
@@ -2527,84 +2303,63 @@ function renderStaffRadar(staffList) {
   if (content) content.innerHTML = html;
 
   if (ceoRadarMap && bounds.length > 0) {
-    if (bounds.length === 1) {
-      ceoRadarMap.setView(bounds[0], 14);
-    } else {
-      ceoRadarMap.fitBounds(bounds, { padding: [30, 30] });
-    }
+    ceoRadarMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 });
   }
 }
 
 function refreshCeoDashboardRadar(manual) {
-  var container = document.getElementById('ceoLiveRadarWidgetContainer');
+  var container = document.getElementById('ceoStaffRadarGrid');
   if (!container) return;
 
-  if (manual) {
-    container.innerHTML = '<div class="text-center py-3 text-muted small"><span class="spinner-border spinner-border-sm text-success me-2"></span> Pinging live field GPS signals...</div>';
-  }
-
-  fetchStaffRadarTelemetry(function(res) {
-    if (!res || !res.success || !res.staff || res.staff.length === 0) {
-      container.innerHTML = '<div class="p-3 bg-light rounded text-center text-muted" style="font-size:12px;">' +
-                              '<i class="bi bi-broadcast text-secondary fs-4 d-block mb-1"></i>' +
-                              '<b>No Live Staff Transmissions at this moment.</b><br>' +
-                              '<span class="text-muted">Field staff ke app open karte hi unka live location yahan automatically show hoga.</span>' +
-                            '</div>';
+  fetchStaffRadarTelemetry(function(staffList) {
+    if (!staffList || staffList.length === 0) {
+      container.innerHTML = '<div class="col-12 text-center p-3 text-muted"><small>No staff locations recorded yet today.</small></div>';
       return;
     }
 
     var uniqueMap = {};
-    res.staff.forEach(function(s) {
+    staffList.forEach(function(s) {
       var rawName = String(s.name || "").trim();
       if (rawName) uniqueMap[rawName.toUpperCase()] = s;
     });
-
-    var staffList = Object.values(uniqueMap);
-    staffList.sort(function(a, b) { return a.name.localeCompare(b.name); });
+    var dedupedList = Object.values(uniqueMap);
 
     var html = '<div class="row g-2">';
-    staffList.forEach(function(s) {
-      var hasCoords = s.lat && s.lng && !isNaN(s.lat) && !isNaN(s.lng) && Number(s.lat) !== 0;
-      var isToday = isDateToday(s.date);
+    dedupedList.forEach(function(s) {
+      var hasValidCoords = s.lat && s.lng && !isNaN(s.lat) && !isNaN(s.lng) && Number(s.lat) !== 0;
+      var isToday = isDateToday(s.date, s.time || s.lastTime);
       var speedNum = Math.round(Number(s.speed) || 0);
 
-      var statusBadge = isToday
-        ? '<span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size:9.5px;">● Online in Field</span>'
-        : '<span class="badge bg-secondary-subtle text-secondary border" style="font-size:9.5px;">○ Last Seen: ' + (s.date || 'Earlier') + '</span>';
+      var distNum = Number(s.distFromHQ) || 0;
+      var distText = (hasValidCoords && isToday) ? (distNum > 0.1 ? distNum.toFixed(1) + ' km from HQ' : 'At Warehouse / HQ') : '--';
 
       var speedBadge = isToday
-        ? (speedNum > 5 
-            ? '<span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size:10px;"><i class="bi bi-bicycle me-1"></i>' + speedNum + ' km/h (Moving)</span>'
-            : '<span class="badge bg-secondary-subtle text-secondary border" style="font-size:10px;"><i class="bi bi-p-square me-1"></i>Stationary</span>')
-        : '<span class="badge bg-light text-muted border" style="font-size:10px;">Offline</span>';
+        ? (speedNum > 5 ? '<span class="badge bg-primary" style="font-size:10px;"><i class="bi bi-speedometer2"></i> ' + speedNum + ' km/h</span>' : '<span class="badge bg-secondary-subtle text-secondary border" style="font-size:10px;">Stationary</span>')
+        : '<span class="text-muted" style="font-size:10px;">Offline</span>';
 
-      var distNum = Number(s.distFromHQ) || 0;
-      var distText = (hasCoords && isToday) ? (distNum > 0.1 ? (distNum.toFixed(1) + ' km from HQ') : 'Near Warehouse HQ') : 'GPS Awaiting';
-      var mapsUrl = (hasCoords && isToday) ? (s.mapsUrl || ('https://www.google.com/maps?q=' + s.lat + ',' + s.lng)) : '';
-      var displayTime = cleanTelemetryTime(s.lastTime);
-      var timeLabel = isToday ? (displayTime !== '--:--' ? displayTime + ' • Today' : 'Today') : (s.date || 'Earlier');
+      var mapsUrl = (hasValidCoords && isToday) ? 'https://www.google.com/maps?q=' + s.lat + ',' + s.lng : '';
+      var displayTime = cleanTelemetryTime(s.lastTime || s.time);
+      var dateLabel = isToday ? 'Today' : (s.date || '--');
 
       html += '<div class="col-12 col-md-6 col-lg-4">' +
                 '<div class="card h-100 border p-2 shadow-sm" style="border-radius:12px; background:#ffffff;">' +
                   '<div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">' +
                     '<div class="d-flex align-items-center gap-2">' +
-                      '<div class="rounded-circle bg-dark text-white fw-bold d-flex align-items-center justify-content-center" style="width:36px; height:36px; font-size:14px;">' +
-                        s.name.charAt(0) +
-                      '</div>' +
+                      '<div class="rounded-circle bg-dark text-white fw-bold d-flex align-items-center justify-content-center" style="width:36px; height:36px; font-size:14px;">' + s.name.charAt(0) + '</div>' +
                       '<div>' +
                         '<div class="fw-bold text-dark fs-6">' + s.name + '</div>' +
-                        statusBadge +
+                        '<span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size:9.5px;">● Active in Field</span>' +
                       '</div>' +
                     '</div>' +
-                    (mapsUrl ? '<a href="' + mapsUrl + '" target="_blank" class="btn btn-sm btn-outline-primary py-1 px-2 fw-bold" style="font-size:11.5px; border-radius:8px;" title="Open live Google Maps"><i class="bi bi-geo-alt-fill text-danger"></i> Maps</a>' : '<span class="text-muted small" style="font-size:10.5px;">No GPS</span>') +
+                    (mapsUrl ? '<a href="' + mapsUrl + '" target="_blank" class="btn btn-sm btn-outline-primary py-1 px-2 fw-bold" style="font-size:11.5px; border-radius:8px;" title="Open live Google Maps"><i class="bi bi-geo-alt-fill text-danger"></i> Maps</a>' : '') +
                   '</div>' +
                   '<div class="d-flex justify-content-between align-items-center mb-1 text-muted" style="font-size:11.5px;">' +
                     speedBadge +
                     '<span><i class="bi bi-pin-map text-danger me-1"></i>' + distText + '</span>' +
                   '</div>' +
                   '<div class="text-muted mt-2 pt-1 border-top d-flex justify-content-between align-items-center" style="font-size:10.5px;">' +
-                    '<span><i class="bi bi-clock-history me-1 text-primary"></i> Last Ping: <b>' + timeLabel + '</b></span>' +
-                    '<span class="badge bg-light text-secondary border">' + (isToday ? 'Live' : 'History') + '</span>' +
+                    '<span><i class="bi bi-clock-history me-1 text-primary"></i> Last Ping: <b>' + displayTime + '</b></span>' +
+                    '<span class="badge bg-light text-secondary border">' + dateLabel + '</span>' +
                   '</div>' +
                 '</div>' +
               '</div>';
@@ -2614,6 +2369,942 @@ function refreshCeoDashboardRadar(manual) {
   });
 }
 
+// =======================================================================
+// CORE STORE VISIT ENTRY, DEALER MODALS & SUBMISSION
+// =======================================================================
+function openSleepingGiants() {
+  var btn = document.getElementById('btnGiants');
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Scanning...';
+  btn.disabled = true;
+  
+  new bootstrap.Modal(document.getElementById('giantsModal')).show();
+
+  google.script.run.withFailureHandler(function(err) {
+    document.getElementById('giantsModalBody').innerHTML = "<div class='alert alert-danger'>Error: " + err.message + "</div>";
+    btn.innerHTML = '<b><i class="bi bi-alarm-fill"></i> At-Risk Accounts</b>';
+    btn.disabled = false;
+  }).withSuccessHandler(function(giants) {
+    var html = "";
+    if (giants.length === 0) {
+      html = '<div class="text-center p-3 text-success fw-bold"><i class="bi bi-check-circle-fill"></i> Excellent! All previous buyers have placed orders in the last 30 days.</div>';
+    } else {
+      html = '<div class="alert alert-warning py-2 mb-3 small fw-bold"><i class="bi bi-exclamation-triangle"></i> These dealers bought in the past, but have &#8377;0 sales in the last 30 days. Contact them immediately.</div>';
+      
+      giants.forEach(function(g) {
+        html += '<div class="border rounded p-2 mb-2 bg-light shadow-sm">' +
+          '<div class="d-flex justify-content-between align-items-center border-bottom pb-1 mb-1">' +
+            '<div class="fw-bold text-dark text-truncate" style="max-width:200px;">' + g.shop + '</div>' +
+            '<span class="badge bg-danger">' + g.daysInactive + ' Days Cold</span>' +
+          '</div>' +
+          '<div class="row g-1 text-center">' +
+            '<div class="col-4">' +
+              '<small class="text-muted" style="font-size:9px;">STAFF</small><br>' +
+              '<span class="fw-bold" style="font-size:11px;">' + g.staff.split(' ')[0] + '</span>' +
+            '</div>' +
+            '<div class="col-4 border-start border-end">' +
+              '<small class="text-muted" style="font-size:9px;">LAST ORDER</small><br>' +
+              '<span class="fw-bold text-dark" style="font-size:11px;">' + g.lastOrderStr + '</span>' +
+            '</div>' +
+            '<div class="col-4">' +
+              '<small class="text-muted" style="font-size:9px;">LOST VALUE</small><br>' +
+              '<span class="fw-bold text-success" style="font-size:11px;">&#8377;' + g.totalSales.toLocaleString('en-IN') + '</span>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      });
+    }
+    
+    document.getElementById('giantsModalBody').innerHTML = html;
+    btn.innerHTML = '<b><i class="bi bi-alarm-fill"></i> At-Risk Accounts</b>';
+    btn.disabled = false;
+  }).getSleepingGiantsData();
+}
+
+function runDiagnostic() {
+  document.getElementById('auditText').value = "Running deep system diagnostic... Please wait a few seconds.";
+  new bootstrap.Modal(document.getElementById('auditModal')).show();
+  
+  google.script.run.withFailureHandler(function(err) {
+    document.getElementById('auditText').value = "❌ ERROR RUNNING AUDIT: " + err.message;
+  }).withSuccessHandler(function(res) {
+    document.getElementById('auditText').value = res;
+  }).runSystemAudit();
+}
+
+function openDealerModal(logStrEnc) {
+  var obj = JSON.parse(decodeURIComponent(logStrEnc));
+  var dName = obj.dealer;
+  var dData = obj.data;
+  
+  var html = '<div class="mb-3 border-bottom pb-2">' +
+      '<h5 class="fw-bold text-dark mb-0">' + dName + '</h5>' +
+      '<div class="text-success fw-bold mt-1">Total Sales: &#8377;' + dData.sales.toLocaleString('en-IN') + '</div>' +
+    '</div>';
+
+  if (dData.orders.length > 0) {
+    html += '<h6 class="fw-bold border-bottom pb-1 text-success"><i class="bi bi-cart-check"></i> Recent Orders</h6>';
+    
+    dData.orders.forEach(function(o) {
+      var formattedItems = o.items.replace(/\|/g, '<br>');
+      html += '<div class="p-2 bg-light border rounded mb-2">' +
+           '<div class="d-flex justify-content-between">' +
+             '<small class="text-muted">' + o.date + '</small>' +
+             '<span class="fw-bold text-success">&#8377;' + o.amount.toLocaleString('en-IN') + '</span>' +
+           '</div>' +
+           '<small class="d-block mt-1 text-dark" style="font-size:11px;">' + formattedItems + '</small>' +
+        '</div>';
+    });
+  } else {
+    html += '<div class="text-muted small mb-3">No orders found in this timeframe.</div>';
+  }
+
+  if (dData.logs.length > 0) {
+    var recentVisit = dData.logs[dData.logs.length - 1]; 
+    html += '<h6 class="fw-bold border-bottom pb-1 text-primary mt-3"><i class="bi bi-person-walking"></i> Latest Visit Details</h6>';
+    
+    html += '<div class="row mb-3 g-2 mt-1">' +
+        '<div class="col-6">' +
+          '<div class="p-2 bg-light rounded border">' +
+            '<small class="text-muted d-block" style="font-size:10px;">STAFF</small>' +
+            '<span class="fw-bold" style="font-size:13px;">' + recentVisit.staff + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="col-6">' +
+          '<div class="p-2 bg-light rounded border">' +
+            '<small class="text-muted d-block" style="font-size:10px;">TASK</small>' +
+            '<span class="fw-bold text-primary" style="font-size:13px;">' + recentVisit.task + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="col-6">' +
+          '<div class="p-2 bg-light rounded border">' +
+            '<small class="text-muted d-block" style="font-size:10px;">DATE</small>' +
+            '<span class="fw-bold" style="font-size:13px;">' + recentVisit.date + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="col-6">' +
+          '<div class="p-2 bg-light rounded border">' +
+            '<small class="text-muted d-block" style="font-size:10px;">TIME</small>' +
+            '<span class="fw-bold" style="font-size:13px;">' + recentVisit.time + '</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    var stockHtml = "";
+    var brands = [
+      { name: "BOAT", keys: ['bAirpods', 'bNeckband', 'bPowerbank', 'bSmartwatch', 'bHeadphones'], color: 'danger' },
+      { name: "GoBoult", keys: ['gAirpods', 'gNeckband', 'gPowerbank', 'gSmartwatch', 'gHeadphones'], color: 'purple' },
+      { name: "Portronics", keys: ['pNeckband', 'pPowerbank', 'pHeadphones', 'pCable', 'pOther'], color: 'info' },
+      { name: "Velocity", keys: ['vAirpods', 'vNeckband', 'vCable', 'vCharger'], color: 'success' },
+      { name: "Storage", keys: ['mCard', 'pDrive', 'eSsd'], color: 'warning' }
+    ];
+
+    brands.forEach(function(b) {
+      var itemsFound = false;
+      var bHtml = '<div class="mb-2">' +
+          '<span class="badge bg-' + b.color + ' w-100 text-start py-2">' + b.name + '</span>' +
+          '<ul class="list-group list-group-flush border mb-2">';
+          
+      b.keys.forEach(function(k) {
+        if (recentVisit.stock[k]) {
+          itemsFound = true;
+          bHtml += '<li class="list-group-item d-flex justify-content-between py-1 px-2" style="font-size:12px;">' +
+              '<span>' + k.substring(1).toUpperCase() + '</span>' +
+              '<span class="fw-bold">' + recentVisit.stock[k] + '</span>' +
+            '</li>';
+        }
+      });
+      bHtml += '</ul></div>';
+      if (itemsFound) stockHtml += bHtml;
+    });
+
+    if (stockHtml === "") {
+      stockHtml = '<div class="text-muted small">No stock data submitted.</div>';
+    }
+    
+    html += '<h6 class="fw-bold border-bottom pb-1"><i class="bi bi-box-seam text-secondary"></i> Stock Matrix</h6>' + stockHtml;
+    html += '<h6 class="fw-bold border-bottom pb-1 mt-3"><i class="bi bi-chat-left-text text-secondary"></i> Market Feedback</h6><div class="p-2 bg-light rounded border fst-italic text-dark mb-3" style="font-size:13px;">"' + recentVisit.feedback + '"</div>';
+    
+    if (recentVisit.photo) {
+      html += '<h6 class="fw-bold border-bottom pb-1"><i class="bi bi-camera text-secondary"></i> Field Identity</h6><a href="' + recentVisit.photo + '" target="_blank"><img src="' + recentVisit.photo + '" class="img-fluid rounded border border-primary mt-2 shadow-sm" alt="Selfie"></a>';
+    }
+  } else {
+    html += '<div class="text-muted small mt-3">No physical visits logged in this timeframe.</div>';
+  }
+
+  document.getElementById('dealerModalBody').innerHTML = html;
+  new bootstrap.Modal(document.getElementById('dealerModal')).show();
+}
+
+function showGlobalList() {
+  if (!masterData || !masterData.globalLogs) {
+    return alert("Please sync data first.");
+  }
+  
+  var listLogs = masterData.globalLogs;
+  document.getElementById('listModalTitle').innerText = "Filtered Records (" + listLogs.length + ")";
+  
+  var html = "";
+  
+  if (listLogs.length === 0) {
+    html = '<div class="p-4 text-center text-muted">No data found for this period.</div>';
+  } else {
+    listLogs.slice().reverse().forEach(function(log) {
+      var targetLogStr = makeSafePayload(log);
+      var taskColor = log.task === "Payment Collection" ? "text-danger" : "text-primary";
+      
+      html += '<div class="d-flex justify-content-between p-3 border-bottom dealer-row" onclick="openDetailModal(\'' + targetLogStr + '\')">' +
+          '<div>' +
+            '<div class="fw-bold text-dark" style="font-size:14px;">' + log.dealer + '</div>' +
+            '<div class="text-muted" style="font-size:12px;">' +
+              '<i class="bi bi-person-fill"></i> ' + log.staff.split(" ")[0] + ' | ' + log.date +
+            '</div>' +
+          '</div>' +
+          '<div class="text-end">' +
+            '<div class="' + taskColor + ' fw-bold" style="font-size:11px;">' + log.task + '</div>' +
+            '<span class="badge bg-primary mt-1"><i class="bi bi-eye"></i> View</span>' +
+          '</div>' +
+        '</div>';
+    });
+  }
+  
+  document.getElementById('listModalBody').innerHTML = html;
+  new bootstrap.Modal(document.getElementById('listModal')).show();
+}
+
+function openDetailModal(logStrEnc) {
+  var log = JSON.parse(decodeURIComponent(logStrEnc));
+  
+  var stockHtml = "";
+  var brands = [
+    { name: "BOAT", keys: ['bAirpods', 'bNeckband', 'bPowerbank', 'bSmartwatch', 'bHeadphones'], color: 'danger' },
+    { name: "GoBoult", keys: ['gAirpods', 'gNeckband', 'gPowerbank', 'gSmartwatch', 'gHeadphones'], color: 'purple' },
+    { name: "Portronics", keys: ['pNeckband', 'pPowerbank', 'pHeadphones', 'pCable', 'pOther'], color: 'info' },
+    { name: "Velocity", keys: ['vAirpods', 'vNeckband', 'vCable', 'vCharger'], color: 'success' },
+    { name: "Storage", keys: ['mCard', 'pDrive', 'eSsd'], color: 'warning' }
+  ];
+
+  brands.forEach(function(b) {
+    var itemsFound = false;
+    var bHtml = '<div class="mb-2">' +
+        '<span class="badge bg-' + b.color + ' w-100 text-start py-2">' + b.name + '</span>' +
+        '<ul class="list-group list-group-flush border mb-2">';
+        
+    b.keys.forEach(function(k) {
+      if (log.stock[k]) {
+        itemsFound = true;
+        bHtml += '<li class="list-group-item d-flex justify-content-between py-1 px-2" style="font-size:12px;">' +
+            '<span>' + k.substring(1).toUpperCase() + '</span>' +
+            '<span class="fw-bold">' + log.stock[k] + '</span>' +
+          '</li>';
+      }
+    });
+    bHtml += '</ul></div>';
+    if (itemsFound) stockHtml += bHtml;
+  });
+  
+  if (stockHtml === "") {
+    stockHtml = '<div class="text-muted small">No stock data submitted.</div>';
+  }
+
+  var imgHtml = log.photo 
+    ? '<a href="' + log.photo + '" target="_blank"><img src="' + log.photo + '" class="img-fluid rounded border border-primary mt-2 shadow-sm" alt="Selfie"></a>' 
+    : '<div class="badge bg-danger mt-2">No Photo Provided</div>';
+  
+  var html = '<div class="mb-3 border-bottom pb-2">' +
+      '<h5 class="fw-bold text-dark mb-0">' + log.dealer + '</h5>' +
+      '<div class="text-muted small"><i class="bi bi-geo-alt-fill text-danger"></i> ' + log.area + '</div>' +
+    '</div>' +
+    '<div class="row mb-3 g-2">' +
+      '<div class="col-6">' +
+        '<div class="p-2 bg-light rounded border">' +
+          '<small class="text-muted d-block" style="font-size:10px;">STAFF</small>' +
+          '<span class="fw-bold" style="font-size:13px;">' + log.staff + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="col-6">' +
+        '<div class="p-2 bg-light rounded border">' +
+          '<small class="text-muted d-block" style="font-size:10px;">TASK</small>' +
+          '<span class="fw-bold text-primary" style="font-size:13px;">' + log.task + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="col-6">' +
+        '<div class="p-2 bg-light rounded border">' +
+          '<small class="text-muted d-block" style="font-size:10px;">DATE</small>' +
+          '<span class="fw-bold" style="font-size:13px;">' + log.date + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="col-6">' +
+        '<div class="p-2 bg-light rounded border">' +
+          '<small class="text-muted d-block" style="font-size:10px;">TIME</small>' +
+          '<span class="fw-bold" style="font-size:13px;">' + log.time + '</span>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<h6 class="fw-bold border-bottom pb-1"><i class="bi bi-box-seam text-secondary"></i> Stock Matrix</h6>' +
+    stockHtml +
+    '<h6 class="fw-bold border-bottom pb-1 mt-3"><i class="bi bi-chat-left-text text-secondary"></i> Market Feedback</h6>' +
+    '<div class="p-2 bg-light rounded border fst-italic text-dark mb-3" style="font-size:13px;">"' + log.feedback + '"</div>' +
+    '<h6 class="fw-bold border-bottom pb-1"><i class="bi bi-camera text-secondary"></i> Field Identity</h6>' +
+    imgHtml;
+  
+  document.getElementById('detailModalBody').innerHTML = html;
+  new bootstrap.Modal(document.getElementById('detailModal')).show();
+}
+
+function loadAreasInBackground() {
+  google.script.run.withSuccessHandler(function(areas) {
+    var sel = document.getElementById('area');
+    sel.innerHTML = '<option value="">-- Select Area --</option>';
+    areas.forEach(function(a) {
+      sel.innerHTML += '<option value="' + a + '">' + a + '</option>';
+    });
+  }).getAreas();
+}
+
+function openVisitForm() {
+  showScreen('visitScreen');
+  populateAreasSync();
+  var submitBtn = document.getElementById('submitBtn');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.className = "btn btn-secondary w-100 py-3 fw-bold";
+    submitBtn.innerHTML = '<b><i class="bi bi-shop"></i> Select Dealer to Continue</b>';
+  }
+}
+function backToDashboard() { showScreen('dashboardScreen'); }
+
+function initFastDealersPreload() {
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.grouped) {
+        window.cachedAreasData = res;
+        var areaSel = document.getElementById('area');
+        if (areaSel && (areaSel.options.length <= 1)) {
+          areaSel.innerHTML = '<option value="">-- Select Area --</option>';
+          res.areas.forEach(function(a) {
+            areaSel.innerHTML += '<option value="' + a + '">' + a + '</option>';
+          });
+        }
+      }
+    })
+    .getAllDealersGroupedByArea();
+}
+
+function loadDealers() {
+  var area = document.getElementById('area').value;
+  var sel = document.getElementById('dealerName');
+  var alertBox = document.getElementById('duesAlert');
+  var nav = document.getElementById('navBtn');
+  var lockCard = document.getElementById('dealerGpsLockCard');
+  var geofenceBox = document.getElementById('geofenceAlertBox');
+  
+  if (alertBox) alertBox.style.display = 'none'; 
+  if (nav) nav.style.display = 'none';
+  if (lockCard) lockCard.style.display = 'none';
+  if (geofenceBox) geofenceBox.style.display = 'none';
+  var submitBtn = document.getElementById('submitBtn');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.className = "btn btn-secondary w-100 py-3 fw-bold";
+    submitBtn.innerHTML = '<b><i class="bi bi-shop"></i> Select Dealer First</b>';
+  }
+
+  if (!area) {
+    sel.innerHTML = '<option value="">-- Select Area First --</option>';
+    return;
+  }
+
+  // 1. Instant check in memory or localStorage (0.001 milliseconds!)
+  var dealers = null;
+  if (window.cachedAreasData && window.cachedAreasData.grouped && window.cachedAreasData.grouped[area]) {
+    dealers = window.cachedAreasData.grouped[area];
+  } else {
+    try {
+      var localStr = localStorage.getItem('ym_all_dealers_cache');
+      if (localStr) {
+        var parsed = JSON.parse(localStr);
+        if (parsed.grouped && parsed.grouped[area]) {
+          dealers = parsed.grouped[area];
+          window.cachedAreasData = parsed;
+        }
+      }
+    } catch(e) {}
+  }
+
+  if (dealers && dealers.length > 0) {
+    currentAreaDealers = dealers;
+    sel.innerHTML = '<option value="">-- Select Dealer (' + dealers.length + ') --</option>';
+    dealers.forEach(function(d) {
+      var opt = document.createElement('option');
+      opt.value = d.name;
+      opt.textContent = d.name;
+      sel.appendChild(opt);
+    });
+    return; // Synchronous exit: NEVER shows 'Loading Dealers...'!
+  }
+
+  if (dealers && dealers.length === 0) {
+    currentAreaDealers = [];
+    sel.innerHTML = '<option value="">-- No Dealers Found in ' + area + ' --</option>';
+    return;
+  }
+
+  // 2. Fallback only if cache is completely empty
+  sel.innerHTML = '<option value="">Fetching Dealers...</option>';
+  google.script.run
+    .withSuccessHandler(function(serverDealers) {
+      currentAreaDealers = serverDealers || [];
+      if (currentAreaDealers.length === 0) {
+        sel.innerHTML = '<option value="">-- No Dealers in ' + area + ' --</option>';
+        return;
+      }
+      sel.innerHTML = '<option value="">-- Select Dealer (' + currentAreaDealers.length + ') --</option>';
+      currentAreaDealers.forEach(function(d) {
+        var opt = document.createElement('option');
+        opt.value = d.name;
+        opt.textContent = d.name;
+        sel.appendChild(opt);
+      });
+    })
+    .withFailureHandler(function(err) {
+      console.error("Failed to load dealers: ", err);
+      sel.innerHTML = '<option value="">❌ Error loading dealers (Tap to retry)</option>';
+    })
+    .getDealersByArea(area);
+}
+
+function checkDealerDetails() {
+  var dealerName = document.getElementById('dealerName').value;
+  var alertBox = document.getElementById('duesAlert'); 
+  var nav = document.getElementById('navBtn');
+  var lockCard = document.getElementById('dealerGpsLockCard');
+  var geofenceBox = document.getElementById('geofenceAlertBox');
+  var submitBtn = document.getElementById('submitBtn');
+  
+  if (!dealerName) { 
+    if (alertBox) alertBox.style.display = 'none'; 
+    if (nav) nav.style.display = 'none'; 
+    if (lockCard) lockCard.style.display = 'none';
+    if (geofenceBox) geofenceBox.style.display = 'none';
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.className = "btn btn-secondary w-100 py-3 fw-bold";
+      submitBtn.innerHTML = '<b><i class="bi bi-shop"></i> Select Dealer First</b>';
+    }
+    return; 
+  }
+  
+  var dealer = currentAreaDealers ? currentAreaDealers.find(function(d) {
+    return d.name === dealerName;
+  }) : null;
+  
+  if (dealer) {
+    // 1. Dues Alert
+    var billAmt = parseFloat(dealer.billPending) || 0;
+    var cashAmt = parseFloat(dealer.cashPending) || 0;
+    
+    if (billAmt !== 0 || cashAmt !== 0) { 
+      var msg = "⚠️ <b>Pending Dues:</b><br>";
+      if (billAmt !== 0) {
+        msg += "📄 Bill: &#8377;" + Math.abs(billAmt).toLocaleString('en-IN') + (billAmt < 0 ? " (Cr)<br>" : " <br>");
+      }
+      if (cashAmt !== 0) {
+        msg += "💵 Cash: &#8377;" + Math.abs(cashAmt).toLocaleString('en-IN') + (cashAmt < 0 ? " (Cr)" : "");
+      }
+      alertBox.innerHTML = msg; 
+      alertBox.className = "alert alert-warning mt-2 py-2 text-dark border-warning shadow-sm"; 
+      alertBox.style.display = 'block'; 
+    } else { 
+      alertBox.innerHTML = "✅ <b>No Pending Dues</b>"; 
+      alertBox.className = "alert alert-success mt-2 py-1"; 
+      alertBox.style.display = 'block';
+    }
+    
+    var isLocked = !!(dealer.isLocked && dealer.lat && dealer.lng);
+
+    // 2. Navigation Button (Only shown if dealer GPS is confirmed)
+    if (isLocked) { 
+      dealerGPSCoords = dealer.gps || (dealer.lat + "," + dealer.lng); 
+      nav.href = "https://www.google.com/maps/dir/?api=1&destination=" + dealer.lat + "," + dealer.lng; 
+      nav.style.display = 'inline-block'; 
+    } else { 
+      nav.style.display = 'none'; 
+      dealerGPSCoords = ""; 
+    }
+
+    // 3. Dealer GPS Geofence & Location Lock Card
+    if (lockCard) {
+      if (isLocked) {
+        // PERMANENT LOCK: 'Lock Dealer GPS' button is COMPLETELY REMOVED!
+        lockCard.innerHTML = '<div class="alert alert-info py-2 px-3 small d-flex justify-content-between align-items-center mb-0 border-info shadow-sm" style="border-radius: 8px;">' +
+          '<div><i class="bi bi-shield-lock-fill text-success fs-6"></i> <b>Shop GPS Locked:</b> 50m Geofence Active</div>' +
+          '<a href="https://www.google.com/maps?q=' + dealer.lat + ',' + dealer.lng + '" target="_blank" class="badge bg-primary text-decoration-none py-1 px-2"><i class="bi bi-map"></i> View Shop</a>' +
+        '</div>';
+        lockCard.style.display = 'block';
+        
+        // Verify Geofence
+        verifyCurrentGeofence();
+      } else {
+        // NOT LOCKED: Visit punch is strictly blocked until staff locks dealer GPS!
+        lockCard.innerHTML = '<div class="alert alert-warning p-3 small mb-0 border-warning shadow-sm" style="border-radius: 10px; border-left: 5px solid #d97706 !important; background-color: #fffbeb;">' +
+          '<div class="d-flex align-items-center mb-1">' +
+            '<i class="bi bi-exclamation-octagon-fill text-danger fs-5 me-2"></i>' +
+            '<div class="fw-bold text-dark" style="font-size: 13.5px;">Shop GPS Not Locked!</div>' +
+          '</div>' +
+          '<div class="text-secondary mb-2" style="font-size: 12px; line-height: 1.4;">' +
+            'Is dealer ki location abhi system me lock nahi hai. <b>Shop par khade hokar button dabayein taaki accurate GPS lock ho sake. GPS lock hone ke baad hi visit punch chalu hogi.</b>' +
+          '</div>' +
+          '<button type="button" class="btn btn-warning w-100 fw-bold py-2 shadow-sm text-dark d-flex align-items-center justify-content-center gap-2" style="border-radius: 8px; font-size: 13px;" onclick="triggerLockDealerGPS()">' +
+            '<i class="bi bi-pin-map-fill text-danger fs-6"></i> <span>📍 Lock Dealer GPS Location (Shop par khade hokar dabayein)</span>' +
+          '</button>' +
+        '</div>';
+        lockCard.style.display = 'block';
+        
+        if (geofenceBox) {
+          geofenceBox.className = "alert alert-danger mt-2 py-2 px-3 small fw-bold mb-0 border-danger shadow-sm";
+          geofenceBox.innerHTML = '🔒 <b>Visit Punch Blocked:</b> Is dealer ka GPS location lock nahi hai. Pehle upar diya gaya "Lock Dealer GPS Location" button dabayein.';
+          geofenceBox.style.display = 'block';
+        }
+        
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.className = "btn btn-secondary w-100 py-3 fw-bold";
+          submitBtn.innerHTML = '<b><i class="bi bi-lock-fill"></i> Visit Punch Blocked (Pehle Dealer GPS Lock Karein)</b>';
+        }
+      }
+    }
+  }
+}
+
+function triggerLockDealerGPS() {
+  var dealerName = document.getElementById('dealerName').value;
+  var area = document.getElementById('area').value;
+  var staff = document.getElementById('staffName').value || currentUser || "Staff";
+  if (!dealerName) { alert("Please select a dealer first!"); return; }
+  
+  if (!confirm("Kya aap abhi '" + dealerName + "' ki dukan par khade hain?\n\nYaha ka GPS lock karne ke baad, yeh location permanent ho jayegi aur agle visits me sirf yahi 50 meters ke andar se visit punch ho payegi.")) {
+    return;
+  }
+  
+  var btn = event ? (event.target.closest('button') || event.target) : null;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> High Accuracy GPS Fetching & Locking...';
+  }
+  
+  navigator.geolocation.getCurrentPosition(function(pos) {
+    var lat = pos.coords.latitude;
+    var lng = pos.coords.longitude;
+    var acc = Math.round(pos.coords.accuracy || 0);
+    
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (res.success) {
+          alert("✅ " + res.message);
+          
+          // 1. Update in-memory dealer object
+          if (currentAreaDealers) {
+            var d = currentAreaDealers.find(function(x) { return x.name === dealerName; });
+            if (d) {
+              d.isLocked = true;
+              d.gps = res.gps;
+              d.lat = res.lat;
+              d.lng = res.lng;
+              d.radius = res.radius || 50;
+            }
+          }
+          if (window.cachedAreasData && window.cachedAreasData.grouped && window.cachedAreasData.grouped[area]) {
+            var d2 = window.cachedAreasData.grouped[area].find(function(x) { return x.name === dealerName; });
+            if (d2) {
+              d2.isLocked = true;
+              d2.gps = res.gps;
+              d2.lat = res.lat;
+              d2.lng = res.lng;
+              d2.radius = res.radius || 50;
+            }
+          }
+          
+          // 2. Persist update in localStorage
+          try {
+            if (window.cachedAreasData) {
+              localStorage.setItem('ym_all_dealers_cache', JSON.stringify(window.cachedAreasData));
+            }
+          } catch(eLS) {}
+          
+          // 3. Auto-populate staff current location in visit form
+          document.getElementById('location').value = res.gps;
+          var stat = document.getElementById('gpsStatus');
+          if (stat) {
+            stat.innerText = "GPS Locked ✔️ (Fresh Accuracy: " + acc + "m)";
+            stat.className = "text-success fw-bold mt-1 d-block";
+          }
+          
+          // 4. Re-check dealer details -> Hides lock button, verifies geofence (dist 0m), enables submit button!
+          checkDealerDetails();
+        } else {
+          alert("❌ " + res.message);
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-pin-map-fill text-danger fs-6"></i> <span>📍 Lock Dealer GPS Location (Shop par khade hokar dabayein)</span>';
+          }
+        }
+      })
+      .withFailureHandler(function(err) {
+        alert("Error locking GPS: " + err.message);
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="bi bi-pin-map-fill text-danger fs-6"></i> <span>📍 Lock Dealer GPS Location (Shop par khade hokar dabayein)</span>';
+        }
+      })
+      .lockDealerGPS(dealerName, area, lat, lng, staff);
+  }, function(err) {
+    alert("GPS Error: " + err.message + ". Phone ka Location / High Accuracy on karein aur dobara try karein.");
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-pin-map-fill text-danger fs-6"></i> <span>📍 Lock Dealer GPS Location (Shop par khade hokar dabayein)</span>';
+    }
+  }, { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 });
+}
+
+function verifyCurrentGeofence() {
+  var locVal = document.getElementById('location').value;
+  var dealerName = document.getElementById('dealerName').value;
+  var geofenceBox = document.getElementById('geofenceAlertBox');
+  var submitBtn = document.getElementById('submitBtn');
+  
+  if (!dealerName || !currentAreaDealers) {
+    if (geofenceBox) geofenceBox.style.display = 'none';
+    return;
+  }
+  
+  var dealer = currentAreaDealers.find(function(d) { return d.name === dealerName; });
+  if (!dealer) return;
+  
+  // If dealer GPS is NOT locked, visit punch is strictly blocked!
+  if (!dealer.isLocked || !dealer.lat || !dealer.lng) {
+    if (geofenceBox) {
+      geofenceBox.className = "alert alert-danger mt-2 py-2 px-3 small fw-bold mb-0 border-danger shadow-sm";
+      geofenceBox.innerHTML = '🔒 <b>Visit Punch Blocked:</b> Is dealer ka GPS location lock nahi hai. Pehle upar diya gaya "Lock Dealer GPS Location" button dabayein.';
+      geofenceBox.style.display = 'block';
+    }
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.className = "btn btn-secondary w-100 py-3 fw-bold";
+      submitBtn.innerHTML = '<b><i class="bi bi-lock-fill"></i> Visit Punch Blocked (Pehle Dealer GPS Lock Karein)</b>';
+    }
+    return;
+  }
+  
+  // Dealer IS locked. Now verify staff location:
+  if (!locVal) {
+    if (geofenceBox) {
+      geofenceBox.className = "alert alert-warning mt-2 py-2 px-3 small fw-bold mb-0 border-warning shadow-sm";
+      geofenceBox.innerHTML = '📍 <b>GPS Verification Pending:</b> Kripya neeche "Fetch GPS" dabayein ya photo lein taaki 50m geofence verify ho sake.';
+      geofenceBox.style.display = 'block';
+    }
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.className = "btn btn-secondary w-100 py-3 fw-bold";
+      submitBtn.innerHTML = '<b><i class="bi bi-geo-alt-fill"></i> GPS Fetch Required to Punch</b>';
+    }
+    return;
+  }
+  
+  var parts = locVal.split(',');
+  var staffLat = parseFloat(parts[0]);
+  var staffLng = parseFloat(parts[1]);
+  if (isNaN(staffLat) || isNaN(staffLng)) return;
+  
+  var R = 6371000;
+  var dLat = (dealer.lat - staffLat) * Math.PI / 180;
+  var dLon = (dealer.lng - staffLng) * Math.PI / 180;
+  var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+          Math.cos(staffLat * Math.PI / 180) * Math.cos(dealer.lat * Math.PI / 180) *
+          Math.sin(dLon/2) * Math.sin(dLon/2);
+  var distMeters = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+  var allowedRadius = dealer.radius || 50;
+  
+  if (distMeters <= allowedRadius) {
+    if (geofenceBox) {
+      geofenceBox.className = "alert alert-success mt-2 py-2 px-3 small fw-bold mb-0 border-success shadow-sm";
+      geofenceBox.innerHTML = '✅ <b>Inside Shop Geofence:</b> Aap dukan se ' + distMeters + 'm dur hain (Limit: ' + allowedRadius + 'm). Visit punch allowed!';
+      geofenceBox.style.display = 'block';
+    }
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.className = "btn btn-primary w-100 py-3";
+      submitBtn.innerHTML = '<b><i class="bi bi-cloud-arrow-up"></i> Submit & Upload</b>';
+    }
+  } else {
+    if (geofenceBox) {
+      geofenceBox.className = "alert alert-danger mt-2 py-2 px-3 small fw-bold mb-0 border-danger shadow-sm";
+      geofenceBox.innerHTML = '⛔ <b>Anti-Proxy Breach Block:</b> Aap dealer se ' + distMeters + ' meters dur hain! Punch sirf 50m ke andar allowed hai.';
+      geofenceBox.style.display = 'block';
+    }
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.className = "btn btn-danger w-100 py-3 fw-bold";
+      submitBtn.innerHTML = '<b><i class="bi bi-slash-circle-fill"></i> Punch Blocked (Dukan se ' + distMeters + 'm Dur)</b>';
+    }
+  }
+}
+
+function getLocation() {
+  var stat = document.getElementById('gpsStatus'); 
+  stat.innerText = "Fetching location (Wait up to 30 sec)...";
+  
+  navigator.geolocation.getCurrentPosition(function(pos) {
+    document.getElementById('location').value = pos.coords.latitude + "," + pos.coords.longitude;
+    stat.innerText = "GPS Locked ✔️"; 
+    stat.className = "text-success fw-bold mt-1 d-block";
+    verifyCurrentGeofence();
+  }, function(err) {
+    stat.innerText = "GPS Error: " + err.message; 
+    stat.className = "text-danger fw-bold mt-1 d-block";
+  }, {
+    enableHighAccuracy: true, 
+    timeout: 30000, 
+    maximumAge: 15000
+  });
+}
+
+function compressImage(event) {
+  var file = event.target.files[0]; 
+  if (!file) return;
+  
+  var reader = new FileReader(); 
+  reader.readAsDataURL(file);
+  reader.onload = function(e) {
+    var img = new Image(); 
+    img.src = e.target.result;
+    img.onload = function() {
+      var canvas = document.createElement('canvas'); 
+      var ctx = canvas.getContext('2d');
+      var MAX_WIDTH = 500; 
+      var scaleSize = MAX_WIDTH / img.width;
+      
+      canvas.width = MAX_WIDTH; 
+      canvas.height = img.height * scaleSize;
+      
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      
+      var compressedBase64 = canvas.toDataURL('image/jpeg', 0.5); 
+      document.getElementById('compressedPhotoData').value = compressedBase64;
+      
+      var preview = document.getElementById('previewImg'); 
+      preview.src = compressedBase64; 
+      preview.style.display = 'block';
+    }
+  }
+}
+
+function submitData() {
+  var dealerName = document.getElementById('dealerName').value;
+  var area = document.getElementById('area').value;
+  if (!area || !dealerName) {
+    alert("❌ Kripya Area aur Dealer select karein!");
+    return;
+  }
+  
+  // Mandatory Dealer GPS Lock Check
+  var dealer = currentAreaDealers ? currentAreaDealers.find(function(d) { return d.name === dealerName; }) : null;
+  if (!dealer || !dealer.isLocked || !dealer.lat || !dealer.lng) {
+    alert("⛔ VISIT PUNCH BLOCKED!\n\nDealer '" + dealerName + "' ki accurate GPS location abhi system me lock nahi hai.\n\nKripya pehle dealer shop par khade hokar '📍 Lock Dealer GPS Location' button dabayein. GPS lock hone ke baad hi visit punch allow hogi.");
+    return;
+  }
+  
+  if (!document.getElementById('location').value) { 
+    alert("❌ GPS location fetch karna mandatory hai! Phone ka Location on karein."); 
+    return; 
+  }
+  
+  // Geofence Check
+  var locParts = document.getElementById('location').value.split(',');
+  var staffLat = parseFloat(locParts[0]);
+  var staffLng = parseFloat(locParts[1]);
+  if (!isNaN(staffLat) && !isNaN(staffLng) && dealer.lat && dealer.lng) {
+    var R = 6371000;
+    var dLat = (dealer.lat - staffLat) * Math.PI / 180;
+    var dLon = (dealer.lng - staffLng) * Math.PI / 180;
+    var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(staffLat * Math.PI / 180) * Math.cos(dealer.lat * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+    var distMeters = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+    var allowedRadius = dealer.radius || 50;
+    if (distMeters > allowedRadius) {
+      alert("⛔ PROXY CHECK-IN REJECTED!\n\nAap dealer '" + dealerName + "' se " + distMeters + " meters dur hain.\n\nVisit punch sirf 50 meters ke andar hi allowed hai.");
+      return;
+    }
+  }
+
+  if (!document.getElementById('compressedPhotoData').value) { 
+    alert("❌ Selfie capture karna mandatory hai!"); 
+    return; 
+  }
+
+  document.getElementById('uploadErrorAlert').style.display = 'none';
+  document.getElementById('submitBtn').innerHTML = '<span class="spinner-border spinner-border-sm"></span> Uploading Data & Photo...';
+  document.getElementById('submitBtn').disabled = true;
+
+  var formData = {
+    staffName: document.getElementById('staffName').value, 
+    area: document.getElementById('area').value, 
+    dealerName: document.getElementById('dealerName').value,
+    task: document.getElementById('task').value, 
+    location: document.getElementById('location').value, 
+    photoData: document.getElementById('compressedPhotoData').value, 
+    feedback: document.getElementById('feedback').value,
+    bAirpods: document.getElementById('bAirpods').value, 
+    bNeckband: document.getElementById('bNeckband').value, 
+    bPowerbank: document.getElementById('bPowerbank').value, 
+    bSmartwatch: document.getElementById('bSmartwatch').value, 
+    bHeadphones: document.getElementById('bHeadphones').value,
+    gAirpods: document.getElementById('gAirpods').value, 
+    gNeckband: document.getElementById('gNeckband').value, 
+    gPowerbank: document.getElementById('gPowerbank').value, 
+    gSmartwatch: document.getElementById('gSmartwatch').value, 
+    gHeadphones: document.getElementById('gHeadphones').value,
+    pNeckband: document.getElementById('pNeckband').value, 
+    pPowerbank: document.getElementById('pPowerbank').value, 
+    pHeadphones: document.getElementById('pHeadphones').value, 
+    pCable: document.getElementById('pCable').value, 
+    pOther: document.getElementById('pOther').value,
+    vAirpods: document.getElementById('vAirpods').value, 
+    vNeckband: document.getElementById('vNeckband').value, 
+    vCable: document.getElementById('vCable').value, 
+    vCharger: document.getElementById('vCharger').value,
+    mCard: document.getElementById('mCard').value, 
+    pDrive: document.getElementById('pDrive').value, 
+    eSsd: document.getElementById('eSsd').value
+  };
+
+  google.script.run
+  .withFailureHandler(function(error) {
+    document.getElementById('uploadErrorAlert').innerText = "❌ Error: " + error.message; 
+    document.getElementById('uploadErrorAlert').style.display = 'block';
+    document.getElementById('submitBtn').innerHTML = '<b><i class="bi bi-cloud-arrow-up"></i> Submit & Upload</b>'; 
+    document.getElementById('submitBtn').disabled = false;
+  })
+  .withSuccessHandler(function(res) {
+    var stockLabels = {
+      bAirpods: "BOAT Airpods", bNeckband: "BOAT Neckband", bPowerbank: "BOAT Powerbank", bSmartwatch: "BOAT Smartwatch", bHeadphones: "BOAT Headphones",
+      gAirpods: "GoBoult Airpods", gNeckband: "GoBoult Neckband", gPowerbank: "GoBoult Powerbank", gSmartwatch: "GoBoult Smartwatch", gHeadphones: "GoBoult Headphones",
+      pNeckband: "Portronics Neckband", pPowerbank: "Portronics Powerbank", pHeadphones: "Portronics Headphones", pCable: "Portronics Cable", pOther: "Portronics Other",
+      vAirpods: "Velocity Airpods", vNeckband: "Velocity Neckband", vCable: "Velocity Cable", vCharger: "Velocity Charger",
+      mCard: "Storage Memory Card", pDrive: "Storage Pen Drive", eSsd: "Storage External SSD"
+    };
+
+    var outOfStockItems = [];
+    for (var key in stockLabels) { 
+      if (formData[key] === "0 (Nil)") { outOfStockItems.push(stockLabels[key]); } 
+    }
+
+    var alertMessage = "✅ " + res;
+    if (outOfStockItems.length > 0) {
+      alertMessage += "\n\n⚠️ STOCK OUT REMINDER ⚠️\nDealer ke pass in items ka stock '0' hai. Kripya inki ORDER zaroor nikalein:\n\n👉 " + outOfStockItems.join("\n👉 ");
+    }
+    
+    alert(alertMessage);
+    
+    document.getElementById('visitForm').reset(); 
+    document.getElementById('previewImg').style.display = 'none'; 
+    document.getElementById('compressedPhotoData').value = ""; 
+    document.getElementById('gpsStatus').innerText = "";
+    var inputs = document.querySelectorAll('.stock-input');
+    for (var i = 0; i < inputs.length; i++) {
+        inputs[i].value = "";
+    } 
+    document.getElementById('submitBtn').innerHTML = '<b><i class="bi bi-cloud-arrow-up"></i> Submit & Upload</b>'; 
+    document.getElementById('submitBtn').disabled = false;
+    
+    loadStaffDashboard(document.getElementById('staffName').value);
+  }).saveFormRecord(formData);
+}
+
+function populateBriefingAreas() {
+  google.script.run.withSuccessHandler(function(areas) {
+    var sel = document.getElementById('briefingArea');
+    sel.innerHTML = '<option value="">Select Area for Today...</option>';
+    areas.forEach(function(a) {
+      sel.innerHTML += '<option value="' + a + '">' + a + '</option>';
+    });
+  }).getAreas();
+}
+
+var originalRefreshCEO = refreshCEOStats;
+refreshCEOStats = function() {
+  originalRefreshCEO();
+  if (document.getElementById('briefingArea').options.length <= 1) {
+    populateBriefingAreas();
+  }
+};
+
+function generateMorningWhatsApp() {
+  var area = document.getElementById('briefingArea').value;
+  if (!area) {
+    alert("Please select an area first.");
+    return;
+  }
+  
+  var btn = event.currentTarget;
+  var originalHtml = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+  btn.disabled = true;
+  
+  google.script.run.withFailureHandler(function(err) {
+    alert("Error building briefing: " + err.message);
+    btn.innerHTML = originalHtml;
+    btn.disabled = false;
+  }).withSuccessHandler(function(encodedReport) {
+    var waUrl = "https://wa.me/?text=" + encodedReport;
+    window.open(waUrl, '_blank');
+    btn.innerHTML = originalHtml;
+    btn.disabled = false;
+  }).generateMorningBriefing(area);
+}
+
+
+
+// -------------------------------------------------------------
+// 5 KPI PERFORMANCE DRILL-DOWN MODAL & RENDER ENGINE
+// -------------------------------------------------------------
+var currentKpiPeriod = 'today';
+
+
+// =======================================================================
+// GLOBAL WINDOW EXPORTS FOR HTML EVENT HANDLERS
+// =======================================================================
+window.openVisitForm = openVisitForm;
+window.backToDashboard = backToDashboard;
+window.showScreen = showScreen;
+window.doLogin = doLogin;
+window.logout = logout;
+window.loadStaffDashboard = loadStaffDashboard;
+window.switchKpiPeriod = switchKpiPeriod;
+window.renderKpiDashboard = renderKpiDashboard;
+window.openPerfModal = openPerfModal;
+window.openCeoPerfModal = openCeoPerfModal;
+window.selectCeoTimeframe = selectCeoTimeframe;
+window.onCeoFilterChange = onCeoFilterChange;
+window.refreshCEOStatsFromServer = refreshCEOStatsFromServer;
+window.refreshCEOStats = refreshCEOStats;
+window.refreshCeoDashboardRadar = refreshCeoDashboardRadar;
+window.openStaffRadarModal = openStaffRadarModal;
+window.refreshStaffRadarData = refreshStaffRadarData;
+window.openSleepingGiants = openSleepingGiants;
+window.runDiagnostic = runDiagnostic;
+window.openDealerModal = openDealerModal;
+window.loadDealers = loadDealers;
+window.checkDealerDetails = checkDealerDetails;
+window.compressImage = compressImage;
+window.getLocation = getLocation;
+window.submitData = submitData;
+window.generateEOD = generateEOD;
+window.sendToWhatsApp = sendToWhatsApp;
+window.generateMorningWhatsApp = generateMorningWhatsApp;
+window.tryAutoSyncStaffGps = tryAutoSyncStaffGps;
+window.initFastDealersPreload = initFastDealersPreload;
+window.populateAreasSync = populateAreasSync;
 </script>
 
 <!-- LIVE STAFF RADAR MODAL -->
