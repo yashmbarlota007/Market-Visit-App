@@ -1053,6 +1053,129 @@ function getStaffDashboardData(staffName) {
 // ----------------------------------------------------------------------
 // GOD'S EYE CEO ENGINE: DEALER & AREA LEVEL SALES
 // ----------------------------------------------------------------------
+// -------------------------------------------------------------
+// CORE METRICS COMPUTATION ENGINE (SHARED ACROSS STAFF & CEO)
+// -------------------------------------------------------------
+function computeEntityMetrics(visits, orders) {
+  var visitsList = visits || [];
+  var ordersList = orders || [];
+  var dealersMap = {};
+
+  for (var vi = 0; vi < visitsList.length; vi++) {
+    var vItem = visitsList[vi];
+    var dClean = String(vItem.dealer || "").toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!dClean) continue;
+    
+    if (!dealersMap[dClean]) {
+      dealersMap[dClean] = {
+        dealerName: vItem.dealer,
+        area: vItem.area || "",
+        staff: vItem.staff || "",
+        visitsCount: 0,
+        ordersCount: 0,
+        totalAmount: 0,
+        isConverted: false,
+        tasks: []
+      };
+    }
+    dealersMap[dClean].visitsCount++;
+    if (vItem.task && dealersMap[dClean].tasks.indexOf(vItem.task) === -1) {
+      dealersMap[dClean].tasks.push(vItem.task);
+    }
+  }
+
+  for (var oi = 0; oi < ordersList.length; oi++) {
+    var oItem = ordersList[oi];
+    var oClean = String(oItem.shop || "").toUpperCase().replace(/[^A-Z0-9]/g, '');
+    var matchKey = null;
+
+    for (var dKey in dealersMap) {
+      if (dKey && oClean && (dKey.indexOf(oClean) !== -1 || oClean.indexOf(dKey) !== -1)) {
+        matchKey = dKey;
+        break;
+      }
+    }
+
+    if (!matchKey) {
+      matchKey = oClean;
+      if (!dealersMap[matchKey]) {
+        dealersMap[matchKey] = {
+          dealerName: oItem.shop,
+          area: oItem.area || "",
+          staff: oItem.staff || "",
+          visitsCount: 0,
+          ordersCount: 0,
+          totalAmount: 0,
+          isConverted: true,
+          tasks: []
+        };
+      }
+    }
+
+    dealersMap[matchKey].ordersCount++;
+    dealersMap[matchKey].totalAmount += (parseFloat(oItem.amount) || 0);
+    dealersMap[matchKey].isConverted = true;
+  }
+
+  var dealerBreakdown = [];
+  var uniqueVisitedDealers = 0;
+  var productiveVisitsCount = 0;
+
+  for (var k in dealersMap) {
+    var dData = dealersMap[k];
+    dealerBreakdown.push(dData);
+    if (dData.visitsCount > 0) {
+      uniqueVisitedDealers++;
+      if (dData.ordersCount > 0) {
+        productiveVisitsCount += dData.visitsCount;
+      }
+    }
+  }
+
+  dealerBreakdown.sort(function(a, b) {
+    if (b.totalAmount !== a.totalAmount) return b.totalAmount - a.totalAmount;
+    return b.visitsCount - a.visitsCount;
+  });
+
+  var totalVisits = visitsList.length;
+  var totalTxns = ordersList.length;
+  var totalRev = ordersList.reduce(function(sum, o) { return sum + (parseFloat(o.amount) || 0); }, 0);
+
+  if (totalTxns > 0 && productiveVisitsCount === 0) {
+    productiveVisitsCount = Math.min(totalVisits, totalTxns);
+  }
+  if (productiveVisitsCount > totalVisits && totalVisits > 0) {
+    productiveVisitsCount = totalVisits;
+  }
+
+  var convRatio = totalVisits > 0 
+    ? Math.min(100, Math.round((productiveVisitsCount / totalVisits) * 100)) 
+    : (totalTxns > 0 ? 100 : 0);
+
+  var avgSalesOrder = totalTxns > 0 ? Math.round(totalRev / totalTxns) : 0;
+  var avgSalesVisit = totalVisits > 0 ? Math.round(totalRev / totalVisits) : 0;
+
+  var activeDealersForTxn = uniqueVisitedDealers > 0 ? uniqueVisitedDealers : dealerBreakdown.length;
+  var txnPerDealer = activeDealersForTxn > 0 ? +(totalTxns / activeDealersForTxn).toFixed(2) : 0;
+
+  return {
+    metrics: {
+      visits: totalVisits,
+      conversionRatio: convRatio,
+      productiveVisits: productiveVisitsCount,
+      avgRsSales: avgSalesOrder,
+      avgRsSalesPerVisit: avgSalesVisit,
+      txnPerDealer: txnPerDealer,
+      revenue: totalRev,
+      transactions: totalTxns,
+      uniqueDealersCount: activeDealersForTxn
+    },
+    dealerBreakdown: dealerBreakdown,
+    visitsList: visitsList,
+    ordersList: ordersList
+  };
+}
+
 function getCEOStats(filter, customStartStr, customEndStr) {
   var now = new Date();
   now.setHours(0, 0, 0, 0);
@@ -1101,7 +1224,7 @@ function getCEOStats(filter, customStartStr, customEndStr) {
 
   function initDealerMap(staff, area, dealer) {
     if (!staffData[staff]) {
-      staffData[staff] = { visits: 0, collections: 0, sales: 0, orders: 0, areas: {} };
+      staffData[staff] = { visits: 0, collections: 0, sales: 0, orders: 0, areas: {}, visitsList: [], ordersList: [] };
     }
     if (!staffData[staff].areas[area]) {
       staffData[staff].areas[area] = { visits: 0, sales: 0, dealers: {} };
@@ -1112,6 +1235,9 @@ function getCEOStats(filter, customStartStr, customEndStr) {
   }
 
   var globalLogs = []; 
+  var allCompanyVisits = [];
+  var allCompanyOrders = [];
+
   var visitSheet = getSheetSafely("Daily Operation");
 
   if (visitSheet) {
@@ -1143,9 +1269,24 @@ function getCEOStats(filter, customStartStr, customEndStr) {
           
           var rowTimeRaw = data[i][2];
           var rowTime = rowTimeRaw instanceof Date ? Utilities.formatDate(rowTimeRaw, Session.getScriptTimeZone(), "hh:mm a") : String(rowTimeRaw || "");
-          
+          var dateStr = Utilities.formatDate(dObj, Session.getScriptTimeZone(), "dd/MM/yyyy");
+          var locationStr = String(data[i][11] || "");
+
+          var visitItem = {
+            id: String(data[i][0] || ("V" + i)),
+            dateStr: dateStr,
+            timeStr: rowTime,
+            staff: staffName,
+            area: area,
+            dealer: dealer,
+            task: task,
+            location: locationStr
+          };
+          allCompanyVisits.push(visitItem);
+          staffData[staffName].visitsList.push(visitItem);
+
           var logEntry = {
-            date: Utilities.formatDate(dObj, Session.getScriptTimeZone(), "dd/MM/yyyy"), 
+            date: dateStr, 
             time: rowTime, 
             staff: staffName, 
             area: area, 
@@ -1193,8 +1334,21 @@ function getCEOStats(filter, customStartStr, customEndStr) {
        staffData[creditedStaff].areas[creditedArea].sales += ord.amount;
        staffData[creditedStaff].areas[creditedArea].dealers[creditedShop].sales += ord.amount;
        
+       var orderDateStr = Utilities.formatDate(ord.date, Session.getScriptTimeZone(), "dd/MM/yyyy");
+       var orderItem = {
+         shop: creditedShop,
+         area: creditedArea,
+         amount: ord.amount,
+         items: ord.items,
+         dateStr: orderDateStr,
+         timeMs: ord.timeMs,
+         staff: creditedStaff
+       };
+       allCompanyOrders.push(orderItem);
+       staffData[creditedStaff].ordersList.push(orderItem);
+
        staffData[creditedStaff].areas[creditedArea].dealers[creditedShop].orders.push({
-         date: Utilities.formatDate(ord.date, Session.getScriptTimeZone(), "dd/MM/yyyy"),
+         date: orderDateStr,
          amount: ord.amount,
          items: ord.items
        });
@@ -1204,18 +1358,20 @@ function getCEOStats(filter, customStartStr, customEndStr) {
   var leaderboard = [];
   
   for (var name in staffData) {
-     if (name === "") {
-       continue;
-     }
+     if (name === "") continue;
      var sd = staffData[name];
-     var strike = sd.visits > 0 ? Math.round((sd.orders / sd.visits) * 100) : 0;
+     var staffMetricsObj = computeEntityMetrics(sd.visitsList, sd.ordersList);
      
      leaderboard.push({
         name: name, 
         visits: sd.visits, 
         collections: sd.collections, 
         sales: sd.sales, 
-        strike: strike, 
+        strike: staffMetricsObj.metrics.conversionRatio,
+        metrics: staffMetricsObj.metrics,
+        dealerBreakdown: staffMetricsObj.dealerBreakdown,
+        visitsList: staffMetricsObj.visitsList,
+        ordersList: staffMetricsObj.ordersList,
         areas: sd.areas
      });
   }
@@ -1225,7 +1381,17 @@ function getCEOStats(filter, customStartStr, customEndStr) {
     return b.visits - a.visits;
   });
 
-  return { metrics: stats, leaderboard: leaderboard, globalLogs: globalLogs };
+  var companyMetricsObj = computeEntityMetrics(allCompanyVisits, allCompanyOrders);
+
+  return { 
+    metrics: stats, 
+    companyMetrics: companyMetricsObj.metrics,
+    companyDealerBreakdown: companyMetricsObj.dealerBreakdown,
+    companyVisitsList: companyMetricsObj.visitsList,
+    companyOrdersList: companyMetricsObj.ordersList,
+    leaderboard: leaderboard, 
+    globalLogs: globalLogs 
+  };
 }
 
 // ----------------------------------------------------------------------
