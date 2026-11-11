@@ -145,9 +145,16 @@ function verifyLogin(empId, password) {
   }
   
   var data = sheet.getDataRange().getValues();
+  var normEmp = String(empId).trim().toLowerCase();
   
   for (var i = 1; i < data.length; i++) {
-    if (data[i][0] == empId && (data[i][4] == password || password === "SSO_BYPASS")) {
+    var rowId = String(data[i][0]).trim().toLowerCase();
+    var rowName = String(data[i][1]).trim().toLowerCase();
+    var rowPass = String(data[i][4]).trim();
+    
+    // Match either by Emp ID or by Staff Name (case-insensitive)
+    if ((rowId === normEmp || rowName === normEmp || (rowId && normEmp && (normEmp.includes(rowId) || rowId.includes(normEmp)))) && 
+        (rowPass === password || password === "SSO_BYPASS")) {
       return { 
         success: true, 
         name: String(data[i][1]).trim(), 
