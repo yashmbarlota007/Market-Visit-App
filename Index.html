@@ -2044,6 +2044,7 @@ function openPerfModal(metricType) {
 }
 
 // =======================================================================
+// =======================================================================
 // EXECUTIVE C-SUITE CEO DASHBOARD SUITE
 // =======================================================================
 var ceoSelectedTimeframe = 'today';
@@ -2053,117 +2054,248 @@ var ceoRadarMarkers = [];
 
 function selectCeoTimeframe(timeframeKey, btn) {
   ceoSelectedTimeframe = timeframeKey;
-  var customPicker = document.getElementById('ceoCustomDatePicker');
+  
+  // Custom date range picker visibility
+  var customPicker = document.getElementById('customDateRow');
   if (customPicker) {
-    customPicker.style.display = (timeframeKey === 'custom') ? 'block' : 'none';
+    customPicker.style.display = (timeframeKey === 'custom') ? 'flex' : 'none';
   }
-  var container = document.getElementById('ceoTimeframeTabs');
-  if (container) {
-    var btns = container.querySelectorAll('.ceo-tf-btn');
-    btns.forEach(function(b) { b.classList.remove('active'); });
+  
+  // Update nav pills active state
+  var container = document.getElementById('ceoFilterPills');
+  if (container && typeof container.querySelectorAll === 'function') {
+    var pills = container.querySelectorAll('.ceo-nav-pill');
+    pills.forEach(function(p) { p.classList.remove('active'); });
     if (btn) btn.classList.add('active');
   }
+  
+  // Keep legacy select in sync if present
+  var legacyFilter = document.getElementById('ceoFilter');
+  if (legacyFilter) legacyFilter.value = timeframeKey;
+  
+  if (timeframeKey === 'custom') {
+    var startStr = document.getElementById('ceoStartDate') ? document.getElementById('ceoStartDate').value : '';
+    var endStr = document.getElementById('ceoEndDate') ? document.getElementById('ceoEndDate').value : '';
+    if (startStr && endStr) {
+      refreshCEOStatsFromServer(null, false, startStr, endStr);
+    }
+    return;
+  }
+  
   renderCeoDashboard(timeframeKey);
+}
+
+function onCeoFilterChange() {
+  var filter = (document.getElementById('ceoFilter') ? document.getElementById('ceoFilter').value : '') || ceoSelectedTimeframe || 'today';
+  selectCeoTimeframe(filter);
 }
 
 function renderCeoDashboard(timeframeKey) {
   if (!cachedCeoServerData) return;
   var res = cachedCeoServerData;
-  var tb = (res.timeframeBuckets && res.timeframeBuckets[timeframeKey]) ? res.timeframeBuckets[timeframeKey] : null;
+  var key = timeframeKey || ceoSelectedTimeframe || 'today';
+  
+  // Resolve current bucket data from res.buckets or res.timeframeBuckets or direct res
+  var bucketData = null;
+  if (res.buckets && res.buckets[key]) {
+    bucketData = res.buckets[key];
+  } else if (res.timeframeBuckets && res.timeframeBuckets[key]) {
+    bucketData = res.timeframeBuckets[key];
+  } else if (res.buckets && res.buckets['today']) {
+    bucketData = res.buckets['today'];
+  } else {
+    bucketData = res;
+  }
 
-  var revenueVal = tb ? tb.revenue : (res.revenueToday || 0);
-  var ordersVal = tb ? tb.ordersCount : (res.ordersToday || 0);
-  var visitsVal = tb ? tb.visitsCount : (res.visitsToday || 0);
-  var conversionVal = tb ? tb.strikeRate : (res.conversionRatio || 0);
-  var avgSalesVal = tb ? tb.avgSales : (res.avgRsSales || 0);
-  var txnDealerVal = tb ? tb.txnPerDealer : (res.txnPerDealer || 0);
-  var uniqueDealersVal = tb ? tb.uniqueDealersCount : (res.uniqueDealersCount || 0);
+  // 1. Company-wide Metrics
+  var cm = bucketData.companyMetrics || {};
+  var cVisits = cm.visits !== undefined ? cm.visits : (bucketData.metrics ? bucketData.metrics.totalVisits : (bucketData.visitsCount || 0));
+  var cConv = (cm.conversionRatio !== undefined ? cm.conversionRatio : (bucketData.strikeRate || 0)) + "%";
+  var cAvgSales = "₹" + Number(cm.avgRsSales || bucketData.avgSales || 0).toLocaleString('en-IN');
+  var cTxnDealer = cm.txnPerDealer !== undefined ? cm.txnPerDealer : (bucketData.txnPerDealer || 0);
+  var cRevNum = Number(cm.revenue !== undefined ? cm.revenue : (bucketData.metrics ? bucketData.metrics.totalSales : (bucketData.revenue || 0)));
+  var cRev = "₹" + cRevNum.toLocaleString('en-IN');
+  var cOrders = cm.transactions !== undefined ? cm.transactions : (bucketData.ordersCount || 0);
+  var cDealers = cm.uniqueDealersCount !== undefined ? cm.uniqueDealersCount : (bucketData.uniqueDealersCount || 0);
+  var cProd = cm.productiveVisits !== undefined ? cm.productiveVisits : 0;
+  var cAvgPerVisit = "₹" + Number(cm.avgRsSalesPerVisit || 0).toLocaleString('en-IN');
 
-  var elRev = document.getElementById('ceoStatRevenue');
-  var elOrd = document.getElementById('ceoStatOrders');
-  var elVis = document.getElementById('ceoStatVisits');
-  var elConv = document.getElementById('ceoStatConversion');
-  var elAvg = document.getElementById('ceoStatAvgSales');
-  var elTxn = document.getElementById('ceoStatTxnDealer');
-  var elDealers = document.getElementById('ceoStatUniqueDealers');
+  // Update Hero Card & KPI Cards in DOM
+  var elCRev = document.getElementById('ceoRevenueVal') || document.getElementById('ceoStatRevenue');
+  var elCRevBadge = document.getElementById('ceoRevenueOrdersBadge') || document.getElementById('ceoStatOrders');
+  var elCVisits = document.getElementById('ceoVisitsVal') || document.getElementById('ceoStatVisits');
+  var elCVisitsSub = document.getElementById('ceoVisitsSub');
+  var elCConv = document.getElementById('ceoConversionVal') || document.getElementById('ceoStatConversion');
+  var elCConvSub = document.getElementById('ceoConversionSub');
+  var elCAvg = document.getElementById('ceoAvgSalesVal') || document.getElementById('ceoStatAvgSales');
+  var elCAvgSub = document.getElementById('ceoAvgSalesSub');
+  var elCTxn = document.getElementById('ceoTxnDealerVal') || document.getElementById('ceoStatTxnDealer');
+  var elCTxnSub = document.getElementById('ceoTxnDealerSub');
 
-  if (elRev) elRev.innerText = '₹' + Number(revenueVal).toLocaleString('en-IN');
-  if (elOrd) elOrd.innerText = ordersVal + (ordersVal === 1 ? ' order' : ' orders');
-  if (elVis) elVis.innerText = visitsVal;
-  if (elConv) elConv.innerText = conversionVal + '%';
-  if (elAvg) elAvg.innerText = '₹' + Number(avgSalesVal).toLocaleString('en-IN');
-  if (elTxn) elTxn.innerText = txnDealerVal;
-  if (elDealers) elDealers.innerText = uniqueDealersVal + ' dealers';
+  if (elCRev) elCRev.innerText = cRev;
+  if (elCRevBadge) elCRevBadge.innerText = cOrders + (cOrders === 1 ? ' Order' : ' Orders');
+  if (elCVisits) elCVisits.innerText = cVisits;
+  if (elCVisitsSub) elCVisitsSub.innerText = cDealers + (cDealers === 1 ? ' dealer' : ' dealers');
+  if (elCConv) elCConv.innerText = cConv;
+  if (elCConvSub) elCConvSub.innerText = cProd + '/' + cVisits + ' converted';
+  if (elCAvg) elCAvg.innerText = cAvgSales;
+  if (elCAvgSub) elCAvgSub.innerText = cAvgPerVisit + ' / visit';
+  if (elCTxn) elCTxn.innerText = cTxnDealer;
+  if (elCTxnSub) elCTxnSub.innerText = cOrders + (cOrders === 1 ? ' order' : ' orders');
 
-  // Render Leaderboard
-  var board = document.getElementById('ceoLeaderboard');
-  if (board && res.leaderboard) {
-    var filterStaff = (document.getElementById('ceoFilterStaff') ? document.getElementById('ceoFilterStaff').value : "") || "";
-    var html = "";
-    var currentRank = 1;
-    res.leaderboard.forEach(function(s) {
-      if (filterStaff && s.name !== filterStaff) return;
-      var rankBadge = currentRank === 1 ? '<span class="badge bg-warning text-dark fw-bold">🏆 #1 TOP PERFORMER</span>' : '<span class="badge bg-light text-secondary border">#' + currentRank + '</span>';
-      var sKey = s.name.replace(/\s+/g, '_');
-      var safeStaffName = s.name.replace(/'/g, "\\'");
-      var sMetrics = (tb && tb.staffBreakdown && tb.staffBreakdown[s.name]) ? tb.staffBreakdown[s.name] : { revenue: s.sales || 0, orders: s.orders || 0, visits: s.visits || 0, conversionRatio: s.strikeRate || 0, avgRsSales: s.avgSales || 0, txnPerDealer: s.txnDealer || 0 };
+  // 2. Render Team Leaderboard
+  var board = document.getElementById('leaderboardList') || document.getElementById('ceoLeaderboard');
+  if (board) {
+    var rawLeaderboard = bucketData.leaderboard || [];
+    if (!rawLeaderboard || rawLeaderboard.length === 0) {
+      board.innerHTML = '<div class="text-center p-4 text-muted border rounded bg-light">' +
+        '<i class="bi bi-calendar-x fs-3 d-block mb-1 text-secondary"></i>' +
+        'No sales staff activity recorded for this period.' +
+        '</div>';
+      return;
+    }
 
-      html += '<div class="card mb-3 border-0 shadow-sm" style="border-radius:12px; background:#ffffff; border:1px solid #e2e8f0;">' +
-                '<div class="card-body p-3">' +
-                  '<div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">' +
-                    '<div class="d-flex align-items-center gap-2">' +
-                      '<div class="rounded-circle bg-dark text-white fw-bold d-flex align-items-center justify-content-center" style="width:36px; height:36px; font-size:14px;">' + s.name.charAt(0) + '</div>' +
-                      '<div>' +
-                        '<h6 class="mb-0 fw-bold text-dark">' + s.name + ' ' + rankBadge + '</h6>' +
-                        '<small class="text-muted" style="font-size:11px;">Field Sales Representative</small>' +
-                      '</div>' +
-                    '</div>' +
-                    '<div class="d-flex align-items-center gap-1">' +
-                      '<button class="btn btn-sm btn-outline-secondary py-1 px-2" type="button" data-bs-toggle="collapse" data-bs-target="#drill_' + sKey + '" style="font-size:11.5px; border-radius:8px;">' +
-                        '<i class="bi bi-map"></i> Routes & Shops <i class="bi bi-chevron-down"></i>' +
-                      '</button>' +
-                    '</div>' +
-                  '</div>' +
-                  '<div class="row g-2 text-center">' +
-                    '<div class="col-4 col-md-2" onclick="openCeoPerfModal(\'revenue\', \'' + safeStaffName + '\')" style="cursor:pointer;">' +
-                      '<div class="p-2 rounded bg-light border"><small class="text-muted d-block" style="font-size:10px;">REVENUE</small><b class="text-dark" style="font-size:13px;">₹' + Number(sMetrics.revenue || 0).toLocaleString('en-IN') + '</b></div>' +
-                    '</div>' +
-                    '<div class="col-4 col-md-2" onclick="openCeoPerfModal(\'visits\', \'' + safeStaffName + '\')" style="cursor:pointer;">' +
-                      '<div class="p-2 rounded bg-light border"><small class="text-muted d-block" style="font-size:10px;">VISITS</small><b class="text-primary" style="font-size:13px;">' + (sMetrics.visits || 0) + '</b></div>' +
-                    '</div>' +
-                    '<div class="col-4 col-md-2" onclick="openCeoPerfModal(\'conversion\', \'' + safeStaffName + '\')" style="cursor:pointer;">' +
-                      '<div class="p-2 rounded bg-light border"><small class="text-muted d-block" style="font-size:10px;">STRIKE %</small><b class="text-success" style="font-size:13px;">' + (sMetrics.conversionRatio || 0) + '%</b></div>' +
-                    '</div>' +
-                    '<div class="col-4 col-md-2" onclick="openCeoPerfModal(\'avgSales\', \'' + safeStaffName + '\')" style="cursor:pointer;">' +
-                      '<div class="p-2 rounded bg-light border"><small class="text-muted d-block" style="font-size:10px;">AVG TICKET</small><b class="text-warning" style="font-size:13px;">₹' + Number(sMetrics.avgRsSales || 0).toLocaleString('en-IN') + '</b></div>' +
-                    '</div>' +
-                    '<div class="col-4 col-md-2" onclick="openCeoPerfModal(\'txnPerDealer\', \'' + safeStaffName + '\')" style="cursor:pointer;">' +
-                      '<div class="p-2 rounded bg-light border"><small class="text-muted d-block" style="font-size:10px;">TXN/DEALER</small><b class="text-purple" style="font-size:13px;">' + (sMetrics.txnPerDealer || 0) + '</b></div>' +
-                    '</div>' +
-                    '<div class="col-4 col-md-2">' +
-                      '<div class="p-2 rounded bg-light border"><small class="text-muted d-block" style="font-size:10px;">STATUS</small><span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size:9.5px;">Active Field</span></div>' +
-                    '</div>' +
-                  '</div>' +
-                '</div>' +
+    var boardHtml = '<div class="accordion accordion-flush" id="staffAccordion">';
+    rawLeaderboard.forEach(function(staff, index) {
+      var rankBadge = '';
+      if (index === 0) {
+        rankBadge = '<span class="badge bg-warning text-dark ms-2 fw-bold" style="font-size:10.5px;"><i class="bi bi-trophy-fill text-dark me-1"></i>#1 TOP PERFORMER</span>';
+      } else if (index === 1) {
+        rankBadge = '<span class="badge bg-secondary-subtle text-dark border ms-2 fw-semibold" style="font-size:10.5px;">#2</span>';
+      } else if (index === 2) {
+        rankBadge = '<span class="badge bg-secondary-subtle text-dark border ms-2 fw-semibold" style="font-size:10.5px;">#3</span>';
+      } else {
+        rankBadge = '<span class="badge bg-light text-muted border ms-2" style="font-size:10.5px;">#' + (index + 1) + '</span>';
+      }
+
+      var collapseId = 'collapse' + index;
+      var sm = staff.metrics || {
+        visits: staff.visits || 0,
+        conversionRatio: staff.strike || 0,
+        productiveVisits: 0,
+        avgRsSales: 0,
+        avgRsSalesPerVisit: 0,
+        txnPerDealer: 0,
+        revenue: staff.sales || 0,
+        transactions: staff.orders || 0,
+        uniqueDealersCount: 0
+      };
+
+      var safeStaffName = staff.name ? staff.name.replace(/'/g, "\\'") : "";
+      var staffInitial = staff.name ? staff.name.charAt(0).toUpperCase() : "?";
+
+      var areasHtml = '<div class="text-muted small p-2">No individual route orders logged for this timeframe.</div>';
+      if (staff.areas && Object.keys(staff.areas).length > 0) {
+        areasHtml = '<div class="accordion accordion-flush border-top" id="areaAcc' + index + '">';
+        var aIdx = 0;
+        for (var areaName in staff.areas) {
+          var areaData = staff.areas[areaName];
+          var areaColId = 'areaCol_' + index + '_' + aIdx;
+          var dealersHtml = "";
+          for (var dName in areaData.dealers) {
+            var dData = areaData.dealers[dName];
+            var safePayload = (typeof makeSafePayload === 'function') ? makeSafePayload({ dealer: dName, data: dData, staff: staff.name }) : "{}";
+            dealersHtml += '<div class="d-flex justify-content-between align-items-center p-2 border-bottom" style="font-size:12px;">' +
+              '<div><b>' + dName + '</b> <span class="badge bg-light text-dark border ms-1">' + (dData.visits || 0) + ' visits</span></div>' +
+              '<button class="btn btn-xs btn-outline-primary py-0 px-2" style="font-size:11px;" onclick="openDetailModal(' + safePayload + ')">View Details</button>' +
               '</div>';
-      currentRank++;
+          }
+          areasHtml += '<div class="accordion-item">' +
+            '<h2 class="accordion-header">' +
+            '<button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#' + areaColId + '" style="font-size:12px;">' +
+            '<b>' + areaName + '</b> (' + (areaData.visits || 0) + ' visits)' +
+            '</button>' +
+            '</h2>' +
+            '<div id="' + areaColId + '" class="collapse">' +
+            '<div class="p-2">' + dealersHtml + '</div>' +
+            '</div>' +
+            '</div>';
+          aIdx++;
+        }
+        areasHtml += '</div>';
+      }
+
+      boardHtml += '<div class="card mb-3 border shadow-sm" style="border-radius:12px; overflow:hidden;">' +
+        '<div class="card-header bg-white d-flex justify-content-between align-items-center p-3 border-bottom">' +
+        '<div class="d-flex align-items-center gap-2">' +
+        '<div class="rounded-circle bg-dark text-white fw-bold d-flex align-items-center justify-content-center" style="width:36px; height:36px; font-size:14px;">' + staffInitial + '</div>' +
+        '<div>' +
+        '<h6 class="mb-0 fw-bold text-dark">' + staff.name + ' ' + rankBadge + '</h6>' +
+        '<small class="text-muted" style="font-size:11px;">Field Sales Representative</small>' +
+        '</div>' +
+        '</div>' +
+        '<div>' +
+        '<button class="btn btn-sm btn-outline-secondary fw-bold px-3 py-1" type="button" data-bs-toggle="collapse" data-bs-target="#' + collapseId + '" style="font-size:11.5px; border-radius: 8px;">' +
+        '<i class="bi bi-map"></i> Routes & Shops <i class="bi bi-chevron-down ms-1"></i>' +
+        '</button>' +
+        '</div>' +
+        '</div>' +
+        '<div class="p-2 bg-light border-bottom">' +
+        '<div class="row g-2 text-center">' +
+        '<div class="col-6 col-md-2" style="cursor:pointer;" onclick="openCeoPerfModal(\'visits\', \'' + safeStaffName + '\')">' +
+        '<div class="staff-metric-box border-primary-subtle p-2 rounded bg-white border">' +
+        '<div class="text-muted fw-bold" style="font-size:10px; text-transform:uppercase;">1. Visits</div>' +
+        '<div class="fw-bold text-primary fs-5 mt-1">' + sm.visits + '</div>' +
+        '<div class="text-muted" style="font-size:10px;">' + (sm.uniqueDealersCount || 0) + ' dealers</div>' +
+        '</div>' +
+        '</div>' +
+        '<div class="col-6 col-md-2" style="cursor:pointer;" onclick="openCeoPerfModal(\'conversion\', \'' + safeStaffName + '\')">' +
+        '<div class="staff-metric-box border-success-subtle p-2 rounded bg-white border">' +
+        '<div class="text-muted fw-bold" style="font-size:10px; text-transform:uppercase;">2. Strike Rate</div>' +
+        '<div class="fw-bold text-success fs-5 mt-1">' + (sm.conversionRatio || 0) + '%</div>' +
+        '<div class="text-muted" style="font-size:10px;">' + (sm.productiveVisits || 0) + '/' + (sm.visits || 0) + ' converted</div>' +
+        '</div>' +
+        '</div>' +
+        '<div class="col-6 col-md-2" style="cursor:pointer;" onclick="openCeoPerfModal(\'avgSales\', \'' + safeStaffName + '\')">' +
+        '<div class="staff-metric-box border-warning-subtle p-2 rounded bg-white border">' +
+        '<div class="text-muted fw-bold" style="font-size:10px; text-transform:uppercase;">3. Avg / Visit</div>' +
+        '<div class="fw-bold text-warning-emphasis fs-5 mt-1">₹' + Number(sm.avgRsSalesPerVisit || 0).toLocaleString('en-IN') + '</div>' +
+        '<div class="text-muted" style="font-size:10px;">₹' + Number(sm.avgRsSales || 0).toLocaleString('en-IN') + ' / order</div>' +
+        '</div>' +
+        '</div>' +
+        '<div class="col-6 col-md-2" style="cursor:pointer;" onclick="openCeoPerfModal(\'txnPerDealer\', \'' + safeStaffName + '\')">' +
+        '<div class="staff-metric-box border-purple-subtle p-2 rounded bg-white border">' +
+        '<div class="text-muted fw-bold" style="font-size:10px; text-transform:uppercase;">4. Txn / Dealer</div>' +
+        '<div class="fw-bold text-dark fs-5 mt-1">' + (sm.txnPerDealer || 0) + '</div>' +
+        '<div class="text-muted" style="font-size:10px;">' + (sm.transactions || 0) + ' orders</div>' +
+        '</div>' +
+        '</div>' +
+        '<div class="col-12 col-md-4" style="cursor:pointer;" onclick="openCeoPerfModal(\'revenue\', \'' + safeStaffName + '\')">' +
+        '<div class="staff-metric-box bg-dark text-white border-0 shadow-sm p-2 rounded">' +
+        '<div class="text-white-50 fw-bold" style="font-size:10px; text-transform:uppercase;">5. Total Field Sales</div>' +
+        '<div class="fw-bold text-warning fs-5 mt-1">₹' + Number(sm.revenue || 0).toLocaleString('en-IN') + '</div>' +
+        '<div class="text-white-50" style="font-size:10px;">' + (sm.transactions || 0) + ' Verified Orders</div>' +
+        '</div>' +
+        '</div>' +
+        '</div>' +
+        '</div>' +
+        '<div id="' + collapseId + '" class="collapse">' +
+        '<div class="p-2">' + areasHtml + '</div>' +
+        '</div>' +
+        '</div>';
     });
-    board.innerHTML = html;
+    boardHtml += '</div>';
+    board.innerHTML = boardHtml;
   }
 }
 
-function onCeoFilterChange() {
-  renderCeoDashboard(ceoSelectedTimeframe);
-}
-
-function refreshCEOStatsFromServer(callback, manual) {
+function refreshCEOStatsFromServer(callback, manual, customStartStr, customEndStr) {
   var spin = document.getElementById('ceoSyncSpinner');
   if (spin) spin.style.display = 'inline-block';
+  var btn = document.getElementById('btnRefreshCEO');
+  if (btn) {
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Syncing God\'s Eye...';
+    btn.disabled = true;
+  }
   
   if (typeof google !== 'undefined' && google.script && google.script.run) {
-    google.script.run
+    var runner = google.script.run
       .withSuccessHandler(function(res) {
         if (spin) spin.style.display = 'none';
+        if (btn) {
+          btn.innerHTML = '<b><i class="bi bi-arrow-clockwise"></i> Force Sync Data</b>';
+          btn.disabled = false;
+        }
         if (res && !res.error) {
           cachedCeoServerData = res;
           renderCeoDashboard(ceoSelectedTimeframe);
@@ -2172,9 +2304,18 @@ function refreshCEOStatsFromServer(callback, manual) {
       })
       .withFailureHandler(function(err) {
         if (spin) spin.style.display = 'none';
+        if (btn) {
+          btn.innerHTML = '<b><i class="bi bi-arrow-clockwise"></i> Force Sync Data</b>';
+          btn.disabled = false;
+        }
         console.error("CEO stats fetch error:", err);
-      })
-      .getCEOStats();
+      });
+
+    if (customStartStr && customEndStr) {
+      runner.getCEOStats('custom', customStartStr, customEndStr);
+    } else {
+      runner.getCEOStats();
+    }
   }
 }
 
@@ -2186,17 +2327,21 @@ function refreshCEOStats() {
 function openCeoPerfModal(metricType, filterStaff) {
   if (!cachedCeoServerData) return;
   var res = cachedCeoServerData;
-  var tb = (res.timeframeBuckets && res.timeframeBuckets[ceoSelectedTimeframe]) ? res.timeframeBuckets[ceoSelectedTimeframe] : null;
-  var periodLabel = KPI_PERIOD_LABELS[ceoSelectedTimeframe] || 'Selected Timeframe';
-  var titlePrefix = filterStaff === 'company' ? 'Company-Wide' : filterStaff;
+  var key = ceoSelectedTimeframe || 'today';
+  var bucketData = (res.buckets && res.buckets[key]) ? res.buckets[key] : (res.timeframeBuckets && res.timeframeBuckets[key] ? res.timeframeBuckets[key] : (res.buckets ? res.buckets['today'] : res));
+  var periodLabel = (typeof KPI_PERIOD_LABELS !== 'undefined' && KPI_PERIOD_LABELS[key]) ? KPI_PERIOD_LABELS[key] : 'Selected Timeframe';
+  var titlePrefix = (filterStaff === 'company' || !filterStaff) ? 'Company-Wide' : filterStaff;
 
   var header = document.getElementById('perfModalHeader');
   var title = document.getElementById('perfModalTitle');
   var body = document.getElementById('perfModalBody');
   if (!header || !title || !body) return;
 
-  var rawVisits = (tb && tb.visitsList) ? tb.visitsList : (res.recentVisits || []);
-  var visitsList = (filterStaff === 'company') ? rawVisits : rawVisits.filter(function(v) { return v.staff === filterStaff; });
+  var rawVisits = bucketData.companyVisitsList || bucketData.visitsList || (res.recentVisits || []);
+  var visitsList = (filterStaff === 'company' || !filterStaff) ? rawVisits : rawVisits.filter(function(v) { return v.staff === filterStaff; });
+
+  var rawOrders = bucketData.companyOrdersList || bucketData.ordersList || [];
+  var ordersList = (filterStaff === 'company' || !filterStaff) ? rawOrders : rawOrders.filter(function(o) { return o.staff === filterStaff; });
 
   if (metricType === 'visits') {
     header.style.background = '#0d6efd';
@@ -2208,7 +2353,7 @@ function openCeoPerfModal(metricType, filterStaff) {
                  '<thead class="table-dark"><tr><th>#</th><th>Dealer</th><th>Staff</th><th>Area</th><th>Time</th><th>GPS</th></tr></thead><tbody>';
       visitsList.forEach(function(v, idx) {
         var mapLink = v.location ? '<a href="https://www.google.com/maps?q=' + encodeURIComponent(v.location) + '" target="_blank" class="btn btn-xs btn-outline-primary py-0 px-1" style="font-size:10.5px;"><i class="bi bi-geo-alt"></i> Map</a>' : '--';
-        html += '<tr><td>' + (idx + 1) + '</td><td><b>' + v.dealer + '</b></td><td>' + (v.staff || '--') + '</td><td>' + (v.area || '--') + '</td><td>' + formatVisitDateTime(v.dateStr, v.timeStr) + '</td><td>' + mapLink + '</td></tr>';
+        html += '<tr><td>' + (idx + 1) + '</td><td><b>' + (v.dealer || '--') + '</b></td><td>' + (v.staff || '--') + '</td><td>' + (v.area || '--') + '</td><td>' + (typeof formatVisitDateTime === 'function' ? formatVisitDateTime(v.dateStr, v.timeStr) : (v.dateStr || '--')) + '</td><td>' + mapLink + '</td></tr>';
       });
       html += '</tbody></table></div>';
       body.innerHTML = html;
@@ -2216,21 +2361,41 @@ function openCeoPerfModal(metricType, filterStaff) {
   } else if (metricType === 'conversion') {
     header.style.background = '#16a34a';
     title.innerHTML = '<i class="bi bi-pie-chart-fill"></i> ' + titlePrefix + ' Conversion Strike Rate';
-    body.innerHTML = '<div class="p-3 text-center"><h3 class="fw-bold text-success">' + (tb ? tb.strikeRate : (res.conversionRatio || 0)) + '%</h3><p class="text-muted small">Converted store visits into verified transactions in ' + periodLabel + '</p></div>';
+    var convVal = bucketData.companyMetrics ? bucketData.companyMetrics.conversionRatio : (bucketData.strikeRate || 0);
+    body.innerHTML = '<div class="p-3 text-center"><h3 class="fw-bold text-success">' + convVal + '%</h3><p class="text-muted small">Converted store visits into verified transactions in ' + periodLabel + '</p></div>';
   } else if (metricType === 'avgSales') {
     header.style.background = '#d97706';
     title.innerHTML = '<i class="bi bi-currency-rupee"></i> ' + titlePrefix + ' Average Order Value';
-    body.innerHTML = '<div class="p-3 text-center"><h3 class="fw-bold text-warning">₹' + Number(tb ? tb.avgSales : (res.avgRsSales || 0)).toLocaleString('en-IN') + '</h3><p class="text-muted small">Average ticket size per closed order</p></div>';
+    var avgVal = bucketData.companyMetrics ? bucketData.companyMetrics.avgRsSales : (bucketData.avgSales || 0);
+    body.innerHTML = '<div class="p-3 text-center"><h3 class="fw-bold text-warning">₹' + Number(avgVal).toLocaleString('en-IN') + '</h3><p class="text-muted small">Average ticket size per closed order</p></div>';
   } else if (metricType === 'txnPerDealer') {
     header.style.background = '#7c3aed';
     title.innerHTML = '<i class="bi bi-layers-fill"></i> ' + titlePrefix + ' Transactions per Dealer';
-    body.innerHTML = '<div class="p-3 text-center"><h3 class="fw-bold text-purple">' + (tb ? tb.txnPerDealer : (res.txnPerDealer || 0)) + '</h3><p class="text-muted small">Average order frequency per dealer in ' + periodLabel + '</p></div>';
+    var txnVal = bucketData.companyMetrics ? bucketData.companyMetrics.txnPerDealer : (bucketData.txnPerDealer || 0);
+    body.innerHTML = '<div class="p-3 text-center"><h3 class="fw-bold text-purple">' + txnVal + '</h3><p class="text-muted small">Average order frequency per dealer in ' + periodLabel + '</p></div>';
   } else if (metricType === 'revenue') {
     header.style.background = '#0f172a';
-    title.innerHTML = '<i class="bi bi-cash-stack text-warning"></i> ' + titlePrefix + ' Revenue Breakdown';
-    body.innerHTML = '<div class="p-3 text-center"><h3 class="fw-bold text-dark">₹' + Number(tb ? tb.revenue : (res.revenueToday || 0)).toLocaleString('en-IN') + '</h3><p class="text-muted small">Total verified field billing recorded in ' + periodLabel + '</p></div>';
+    title.innerHTML = '<i class="bi bi-cash-stack text-warning"></i> ' + titlePrefix + ' Revenue Breakdown (' + ordersList.length + ' Orders)';
+    if (ordersList.length === 0) {
+      body.innerHTML = '<div class="text-center p-4 text-muted fw-bold">No verified field orders recorded for ' + periodLabel + '.</div>';
+    } else {
+      var html = '<div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0" style="font-size:12.5px;">' +
+                 '<thead class="table-dark"><tr><th>#</th><th>Dealer</th><th>Staff</th><th>Area</th><th>Amount</th></tr></thead><tbody>';
+      var tot = 0;
+      ordersList.forEach(function(o, idx) {
+        var amt = Number(o.amount || o.sales || 0);
+        tot += amt;
+        html += '<tr><td>' + (idx + 1) + '</td><td><b>' + (o.dealer || '--') + '</b></td><td>' + (o.staff || '--') + '</td><td>' + (o.area || '--') + '</td><td class="fw-bold text-success">₹' + amt.toLocaleString('en-IN') + '</td></tr>';
+      });
+      html += '<tr class="table-light fw-bold"><td colspan="4" class="text-end">Total:</td><td class="text-success">₹' + tot.toLocaleString('en-IN') + '</td></tr>';
+      html += '</tbody></table></div>';
+      body.innerHTML = html;
+    }
   }
-  new bootstrap.Modal(document.getElementById('perfDetailModal')).show();
+  if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+    var modalEl = document.getElementById('perfDetailModal');
+    if (modalEl) new bootstrap.Modal(modalEl).show();
+  }
 }
 
 function openStaffRadarModal() {
@@ -2377,7 +2542,7 @@ function renderStaffRadar(staffList) {
 }
 
 function refreshCeoDashboardRadar(manual) {
-  var container = document.getElementById('ceoStaffRadarGrid');
+  var container = document.getElementById('ceoLiveRadarWidgetContainer') || document.getElementById('ceoStaffRadarGrid');
   if (!container) return;
 
   fetchStaffRadarTelemetry(function(staffList) {
@@ -3255,16 +3420,23 @@ function submitData() {
 
 function populateBriefingAreas() {
   if (typeof google === 'undefined' || !google.script || !google.script.run) return;
-  google.script.run.withSuccessHandler(function(areas) {
-    var sel = document.getElementById('briefingArea');
-    if (!sel) return;
-    sel.innerHTML = '<option value="">Select Area for Today...</option>';
-    if (Array.isArray(areas)) {
-      areas.forEach(function(a) {
-        sel.innerHTML += '<option value="' + a + '">' + a + '</option>';
-      });
+  try {
+    var runner = google.script.run.withSuccessHandler(function(areas) {
+      var sel = document.getElementById('briefingArea');
+      if (!sel) return;
+      sel.innerHTML = '<option value="">Select Area for Today...</option>';
+      if (Array.isArray(areas)) {
+        areas.forEach(function(a) {
+          sel.innerHTML += '<option value="' + a + '">' + a + '</option>';
+        });
+      }
+    });
+    if (runner && typeof runner.getAreas === 'function') {
+      runner.getAreas();
     }
-  }).getAreas();
+  } catch(e) {
+    console.warn("populateBriefingAreas warning:", e);
+  }
 }
 
 var originalRefreshCEO = refreshCEOStats;
