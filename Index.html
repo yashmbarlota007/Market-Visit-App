@@ -1777,7 +1777,18 @@ function generateEOD() {
         alert("Error compiling EOD: " + (err && err.message ? err.message : err));
       })
       .withSuccessHandler(function(msg) {
-        globalEODMessage = msg || "";
+        var rawText = msg || "";
+        // Decode in case backend returned URL-encoded text
+        while (rawText.includes('%20') || rawText.includes('%0A') || rawText.includes('%F0')) {
+          try {
+            var dec = decodeURIComponent(rawText);
+            if (dec === rawText) break;
+            rawText = dec;
+          } catch(e) {
+            break;
+          }
+        }
+        globalEODMessage = rawText;
         if (btn) {
           btn.innerHTML = '<b><i class="bi bi-file-earmark-bar-graph"></i> Generate EOD Report</b>';
           btn.disabled = false;
@@ -1802,10 +1813,20 @@ function generateEOD() {
 }
 
 function sendToWhatsApp() {
-  var text = globalEODMessage || (document.getElementById('eodPreviewText') ? document.getElementById('eodPreviewText').value : "");
+  var text = (document.getElementById('eodPreviewText') && document.getElementById('eodPreviewText').value) ? document.getElementById('eodPreviewText').value : globalEODMessage;
   if (!text) {
     alert("Please generate the EOD report first.");
     return;
+  }
+  // Double-decode guard: Ensure text is completely decoded before encoding for WhatsApp URL
+  while (text.includes('%20') || text.includes('%0A') || text.includes('%F0')) {
+    try {
+      var decoded = decodeURIComponent(text);
+      if (decoded === text) break;
+      text = decoded;
+    } catch(e) {
+      break;
+    }
   }
   var encoded = encodeURIComponent(text);
   window.open('https://api.whatsapp.com/send?text=' + encoded, '_blank');
