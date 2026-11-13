@@ -429,6 +429,14 @@ function fetchAndMapOrders() {
   return orderList;
 }
 
+function getCachedExternalOrders() {
+  return fetchAndMapOrders();
+}
+
+function fetchExternalOrdersData() {
+  return fetchAndMapOrders();
+}
+
 // -------------------------------------------------------------
 // SLEEPING GIANTS RETENTION ENGINE & SYSTEM AUDIT
 // -------------------------------------------------------------
@@ -1989,9 +1997,9 @@ function generateMorningBriefing(areaName) {
   var report = "━━━━━━━━━━━━━━━━━━━" + nl;
   report += "🌅 *MORNING ROUTE PLAN* 🌅" + nl;
   report += "━━━━━━━━━━━━━━━━━━━" + nl;
-  report += "��� *Area:* " + areaClean + nl;
+  report += "• *Area:* " + areaClean + nl;
   report += "👤 *Staff:* " + staffName + nl;
-  report += "�� *Date:* " + Utilities.formatDate(now, Session.getScriptTimeZone(), "dd-MMM-yyyy") + nl + nl;
+  report += "• *Date:* " + Utilities.formatDate(now, Session.getScriptTimeZone(), "dd-MMM-yyyy") + nl + nl;
   
   var totalTarget = 1000000; // 10 Lakhs Total
   var targetPct = Math.round((mtdSales / totalTarget) * 100);
@@ -2000,7 +2008,7 @@ function generateMorningBriefing(areaName) {
   var wtdPct = Math.round((wtdSales / wtdTarget) * 100);
 
   report += "🎯 *TARGET vs ACHIEVEMENT*" + nl;
-  report += "��� *MTD (Is Mahine):* ₹" + (mtdSales/100000).toFixed(2) + "L / ₹10L (" + targetPct + "%)" + nl;
+  report += "• *MTD (Is Mahine):* ₹" + (mtdSales/100000).toFixed(2) + "L / ₹10L (" + targetPct + "%)" + nl;
   report += "• *WTD (Is Hafte):* ₹" + (wtdSales/100000).toFixed(2) + "L / ₹2.5L (" + wtdPct + "%)" + nl + nl;
   
   report += "📊 *BRAND TARGETS (MTD)*" + nl;
@@ -2008,7 +2016,7 @@ function generateMorningBriefing(areaName) {
   report += "• *Portronics:* ₹" + (brandSales["PORTRONICS"]/1000).toFixed(1) + "k / ₹2.5L" + nl;
   report += "• *GoBoult:* ₹" + (brandSales["GOBOULT"]/1000).toFixed(1) + "k / ₹2.5L" + nl;
   report += "• *Velocity:* ₹" + (brandSales["VELOCITY"]/1000).toFixed(1) + "k / ₹2.5L" + nl;
-  report += "�� *Hikvision:* ₹" + (brandSales["HIKVISION"]/1000).toFixed(1) + "k / ₹1.0L" + nl;
+  report += "• *Hikvision:* ₹" + (brandSales["HIKVISION"]/1000).toFixed(1) + "k / ₹1.0L" + nl;
   
   report += "━━━━━━━━━━━━━━━━━━━" + nl;
   
@@ -2035,7 +2043,7 @@ function generateMorningBriefing(areaName) {
       var avg4M = Math.round(vData.sales4Months / 4);
       
       report += (i+1) + ". *" + vName + "*" + nl;
-      report += "   📈 Is Mahine: ��" + (vData.salesMTD/1000).toFixed(1) + "k | Pichle Mahine: ₹" + (vData.salesLastMonth/1000).toFixed(1) + "k" + nl;
+      report += "   📈 Is Mahine: •" + (vData.salesMTD/1000).toFixed(1) + "k | Pichle Mahine: ₹" + (vData.salesLastMonth/1000).toFixed(1) + "k" + nl;
       report += "   📊 4-Month Avg: ₹" + (avg4M/1000).toFixed(1) + "k" + nl;
     }
   } else { 
@@ -2063,7 +2071,7 @@ function generateMorningBriefing(areaName) {
      report += "No stock outs reported." + nl; 
   }
   
-  report += "━━━━━━━━━━━━━━━━��━━" + nl;
+  report += "━━━━━━━━━━━━━━━━•━━" + nl;
   report += "🔥 *Faad do aaj market!* 🔥";
   
   return encodeURIComponent(report);
