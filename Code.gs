@@ -957,11 +957,14 @@ function getStaffDashboardData(staffName) {
   var staffNameClean = String(staffName || "").trim();
   
   var bucketKeys = ['today', 'yesterday', 'thisWeek', 'lastWeek', 'thisMonth', 'lastMonth', 'thisQuarter', 'lastQuarter', 'thisYear'];
-  var dashboard = { rules: {} };
+  var rules = getIncentiveRules();
+  var dashboard = { rules: rules };
   for (var bk = 0; bk < bucketKeys.length; bk++) {
     dashboard[bucketKeys[bk]] = {
       visits: 0,
       sales: 0,
+      incentive: 0,
+      ledger: [],
       visitsList: [],
       ordersList: [],
       metrics: {
@@ -1104,7 +1107,8 @@ function compileEODReport(staffName) {
 
 function generateWhatsAppEOD(staffName) {
   var dash = getStaffDashboardData(staffName);
-  var staffNameClean = String(staffName).trim();
+  var rules = (dash && dash.rules) ? dash.rules : getIncentiveRules();
+  var staffNameClean = String(staffName || "").trim();
   
   var todayVisits = [];
   var visitedDealersToday = [];
@@ -1149,7 +1153,7 @@ function generateWhatsAppEOD(staffName) {
             { idx: 19, name: "BOAT Neckband" }, 
             { idx: 20, name: "BOAT Powerbank" },
             { idx: 23, name: "GoBoult Airpods" }, 
-            { idx: 24, name: "GoBoult Neckband" },
+            { idx: 24, name: "GoBoult Neckband" }, 
             { idx: 33, name: "Velocity Airpods" }, 
             { idx: 34, name: "Velocity Neckband" }, 
             { idx: 35, name: "Velocity Cable" }
@@ -1196,7 +1200,7 @@ function generateWhatsAppEOD(staffName) {
       if (!rankMap[ordStaffClean]) {
          rankMap[ordStaffClean] = 0;
       }
-      rankMap[ordStaffClean] += ord.amount;
+      rankMap[ordStaffClean] += (ord.amount || 0);
       
       if (ordStaffClean === staffNameClean && ord.shop) {
         var clnShop = ord.shop.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -1207,7 +1211,8 @@ function generateWhatsAppEOD(staffName) {
     
   var sortedStaff = Object.keys(rankMap).sort(function(a, b) { return rankMap[b] - rankMap[a]; });
   var myRank = sortedStaff.indexOf(staffNameClean) + 1;
-  if (myRank === 0 && dash.today.sales > 0) myRank = 1; 
+  var todaySales = (dash.today && dash.today.sales) ? dash.today.sales : 0;
+  if (myRank === 0 && todaySales > 0) myRank = 1; 
   
   var zeroSaleDealers = [];
   for (var v = 0; v < visitedDealersToday.length; v++) {
@@ -1232,24 +1237,36 @@ function generateWhatsAppEOD(staffName) {
   var actHrs = Math.floor(activeMins / 60);
   var actM = activeMins % 60;
   var avgMinsPerStore = todayVisits.length > 0 ? Math.round(activeMins / todayVisits.length) : 0;
-  var moneyLeftOnTable = zeroSaleDealers.length * dash.rules.visitRate; 
   
+  var visitRate = (rules && typeof rules.visitRate === 'number' && rules.visitRate > 0) ? rules.visitRate : 50;
+  var moneyLeftOnTable = zeroSaleDealers.length * visitRate; 
+  if (isNaN(moneyLeftOnTable) || !moneyLeftOnTable) moneyLeftOnTable = 0;
+  
+  var todayIncentive = (dash.today && typeof dash.today.incentive === 'number' && !isNaN(dash.today.incentive)) ? dash.today.incentive : 0;
+
   var TARGET_WEEK = 150000;
   var TARGET_MONTH = 600000;
-  var paceWeek = TARGET_WEEK - dash.thisWeek.sales;
-  var paceMonth = TARGET_MONTH - dash.thisMonth.sales;
+  var thisWeekSales = (dash.thisWeek && dash.thisWeek.sales) ? dash.thisWeek.sales : 0;
+  var thisMonthSales = (dash.thisMonth && dash.thisMonth.sales) ? dash.thisMonth.sales : 0;
+  var paceWeek = TARGET_WEEK - thisWeekSales;
+  var paceMonth = TARGET_MONTH - thisMonthSales;
   
-  var focusArr = [];
-  for (var b in dash.today.brandPcs) {
-      var onlyLetters = b.replace(/[^A-Z]/g, '');
-      if (onlyLetters.length > 1) focusArr.push(onlyLetters);
-  }
-  
+  // Extract focus brands sold from today's orders
   var uniqueFocus = [];
-  for (var i = 0; i < focusArr.length; i++) {
-      if (uniqueFocus.indexOf(focusArr[i]) === -1) {
-         uniqueFocus.push(focusArr[i]);
+  if (dash.today && dash.today.ordersList && dash.today.ordersList.length > 0) {
+    for (var oi = 0; oi < dash.today.ordersList.length; oi++) {
+      var itmStr = dash.today.ordersList[oi].items || "";
+      if (itmStr) {
+        var itmParts = itmStr.split('|');
+        for (var ip = 0; ip < itmParts.length; ip++) {
+          var brMatch = itmParts[ip].trim().split(' ')[0];
+          var brClean = brMatch.toUpperCase().replace(/[^A-Z]/g, '');
+          if (brClean && brClean.length > 2 && uniqueFocus.indexOf(brClean) === -1) {
+            uniqueFocus.push(brClean);
+          }
+        }
       }
+    }
   }
   var focusBrandsSold = uniqueFocus.length > 0 ? uniqueFocus.join(", ") : "None";
 
@@ -1261,7 +1278,7 @@ function generateWhatsAppEOD(staffName) {
   report += "*🔥 1. CORE CONVERSION*" + nl;
   report += "• Total Visits: *" + todayVisits.length + "*" + nl;
   report += "• Productive: *" + productiveCount + "* (" + strikeRate + "% Strike Rate)" + nl;
-  report += "• Total Sales: *₹ " + dash.today.sales.toLocaleString('en-IN') + "*" + nl;
+  report += "• Total Sales: *₹ " + Math.round(todaySales).toLocaleString('en-IN') + "*" + nl;
   report += "• Zero-Sale Counters: *" + zeroSaleDealers.length + "*" + nl;
   if (zeroSaleDealers.length > 0 && zeroSaleDealers.length <= 5) {
      report += "  _(" + zeroSaleDealers.join(", ") + ")_" + nl;
@@ -1288,18 +1305,18 @@ function generateWhatsAppEOD(staffName) {
   report += nl;
   
   report += "*💰 4. GAMIFICATION & INCENTIVE*" + nl;
-  report += "• Today's Incentive: *₹ " + dash.today.incentive + "*" + nl;
-  report += "• Money Left on Table: *~₹ " + moneyLeftOnTable + "* _(Lost due to zero-sale visits)_" + nl;
-  report += "• Daily Office Rank: *#" + (myRank || "-") + "* 🏆" + nl;
+  report += "• Today's Incentive: *₹ " + Math.round(todayIncentive).toLocaleString('en-IN') + "*" + nl;
+  report += "• Money Left on Table: *~₹ " + Math.round(moneyLeftOnTable).toLocaleString('en-IN') + "* _(Lost due to zero-sale visits)_" + nl;
+  report += "• Daily Office Rank: *" + (myRank > 0 ? "#" + myRank : "-") + "* 🏆" + nl;
   report += nl;
   
-  report += "*������ 5. GROWTH TRACKER*" + nl;
-  report += "• Today: *₹ " + dash.today.sales.toLocaleString('en-IN') + "*" + nl;
-  report += "• Yesterday: *₹ " + dash.yesterday.sales.toLocaleString('en-IN') + "*" + nl;
-  report += "• This Week: *₹ " + dash.thisWeek.sales.toLocaleString('en-IN') + "* " + (paceWeek > 0 ? "(_Need ₹" + paceWeek.toLocaleString('en-IN') + " for Target_)" : "(_Target Hit! 🎯_)") + nl;
-  report += "• This Month: *₹ " + dash.thisMonth.sales.toLocaleString('en-IN') + "* " + (paceMonth > 0 ? "(_Need ₹" + paceMonth.toLocaleString('en-IN') + " for Target_)" : "(_Target Hit! 🎯_)") + nl;
+  report += "*📈 5. GROWTH TRACKER*" + nl;
+  report += "• Today: *₹ " + Math.round(todaySales).toLocaleString('en-IN') + "*" + nl;
+  report += "• Yesterday: *₹ " + Math.round((dash.yesterday && dash.yesterday.sales) ? dash.yesterday.sales : 0).toLocaleString('en-IN') + "*" + nl;
+  report += "• This Week: *₹ " + Math.round(thisWeekSales).toLocaleString('en-IN') + "* " + (paceWeek > 0 ? "(_Need ₹" + Math.round(paceWeek).toLocaleString('en-IN') + " for Target_)" : "(_Target Hit! 🎯_)") + nl;
+  report += "• This Month: *₹ " + Math.round(thisMonthSales).toLocaleString('en-IN') + "* " + (paceMonth > 0 ? "(_Need ₹" + Math.round(paceMonth).toLocaleString('en-IN') + " for Target_)" : "(_Target Hit! 🎯_)") + nl;
 
-  return encodeURIComponent(report);
+  return report;
 }
 
 function getAreas() {
