@@ -1975,7 +1975,7 @@ function openPerfModal(metricType) {
     } else {
       breakdown.forEach(function(b, idx) {
         var isConv = b.isConverted;
-        var badge = isConv ? '<span class="badge bg-success">Converted (₹' + (b.sales || 0).toLocaleString('en-IN') + ')</span>' : '<span class="badge bg-secondary">Visit Only (₹0)</span>';
+        var badge = isConv ? '<span class="badge bg-success">Converted (₹' + (b.sales || 0).toLocaleString('en-IN') + ')</span>' : '<span class="badge bg-secondary">Visit Only (���0)</span>';
         var borderLeft = isConv ? 'border-left: 4px solid #16a34a !important;' : 'border-left: 4px solid #6c757d !important;';
         
         html += '<div class="card mb-2 border-0 shadow-sm" style="border-radius:10px; ' + borderLeft + '">' +
@@ -3498,27 +3498,45 @@ refreshCEOStats = function() {
 };
 
 function generateMorningWhatsApp() {
-  var area = document.getElementById('briefingArea').value;
+  var areaSelect = document.getElementById('briefingArea');
+  var area = areaSelect ? areaSelect.value : "";
   if (!area) {
     alert("Please select an area first.");
     return;
   }
   
-  var btn = event.currentTarget;
-  var originalHtml = btn.innerHTML;
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-  btn.disabled = true;
+  var btn = (typeof event !== 'undefined' && event && event.currentTarget) ? event.currentTarget : document.querySelector('#briefingArea + button, button[onclick*="generateMorningWhatsApp"]');
+  var originalHtml = btn ? btn.innerHTML : '<i class="bi bi-whatsapp"></i> Build';
+  if (btn) {
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    btn.disabled = true;
+  }
   
-  google.script.run.withFailureHandler(function(err) {
-    alert("Error building briefing: " + err.message);
-    btn.innerHTML = originalHtml;
-    btn.disabled = false;
-  }).withSuccessHandler(function(encodedReport) {
-    var waUrl = "https://wa.me/?text=" + encodedReport;
-    window.open(waUrl, '_blank');
-    btn.innerHTML = originalHtml;
-    btn.disabled = false;
-  }).generateMorningBriefing(area);
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withFailureHandler(function(err) {
+        alert("Error building briefing: " + (err && err.message ? err.message : err));
+        if (btn) {
+          btn.innerHTML = originalHtml;
+          btn.disabled = false;
+        }
+      })
+      .withSuccessHandler(function(encodedReport) {
+        var text = encodedReport || "";
+        var waUrl = "https://wa.me/?text=" + (text.includes('%20') || text.includes('%0A') ? text : encodeURIComponent(text));
+        window.open(waUrl, '_blank');
+        if (btn) {
+          btn.innerHTML = originalHtml;
+          btn.disabled = false;
+        }
+      })
+      .generateMorningBriefing(area);
+  } else {
+    if (btn) {
+      btn.innerHTML = originalHtml;
+      btn.disabled = false;
+    }
+  }
 }
 
 
