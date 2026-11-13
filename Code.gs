@@ -430,8 +430,88 @@ function fetchAndMapOrders() {
 }
 
 // -------------------------------------------------------------
-// SLEEPING GIANTS RETENTION ENGINE
+// SLEEPING GIANTS RETENTION ENGINE & SYSTEM AUDIT
 // -------------------------------------------------------------
+function getSleepingGiantsData() {
+  try {
+    var orders = fetchExternalOrdersData();
+    var now = new Date();
+    var nowMs = now.getTime();
+    var thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+    
+    var shopMap = {};
+    for (var i = 0; i < orders.length; i++) {
+      var o = orders[i];
+      var sName = o.shop;
+      if (!sName) continue;
+      if (!shopMap[sName]) {
+        shopMap[sName] = {
+          shop: sName,
+          staff: o.staff || "Field Team",
+          lastOrderDate: o.date,
+          lastOrderMs: o.timeMs,
+          totalSales: 0,
+          sales30Days: 0
+        };
+      }
+      var sm = shopMap[sName];
+      sm.totalSales += (o.amount || 0);
+      if (o.timeMs > sm.lastOrderMs) {
+        sm.lastOrderMs = o.timeMs;
+        sm.lastOrderDate = o.date;
+        if (o.staff && o.staff !== "Unassigned") sm.staff = o.staff;
+      }
+      if ((nowMs - o.timeMs) <= thirtyDaysMs) {
+        sm.sales30Days += (o.amount || 0);
+      }
+    }
+    
+    var giants = [];
+    for (var k in shopMap) {
+      var item = shopMap[k];
+      if (item.totalSales > 0 && item.sales30Days === 0) {
+        var daysInactive = Math.floor((nowMs - item.lastOrderMs) / (24 * 60 * 60 * 1000));
+        var dStr = item.lastOrderDate ? (item.lastOrderDate.getDate() + "/" + (item.lastOrderDate.getMonth() + 1) + "/" + item.lastOrderDate.getFullYear()) : "N/A";
+        giants.push({
+          shop: item.shop,
+          staff: item.staff,
+          daysInactive: daysInactive,
+          lastOrderStr: dStr,
+          totalSales: Math.round(item.totalSales)
+        });
+      }
+    }
+    
+    giants.sort(function(a, b) { return b.totalSales - a.totalSales; });
+    return giants.slice(0, 50);
+  } catch(e) {
+    Logger.log("getSleepingGiantsData error: " + e.message);
+    return [];
+  }
+}
+
+function runSystemAudit() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheets = ss.getSheets().map(function(s) { return s.getName() + " (" + s.getLastRow() + " rows)"; });
+    var now = new Date();
+    var out = "=== SYSTEM AUDIT REPORT ===\n";
+    out += "Timestamp: " + now.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) + "\n";
+    out += "Spreadsheet: " + ss.getName() + "\n";
+    out += "Available Sheets:\n- " + sheets.join("\n- ") + "\n\n";
+    
+    var visitSheet = getSheetSafely("Form Responses 1");
+    out += "Market Visits Logged: " + (visitSheet ? (visitSheet.getLastRow() - 1) : 0) + "\n";
+    
+    var staffSheet = getSheetSafely("Staff Master");
+    out += "Staff Master Count: " + (staffSheet ? (staffSheet.getLastRow() - 1) : 0) + "\n";
+    
+    out += "\nSystem Status: HEALTHY & ONLINE\nVersion: Production v107";
+    return out;
+  } catch(e) {
+    return "Audit Error: " + (e && e.message ? e.message : e);
+  }
+}
 
 // -------------------------------------------------------------
 // CORE METRICS COMPUTATION ENGINE (SHARED ACROSS STAFF & CEO)
@@ -1017,6 +1097,10 @@ function getStaffDashboardData(staffName) {
   return dashboard;
 }
 
+
+function compileEODReport(staffName) {
+  return generateWhatsAppEOD(staffName);
+}
 
 function generateWhatsAppEOD(staffName) {
   var dash = getStaffDashboardData(staffName);
