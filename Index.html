@@ -1761,27 +1761,53 @@ function openLedger(bucketKey, title) {
 
 function generateEOD() {
   var btn = document.getElementById('btnEOD');
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Compiling Metrics...';
-  btn.disabled = true;
+  if (btn) {
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Compiling Metrics...';
+    btn.disabled = true;
+  }
   
   if (typeof google !== 'undefined' && google.script && google.script.run) {
-    google.script.run.withSuccessHandler(function(msg) {
-      globalEODMessage = msg;
-      btn.innerHTML = '<i class="bi bi-whatsapp"></i> Generate EOD Report';
+    var user = currentUser || (document.getElementById('staffName') ? document.getElementById('staffName').value : "") || "Preetam Bogawat";
+    google.script.run
+      .withFailureHandler(function(err) {
+        if (btn) {
+          btn.innerHTML = '<b><i class="bi bi-file-earmark-bar-graph"></i> Generate EOD Report</b>';
+          btn.disabled = false;
+        }
+        alert("Error compiling EOD: " + (err && err.message ? err.message : err));
+      })
+      .withSuccessHandler(function(msg) {
+        globalEODMessage = msg || "";
+        if (btn) {
+          btn.innerHTML = '<b><i class="bi bi-file-earmark-bar-graph"></i> Generate EOD Report</b>';
+          btn.disabled = false;
+        }
+        var preview = document.getElementById('eodPreviewText') || document.getElementById('eodReportText');
+        if (preview) {
+          if ('value' in preview) preview.value = globalEODMessage;
+          preview.innerText = globalEODMessage;
+        }
+        var modalEl = document.getElementById('eodModal');
+        if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+          new bootstrap.Modal(modalEl).show();
+        }
+      })
+      .generateWhatsAppEOD(user);
+  } else {
+    if (btn) {
+      btn.innerHTML = '<b><i class="bi bi-file-earmark-bar-graph"></i> Generate EOD Report</b>';
       btn.disabled = false;
-      document.getElementById('eodReportText').innerText = msg;
-      new bootstrap.Modal(document.getElementById('eodModal')).show();
-    }).withFailureHandler(function(err) {
-      btn.innerHTML = '<i class="bi bi-whatsapp"></i> Generate EOD Report';
-      btn.disabled = false;
-      alert("Error compiling EOD: " + (err && err.message ? err.message : err));
-    }).compileEODReport(currentUser);
+    }
   }
 }
 
 function sendToWhatsApp() {
-  if (!globalEODMessage) return;
-  var encoded = encodeURIComponent(globalEODMessage);
+  var text = globalEODMessage || (document.getElementById('eodPreviewText') ? document.getElementById('eodPreviewText').value : "");
+  if (!text) {
+    alert("Please generate the EOD report first.");
+    return;
+  }
+  var encoded = encodeURIComponent(text);
   window.open('https://api.whatsapp.com/send?text=' + encoded, '_blank');
 }
 
