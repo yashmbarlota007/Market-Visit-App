@@ -1105,7 +1105,137 @@ function getStaffDashboardData(staffName) {
     bObj.unvisitedOrdersList = computed.unvisitedOrdersList;
   }
 
+  // Compute Live Route Market Coverage for Today
+  try {
+    var areaDealersCatalog = {};
+    var dMaster = getSheetSafely("Dealer Master");
+    if (dMaster) {
+      var dmData = dMaster.getDataRange().getValues();
+      for (var d = 1; d < dmData.length; d++) {
+        var aName = String(dmData[d][2] || "").trim();
+        var dName = String(dmData[d][1] || "").trim();
+        if (aName && dName) {
+          if (!areaDealersCatalog[aName]) areaDealersCatalog[aName] = [];
+          areaDealersCatalog[aName].push(dName);
+        }
+      }
+    }
+    dashboard.today.routeCoverage = computeRouteCoverageHelper(dashboard.today.visitsList, areaDealersCatalog);
+  } catch(eRc) {
+    Logger.log("Error computing routeCoverage: " + eRc.message);
+    dashboard.today.routeCoverage = { hasPunchedToday: false, primaryRoute: null, routes: [] };
+  }
+
   return dashboard;
+}
+
+function computeRouteCoverageHelper(todayVisits, areaDealersCatalog) {
+  todayVisits = todayVisits || [];
+  areaDealersCatalog = areaDealersCatalog || {};
+  
+  if (todayVisits.length === 0) {
+    return {
+      hasPunchedToday: false,
+      primaryRoute: null,
+      routes: []
+    };
+  }
+
+  var areaVisitsMap = {};
+  var areaOrder = [];
+  
+  for (var v = 0; v < todayVisits.length; v++) {
+    var vis = todayVisits[v];
+    var area = String(vis.area || "").trim();
+    var dealer = String(vis.dealer || "").trim();
+    if (!area) continue;
+    
+    if (!areaVisitsMap[area]) {
+      areaVisitsMap[area] = {
+        area: area,
+        visits: [],
+        uniqueDealersSet: {},
+        lastPunchTime: vis.timeStr || ""
+      };
+      areaOrder.push(area);
+    }
+    areaVisitsMap[area].visits.push(vis);
+    if (dealer) {
+      areaVisitsMap[area].uniqueDealersSet[dealer.toUpperCase()] = dealer;
+    }
+    if (vis.timeStr) {
+      areaVisitsMap[area].lastPunchTime = vis.timeStr;
+    }
+  }
+
+  if (areaOrder.length === 0) {
+    return {
+      hasPunchedToday: false,
+      primaryRoute: null,
+      routes: []
+    };
+  }
+
+  var routes = [];
+  for (var a = 0; a < areaOrder.length; a++) {
+    var aName = areaOrder[a];
+    var aInfo = areaVisitsMap[aName];
+    
+    var catalogDealers = areaDealersCatalog[aName] || [];
+    var catalogUpperSet = {};
+    for (var cd = 0; cd < catalogDealers.length; cd++) {
+      catalogUpperSet[catalogDealers[cd].toUpperCase()] = true;
+    }
+    
+    var visitedDealerNames = Object.keys(aInfo.uniqueDealersSet).map(function(k) {
+      return aInfo.uniqueDealersSet[k];
+    });
+    
+    var uncatalogedVisitedCount = 0;
+    var visitedSet = {};
+    for (var vd = 0; vd < visitedDealerNames.length; vd++) {
+      var vUpper = visitedDealerNames[vd].toUpperCase();
+      visitedSet[vUpper] = true;
+      if (!catalogUpperSet[vUpper]) {
+        uncatalogedVisitedCount++;
+      }
+    }
+    
+    var pendingDealers = [];
+    for (var cd = 0; cd < catalogDealers.length; cd++) {
+      var dName = catalogDealers[cd];
+      if (!visitedSet[dName.toUpperCase()]) {
+        pendingDealers.push(dName);
+      }
+    }
+    
+    var visitedCount = visitedDealerNames.length;
+    var effectiveTotal = catalogDealers.length + uncatalogedVisitedCount;
+    var pendingCount = pendingDealers.length;
+    
+    var coveragePct = effectiveTotal > 0 ? Math.round((visitedCount / effectiveTotal) * 1000) / 10 : 0;
+    var pendingPct = effectiveTotal > 0 ? Math.round((pendingCount / effectiveTotal) * 1000) / 10 : 0;
+    
+    routes.push({
+      area: aName,
+      totalDealers: effectiveTotal,
+      visitedCount: visitedCount,
+      coveragePct: coveragePct,
+      pendingCount: pendingCount,
+      pendingPct: pendingPct,
+      visitedDealers: visitedDealerNames,
+      pendingDealers: pendingDealers,
+      lastPunchTime: aInfo.lastPunchTime
+    });
+  }
+
+  var primaryRoute = routes.length > 0 ? routes[routes.length - 1] : null;
+
+  return {
+    hasPunchedToday: true,
+    primaryRoute: primaryRoute,
+    routes: routes
+  };
 }
 
 
