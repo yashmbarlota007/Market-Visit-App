@@ -2244,7 +2244,7 @@ function renderCeoDashboard(timeframeKey) {
             var safePayload = (typeof makeSafePayload === 'function') ? makeSafePayload({ dealer: dName, data: dData, staff: staff.name }) : "{}";
             dealersHtml += '<div class="d-flex justify-content-between align-items-center p-2 border-bottom" style="font-size:12px;">' +
               '<div><b>' + dName + '</b> <span class="badge bg-light text-dark border ms-1">' + (dData.visits || 0) + ' visits</span></div>' +
-              '<button class="btn btn-xs btn-outline-primary py-0 px-2" style="font-size:11px;" onclick="openDetailModal(' + safePayload + ')">View Details</button>' +
+              '<button class="btn btn-xs btn-outline-primary py-0 px-2" style="font-size:11px;" onclick="openDealerModal(\'' + safePayload + '\')">View Details</button>' +
               '</div>';
           }
           areasHtml += '<div class="accordion-item">' +
@@ -2713,9 +2713,19 @@ function runDiagnostic() {
 }
 
 function openDealerModal(logStrEnc) {
-  var obj = JSON.parse(decodeURIComponent(logStrEnc));
-  var dName = obj.dealer;
-  var dData = obj.data;
+  var obj = null;
+  try {
+    obj = typeof logStrEnc === 'string' ? JSON.parse(decodeURIComponent(logStrEnc)) : logStrEnc;
+  } catch(e) {
+    console.error("openDealerModal parse error:", e);
+    return;
+  }
+  if (!obj) return;
+  var dName = obj.dealer || "Dealer Details";
+  var dData = obj.data || { sales: 0, orders: [], logs: [] };
+  if (!dData.orders) dData.orders = [];
+  if (!dData.logs) dData.logs = [];
+  if (typeof dData.sales !== 'number') dData.sales = 0;
   
   var html = '<div class="mb-3 border-bottom pb-2">' +
       '<h5 class="fw-bold text-dark mb-0">' + dName + '</h5>' +
@@ -2786,7 +2796,7 @@ function openDealerModal(logStrEnc) {
           '<ul class="list-group list-group-flush border mb-2">';
           
       b.keys.forEach(function(k) {
-        if (recentVisit.stock[k]) {
+        if (recentVisit.stock && recentVisit.stock[k]) {
           itemsFound = true;
           bHtml += '<li class="list-group-item d-flex justify-content-between py-1 px-2" style="font-size:12px;">' +
               '<span>' + k.substring(1).toUpperCase() + '</span>' +
@@ -2853,7 +2863,15 @@ function showGlobalList() {
 }
 
 function openDetailModal(logStrEnc) {
-  var log = JSON.parse(decodeURIComponent(logStrEnc));
+  var log = null;
+  try {
+    log = typeof logStrEnc === 'string' ? JSON.parse(decodeURIComponent(logStrEnc)) : logStrEnc;
+  } catch(e) {
+    console.error("openDetailModal parse error:", e);
+    return;
+  }
+  if (!log) return;
+  if (!log.stock) log.stock = {};
   
   var stockHtml = "";
   var brands = [
@@ -2871,7 +2889,7 @@ function openDetailModal(logStrEnc) {
         '<ul class="list-group list-group-flush border mb-2">';
         
     b.keys.forEach(function(k) {
-      if (log.stock[k]) {
+      if (log.stock && log.stock[k]) {
         itemsFound = true;
         bHtml += '<li class="list-group-item d-flex justify-content-between py-1 px-2" style="font-size:12px;">' +
             '<span>' + k.substring(1).toUpperCase() + '</span>' +
@@ -3558,6 +3576,7 @@ window.logout = logout;
 window.loadStaffDashboard = loadStaffDashboard;
 window.switchKpiPeriod = switchKpiPeriod;
 window.renderKpiDashboard = renderKpiDashboard;
+window.renderCeoDashboard = renderCeoDashboard;
 window.openPerfModal = openPerfModal;
 window.openCeoPerfModal = openCeoPerfModal;
 window.selectCeoTimeframe = selectCeoTimeframe;
@@ -3570,6 +3589,7 @@ window.refreshStaffRadarData = refreshStaffRadarData;
 window.openSleepingGiants = openSleepingGiants;
 window.runDiagnostic = runDiagnostic;
 window.openDealerModal = openDealerModal;
+window.openDetailModal = openDetailModal;
 window.loadDealers = loadDealers;
 window.checkDealerDetails = checkDealerDetails;
 window.compressImage = compressImage;
