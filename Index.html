@@ -989,6 +989,13 @@ window.loadAreasInBackground = function() {
                 </div>
               </div>
 
+              <!-- ========================================== -->
+              <!-- LIVE ROUTE MARKET COVERAGE TRACKER CARD    -->
+              <!-- ========================================== -->
+              <div id="routeCoverageCard" class="card mb-3 border-0 shadow-sm" style="background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; display: block;">
+                <!-- Populated dynamically by renderRouteCoverageCard() -->
+              </div>
+
               <div class="d-grid gap-3 mt-4">
               <button class="btn btn-primary py-3 shadow fs-5" onclick="openVisitForm()">
                 <b><i class="bi bi-geo-alt-fill"></i> Punch Store Visit</b>
@@ -1908,6 +1915,408 @@ function renderKpiDashboard(periodKey) {
   if (elAvgSub) elAvgSub.innerText = avgPerVisit + ' / visit';
   if (elTxnSub) elTxnSub.innerText = txns + (txns === 1 ? ' order' : ' orders');
   if (elRevBadge) elRevBadge.innerText = txns + (txns === 1 ? ' Order' : ' Orders');
+  
+  // Trigger live route market coverage render
+  try {
+    renderRouteCoverageCard(globalDashboardData);
+  } catch(eRcc) {
+    console.warn("Route coverage card render error:", eRcc);
+  }
+}
+
+// =======================================================================
+// LIVE ROUTE MARKET COVERAGE & BEAT COMPLETION ENGINE
+// =======================================================================
+var currentActiveRouteArea = null;
+
+function computeRouteCoverageHelper(todayVisits, areaDealersCatalog) {
+  todayVisits = todayVisits || [];
+  areaDealersCatalog = areaDealersCatalog || {};
+  
+  if (todayVisits.length === 0) {
+    return {
+      hasPunchedToday: false,
+      primaryRoute: null,
+      routes: []
+    };
+  }
+
+  var areaVisitsMap = {};
+  var areaOrder = [];
+  
+  for (var v = 0; v < todayVisits.length; v++) {
+    var vis = todayVisits[v];
+    var area = String(vis.area || "").trim();
+    var dealer = String(vis.dealer || "").trim();
+    if (!area) continue;
+    
+    if (!areaVisitsMap[area]) {
+      areaVisitsMap[area] = {
+        area: area,
+        visits: [],
+        uniqueDealersSet: {},
+        lastPunchTime: vis.timeStr || ""
+      };
+      areaOrder.push(area);
+    }
+    areaVisitsMap[area].visits.push(vis);
+    if (dealer) {
+      areaVisitsMap[area].uniqueDealersSet[dealer.toUpperCase()] = dealer;
+    }
+    if (vis.timeStr) {
+      areaVisitsMap[area].lastPunchTime = vis.timeStr;
+    }
+  }
+
+  if (areaOrder.length === 0) {
+    return {
+      hasPunchedToday: false,
+      primaryRoute: null,
+      routes: []
+    };
+  }
+
+  var routes = [];
+  for (var a = 0; a < areaOrder.length; a++) {
+    var aName = areaOrder[a];
+    var aInfo = areaVisitsMap[aName];
+    
+    var catalogDealers = areaDealersCatalog[aName] || [];
+    var catalogUpperSet = {};
+    for (var cd = 0; cd < catalogDealers.length; cd++) {
+      catalogUpperSet[catalogDealers[cd].toUpperCase()] = true;
+    }
+    
+    var visitedDealerNames = Object.keys(aInfo.uniqueDealersSet).map(function(k) {
+      return aInfo.uniqueDealersSet[k];
+    });
+    
+    var uncatalogedVisitedCount = 0;
+    var visitedSet = {};
+    for (var vd = 0; vd < visitedDealerNames.length; vd++) {
+      var vUpper = visitedDealerNames[vd].toUpperCase();
+      visitedSet[vUpper] = true;
+      if (!catalogUpperSet[vUpper]) {
+        uncatalogedVisitedCount++;
+      }
+    }
+    
+    var pendingDealers = [];
+    for (var cd = 0; cd < catalogDealers.length; cd++) {
+      var dName = catalogDealers[cd];
+      if (!visitedSet[dName.toUpperCase()]) {
+        pendingDealers.push(dName);
+      }
+    }
+    
+    var visitedCount = visitedDealerNames.length;
+    var effectiveTotal = catalogDealers.length + uncatalogedVisitedCount;
+    var pendingCount = pendingDealers.length;
+    
+    var coveragePct = effectiveTotal > 0 ? Math.round((visitedCount / effectiveTotal) * 1000) / 10 : 0;
+    var pendingPct = effectiveTotal > 0 ? Math.round((pendingCount / effectiveTotal) * 1000) / 10 : 0;
+    
+    routes.push({
+      area: aName,
+      totalDealers: effectiveTotal,
+      visitedCount: visitedCount,
+      coveragePct: coveragePct,
+      pendingCount: pendingCount,
+      pendingPct: pendingPct,
+      visitedDealers: visitedDealerNames,
+      pendingDealers: pendingDealers,
+      lastPunchTime: aInfo.lastPunchTime
+    });
+  }
+
+  var primaryRoute = routes.length > 0 ? routes[routes.length - 1] : null;
+
+  return {
+    hasPunchedToday: true,
+    primaryRoute: primaryRoute,
+    routes: routes
+  };
+}
+
+function computeClientRouteCoverage(todayVisits) {
+  todayVisits = todayVisits || [];
+  var areaDealersCatalog = {};
+  if (window.cachedAreasData && window.cachedAreasData.grouped) {
+    for (var aKey in window.cachedAreasData.grouped) {
+      areaDealersCatalog[aKey] = window.cachedAreasData.grouped[aKey].map(function(d) {
+        return typeof d === "string" ? d : d.name;
+      });
+    }
+  }
+  return computeRouteCoverageHelper(todayVisits, areaDealersCatalog);
+}
+
+function escapeHtmlAttr(str) {
+  return String(str || "").replace(/'/g, "\\'").replace(/"/g, "&quot;");
+}
+
+function escapeHtmlText(str) {
+  return String(str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function renderRouteCoverageCard(dashboardData, activeAreaOverride) {
+  var cardContainer = document.getElementById("routeCoverageCard");
+  if (!cardContainer) return;
+
+  var todayData = (dashboardData && dashboardData["today"]) ? dashboardData["today"] : 
+                  (window.globalDashboardData && window.globalDashboardData["today"] ? window.globalDashboardData["today"] : null);
+  
+  if (!todayData) {
+    cardContainer.style.display = "none";
+    return;
+  }
+  cardContainer.style.display = "block";
+
+  var routeCoverage = todayData.routeCoverage;
+  if (!routeCoverage || !routeCoverage.hasPunchedToday) {
+    if (todayData.visitsList && todayData.visitsList.length > 0) {
+      routeCoverage = computeClientRouteCoverage(todayData.visitsList);
+      todayData.routeCoverage = routeCoverage;
+    }
+  }
+
+  if (!routeCoverage || !routeCoverage.hasPunchedToday || !routeCoverage.primaryRoute) {
+    var morningHtml = 
+      '<div class="card-body p-3 text-center">' +
+        '<div class="d-flex align-items-center justify-content-center gap-2 mb-2">' +
+          '<span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 fw-bold" style="font-size: 11px;">' +
+            '<i class="bi bi-geo-alt-fill text-danger me-1"></i> ROUTE COVERAGE TRACKER' +
+          '</span>' +
+        '</div>' +
+        '<h6 class="fw-bold text-dark mb-1" style="font-size: 15px;">' +
+          "📍 Today's Market Route Coverage" +
+        '</h6>' +
+        '<p class="text-muted mb-3" style="font-size: 12px; line-height: 1.4;">' +
+          'Pehla visit punch karte hi aapke active route ke total dealers, visited (qty & %) aur pending dealers yahan live update honge.' +
+        '</p>' +
+        '<button class="btn btn-sm btn-primary fw-bold px-3 py-2 shadow-sm" onclick="openVisitForm()" style="border-radius: 8px;">' +
+          '<i class="bi bi-play-circle-fill me-1"></i> Start 1st Store Visit' +
+        '</button>' +
+      '</div>';
+    cardContainer.innerHTML = morningHtml;
+    return;
+  }
+
+  var routes = routeCoverage.routes || [];
+  var targetArea = activeAreaOverride || currentActiveRouteArea || (routeCoverage.primaryRoute ? routeCoverage.primaryRoute.area : null);
+  var currentRoute = null;
+  
+  if (targetArea) {
+    for (var r = 0; r < routes.length; r++) {
+      if (routes[r].area === targetArea) {
+        currentRoute = routes[r];
+        break;
+      }
+    }
+  }
+  if (!currentRoute) {
+    currentRoute = routeCoverage.primaryRoute || routes[0];
+  }
+  if (!currentRoute) return;
+  currentActiveRouteArea = currentRoute.area;
+
+  var total = currentRoute.totalDealers || 0;
+  var visited = currentRoute.visitedCount || 0;
+  var pending = currentRoute.pendingCount !== undefined ? currentRoute.pendingCount : Math.max(0, total - visited);
+  var covPct = currentRoute.coveragePct !== undefined ? currentRoute.coveragePct : (total > 0 ? Math.round((visited / total) * 1000) / 10 : 0);
+  var pendPct = currentRoute.pendingPct !== undefined ? currentRoute.pendingPct : (total > 0 ? Math.round((pending / total) * 1000) / 10 : 0);
+
+  var statusBadge = "";
+  var barClass = "";
+  if (pending === 0 && total > 0) {
+    statusBadge = '<span class="badge bg-success text-white px-2 py-1 fw-bold"><i class="bi bi-trophy-fill me-1"></i> Beat Done! 100%</span>';
+    barClass = "bg-success";
+  } else if (covPct >= 50) {
+    statusBadge = '<span class="badge bg-primary text-white px-2 py-1 fw-bold"><i class="bi bi-lightning-charge-fill me-1"></i> ' + covPct + '% Covered</span>';
+    barClass = "bg-primary";
+  } else {
+    statusBadge = '<span class="badge bg-warning text-dark px-2 py-1 fw-bold"><i class="bi bi-hourglass-split me-1"></i> ' + covPct + '% Covered</span>';
+    barClass = "bg-warning";
+  }
+
+  var multiRouteHtml = "";
+  if (routes.length > 1) {
+    multiRouteHtml = '<div class="d-flex overflow-auto text-nowrap pb-1 mb-2" style="gap: 6px; -webkit-overflow-scrolling: touch;">';
+    for (var ri = 0; ri < routes.length; ri++) {
+      var rt = routes[ri];
+      var isSel = rt.area === currentRoute.area;
+      var btnCls = isSel ? "btn-dark fw-bold" : "btn-outline-secondary fw-semibold";
+      var star = (routeCoverage.primaryRoute && routeCoverage.primaryRoute.area === rt.area) ? " ⚡" : "";
+      multiRouteHtml += '<button type="button" class="btn btn-sm ' + btnCls + ' px-2 py-1" style="font-size: 11px;" onclick="selectActiveRouteCoverage(\'' + escapeHtmlAttr(rt.area) + '\')">' +
+                          '<i class="bi bi-pin-map-fill ' + (isSel ? "text-warning" : "text-muted") + '"></i> ' + escapeHtmlText(rt.area) + ' (' + rt.visitedCount + '/' + rt.totalDealers + ')' + star +
+                        '</button>';
+    }
+    multiRouteHtml += '</div>';
+  }
+
+  var pendingDealers = currentRoute.pendingDealers || [];
+  var areaCatalog = (window.cachedAreasData && window.cachedAreasData.grouped && window.cachedAreasData.grouped[currentRoute.area]) ? window.cachedAreasData.grouped[currentRoute.area] : [];
+  var areaMap = {};
+  for (var ac = 0; ac < areaCatalog.length; ac++) {
+    var item = areaCatalog[ac];
+    var iName = (typeof item === "string") ? item : item.name;
+    areaMap[iName.toUpperCase()] = item;
+  }
+
+  var pendingListHtml = "";
+  if (pendingDealers.length === 0) {
+    pendingListHtml = '<div class="text-success text-center py-3 fw-bold"><i class="bi bi-check-circle-fill fs-4 d-block mb-1"></i> Shaandar! Iss route ke sabhi dealers visit ho chuke hain! 🎉</div>';
+  } else {
+    if (pendingDealers.length > 4) {
+      pendingListHtml += 
+        '<div class="mb-2">' +
+          '<input type="text" class="form-control form-control-sm" placeholder="🔍 Search pending shop..." oninput="filterPendingDealersSearch(this.value)" style="font-size: 12px; border-radius: 6px;">' +
+        '</div>';
+    }
+    pendingListHtml += '<div style="max-height: 240px; overflow-y: auto; padding-right: 2px;">';
+    for (var p = 0; p < pendingDealers.length; p++) {
+      var pName = pendingDealers[p];
+      var dealerObj = areaMap[pName.toUpperCase()];
+      var bill = (dealerObj && dealerObj.billPending) ? dealerObj.billPending : 0;
+      var cash = (dealerObj && dealerObj.cashPending) ? dealerObj.cashPending : 0;
+      var outst = bill + cash;
+      var outstHtml = outst > 0 ? 
+        '<span class="badge bg-danger-subtle text-danger border border-danger-subtle fw-semibold" style="font-size: 10px;">₹' + Math.round(outst).toLocaleString("en-IN") + ' Due</span>' : 
+        '<span class="badge bg-light text-secondary border" style="font-size: 10px;">Clear</span>';
+      
+      pendingListHtml += 
+        '<div class="card mb-1 border-0 shadow-sm pending-dealer-item" data-dealer-name="' + escapeHtmlAttr(pName) + '" style="background: #ffffff; border-radius: 8px;">' +
+          '<div class="card-body p-2 d-flex justify-content-between align-items-center">' +
+            '<div style="min-width: 0; flex: 1; padding-right: 8px;">' +
+              '<div class="fw-bold text-dark text-truncate" style="font-size: 12px;">' + (p + 1) + '. ' + escapeHtmlText(pName) + '</div>' +
+              '<div class="d-flex align-items-center gap-1 mt-1">' + outstHtml + '</div>' +
+            '</div>' +
+            '<button type="button" class="btn btn-sm btn-outline-primary py-1 px-2 fw-bold" style="font-size: 11px; white-space: nowrap; border-radius: 6px;" onclick="quickSelectPendingDealer(\'' + escapeHtmlAttr(currentRoute.area) + '\', \'' + escapeHtmlAttr(pName) + '\')">' +
+              '<i class="bi bi-geo-alt-fill"></i> Punch' +
+            '</button>' +
+          '</div>' +
+        '</div>';
+    }
+    pendingListHtml += '</div>';
+  }
+
+  var cardHtml = 
+    '<div class="card-body p-3">' +
+      '<div class="d-flex justify-content-between align-items-start mb-2">' +
+        '<div>' +
+          '<span class="badge bg-primary-subtle text-primary border border-primary-subtle fw-semibold px-2 py-1 mb-1" style="font-size: 10.5px;">' +
+            '<i class="bi bi-geo-alt-fill text-danger me-1"></i> ACTIVE ROUTE BEAT' +
+          '</span>' +
+          '<h5 class="fw-bold text-dark mb-0 text-truncate" style="font-size: 16px; max-width: 220px;">' +
+            escapeHtmlText(currentRoute.area) +
+          '</h5>' +
+        '</div>' +
+        '<div class="text-end">' +
+          statusBadge +
+          '<div class="text-muted mt-1" style="font-size: 10.5px;">' +
+            '<i class="bi bi-clock-history"></i> Last: ' + (currentRoute.lastPunchTime || "Today") +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      multiRouteHtml +
+
+      '<div class="mt-2 mb-3">' +
+        '<div class="d-flex justify-content-between align-items-center mb-1" style="font-size: 11.5px;">' +
+          '<span class="fw-bold text-secondary">Route Market Completion</span>' +
+          '<span class="fw-black text-primary">' + visited + ' / ' + total + ' Shops (' + covPct + '%)</span>' +
+        '</div>' +
+        '<div class="progress" style="height: 10px; border-radius: 6px; background-color: #e2e8f0;">' +
+          '<div class="progress-bar progress-bar-striped progress-bar-animated ' + barClass + '" role="progressbar" style="width: ' + covPct + '%; transition: width 0.6s ease;" aria-valuenow="' + covPct + '" aria-valuemin="0" aria-valuemax="100"></div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="row g-2 text-center mb-2">' +
+        '<div class="col-4">' +
+          '<div class="p-2 rounded-3 border h-100" style="background: #f8fafc;">' +
+            '<div class="text-muted fw-bold text-uppercase" style="font-size: 10px;">Total Route</div>' +
+            '<div class="fs-4 fw-black text-dark my-1">' + total + '</div>' +
+            '<div class="badge bg-light text-secondary border" style="font-size: 10px;">100% Market</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="col-4">' +
+          '<div class="p-2 rounded-3 border h-100" style="background: #f0fdf4; border-color: #bbf7d0 !important;">' +
+            '<div class="text-success fw-bold text-uppercase" style="font-size: 10px;"><i class="bi bi-check-circle-fill"></i> Visited</div>' +
+            '<div class="fs-4 fw-black text-success my-1">' + visited + '</div>' +
+            '<div class="badge bg-success-subtle text-success border border-success-subtle fw-bold" style="font-size: 10px;">' + covPct + '% Covered</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="col-4">' +
+          '<div class="p-2 rounded-3 border h-100" style="background: #fff7ed; border-color: #fed7aa !important;">' +
+            '<div class="text-warning-emphasis fw-bold text-uppercase" style="font-size: 10px;"><i class="bi bi-hourglass-split"></i> Pending</div>' +
+            '<div class="fs-4 fw-black text-warning-emphasis my-1">' + pending + '</div>' +
+            '<div class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-bold" style="font-size: 10px;">' + pendPct + '% Left</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="mt-3 pt-2 border-top">' +
+        '<button class="btn btn-sm btn-outline-primary fw-bold w-100 d-flex justify-content-between align-items-center py-2 px-3" type="button" onclick="togglePendingDealersList()" style="border-radius: 8px; font-size: 12px;">' +
+          '<span><i class="bi bi-list-check me-1"></i> <span id="pendingToggleText">View Pending Shops (' + pending + ')</span></span>' +
+          '<i class="bi bi-chevron-down" id="pendingChevron"></i>' +
+        '</button>' +
+        '<div id="pendingDealersCollapse" style="display: none;" class="mt-2">' +
+          pendingListHtml +
+        '</div>' +
+      '</div>' +
+
+    '</div>';
+
+  cardContainer.innerHTML = cardHtml;
+}
+
+function selectActiveRouteCoverage(areaName) {
+  currentActiveRouteArea = areaName;
+  renderRouteCoverageCard(window.globalDashboardData, areaName);
+}
+
+function togglePendingDealersList() {
+  var el = document.getElementById("pendingDealersCollapse");
+  var chevron = document.getElementById("pendingChevron");
+  if (!el) return;
+  var isHidden = (el.style.display === "none" || !el.style.display);
+  el.style.display = isHidden ? "block" : "none";
+  if (chevron) {
+    chevron.className = isHidden ? "bi bi-chevron-up" : "bi bi-chevron-down";
+  }
+}
+
+function filterPendingDealersSearch(query) {
+  var q = String(query || "").toLowerCase().trim();
+  var items = document.querySelectorAll(".pending-dealer-item");
+  for (var i = 0; i < items.length; i++) {
+    var name = (items[i].getAttribute("data-dealer-name") || "").toLowerCase();
+    items[i].style.display = (!q || name.indexOf(q) !== -1) ? "block" : "none";
+  }
+}
+
+function quickSelectPendingDealer(area, dealerName) {
+  openVisitForm();
+  setTimeout(function() {
+    var areaSel = document.getElementById("area");
+    if (areaSel) {
+      areaSel.value = area;
+      if (typeof loadDealers === "function") {
+        loadDealers();
+      }
+      setTimeout(function() {
+        var dSel = document.getElementById("dealerName");
+        if (dSel) {
+          dSel.value = dealerName;
+          if (typeof checkDealerDetails === "function") {
+            checkDealerDetails();
+          }
+        }
+      }, 80);
+    }
+  }, 80);
 }
 
 function openPerfModal(metricType) {
@@ -3479,6 +3888,21 @@ function submitData() {
     document.getElementById('submitBtn').innerHTML = '<b><i class="bi bi-cloud-arrow-up"></i> Submit & Upload</b>'; 
     document.getElementById('submitBtn').disabled = false;
     
+    try {
+      if (window.globalDashboardData && window.globalDashboardData['today']) {
+        var nowTimeStr = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+        window.globalDashboardData['today'].visitsList.push({
+          id: "V_OPT_" + Date.now(),
+          dateStr: new Date().toLocaleDateString("en-GB"),
+          timeStr: nowTimeStr,
+          dealer: formData.dealerName,
+          area: formData.area,
+          task: formData.task || "Store Visit",
+          location: formData.location || ""
+        });
+        renderRouteCoverageCard(window.globalDashboardData, formData.area);
+      }
+    } catch(eOpt) { console.warn("Optimistic route coverage update notice:", eOpt); }
     loadStaffDashboard(document.getElementById('staffName').value);
   }).saveFormRecord(formData);
 }
@@ -3601,6 +4025,13 @@ window.generateMorningWhatsApp = generateMorningWhatsApp;
 window.tryAutoSyncStaffGps = tryAutoSyncStaffGps;
 window.initFastDealersPreload = initFastDealersPreload;
 window.populateAreasSync = populateAreasSync;
+window.renderRouteCoverageCard = renderRouteCoverageCard;
+window.selectActiveRouteCoverage = selectActiveRouteCoverage;
+window.togglePendingDealersList = togglePendingDealersList;
+window.quickSelectPendingDealer = quickSelectPendingDealer;
+window.filterPendingDealersSearch = filterPendingDealersSearch;
+window.computeClientRouteCoverage = computeClientRouteCoverage;
+window.computeRouteCoverageHelper = computeRouteCoverageHelper;
 </script>
 
 <!-- LIVE STAFF RADAR MODAL -->
