@@ -3769,7 +3769,14 @@ function compressImage(event) {
   }
 }
 
+var isSubmittingVisit = false;
+
 function submitData() {
+  if (isSubmittingVisit) {
+    console.warn("Visit upload already in progress, blocking duplicate submit.");
+    return false;
+  }
+
   var dealerName = document.getElementById('dealerName').value;
   var area = document.getElementById('area').value;
   if (!area || !dealerName) {
@@ -3810,12 +3817,19 @@ function submitData() {
 
   if (!document.getElementById('compressedPhotoData').value) { 
     alert("❌ Selfie capture karna mandatory hai!"); 
-    return; 
+    return false; 
   }
 
+  // Engage in-flight lock immediately
+  isSubmittingVisit = true;
+
   document.getElementById('uploadErrorAlert').style.display = 'none';
-  document.getElementById('submitBtn').innerHTML = '<span class="spinner-border spinner-border-sm"></span> Uploading Data & Photo...';
-  document.getElementById('submitBtn').disabled = true;
+  var submitBtn = document.getElementById('submitBtn');
+  if (submitBtn) {
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Uploading Data & Photo...';
+    submitBtn.disabled = true;
+    submitBtn.classList.add('disabled');
+  }
 
   var formData = {
     staffName: document.getElementById('staffName').value, 
@@ -3851,10 +3865,15 @@ function submitData() {
 
   google.script.run
   .withFailureHandler(function(error) {
+    isSubmittingVisit = false;
     document.getElementById('uploadErrorAlert').innerText = "❌ Error: " + error.message; 
     document.getElementById('uploadErrorAlert').style.display = 'block';
-    document.getElementById('submitBtn').innerHTML = '<b><i class="bi bi-cloud-arrow-up"></i> Submit & Upload</b>'; 
-    document.getElementById('submitBtn').disabled = false;
+    var submitBtn = document.getElementById('submitBtn');
+    if (submitBtn) {
+      submitBtn.innerHTML = '<b><i class="bi bi-cloud-arrow-up"></i> Submit & Upload</b>'; 
+      submitBtn.disabled = false;
+      submitBtn.classList.remove('disabled');
+    }
   })
   .withSuccessHandler(function(res) {
     var stockLabels = {
@@ -3885,24 +3904,14 @@ function submitData() {
     for (var i = 0; i < inputs.length; i++) {
         inputs[i].value = "";
     } 
-    document.getElementById('submitBtn').innerHTML = '<b><i class="bi bi-cloud-arrow-up"></i> Submit & Upload</b>'; 
-    document.getElementById('submitBtn').disabled = false;
+    isSubmittingVisit = false;
+    var submitBtn = document.getElementById('submitBtn');
+    if (submitBtn) {
+      submitBtn.innerHTML = '<b><i class="bi bi-cloud-arrow-up"></i> Submit & Upload</b>'; 
+      submitBtn.disabled = false;
+      submitBtn.classList.remove('disabled');
+    }
     
-    try {
-      if (window.globalDashboardData && window.globalDashboardData['today']) {
-        var nowTimeStr = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
-        window.globalDashboardData['today'].visitsList.push({
-          id: "V_OPT_" + Date.now(),
-          dateStr: new Date().toLocaleDateString("en-GB"),
-          timeStr: nowTimeStr,
-          dealer: formData.dealerName,
-          area: formData.area,
-          task: formData.task || "Store Visit",
-          location: formData.location || ""
-        });
-        renderRouteCoverageCard(window.globalDashboardData, formData.area);
-      }
-    } catch(eOpt) { console.warn("Optimistic route coverage update notice:", eOpt); }
     loadStaffDashboard(document.getElementById('staffName').value);
   }).saveFormRecord(formData);
 }
