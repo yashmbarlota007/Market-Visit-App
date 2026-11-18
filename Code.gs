@@ -275,6 +275,32 @@ function formatTimeSafe(raw) {
   return s;
 }
 
+function parseTimeToMsSafe(rawTime, baseDate) {
+  if (!rawTime) return 0;
+  if (rawTime instanceof Date) return rawTime.getTime();
+  var s = String(rawTime).trim();
+  var d = baseDate ? new Date(baseDate.getTime()) : new Date();
+  
+  if (s.indexOf(":") !== -1) {
+    var parts = s.split(":");
+    var h = parseInt(parts[0], 10);
+    var m = parseInt(parts[1], 10);
+    var sec = parts[2] ? parseInt(parts[2], 10) : 0;
+    
+    if (s.toUpperCase().indexOf("PM") !== -1 && h < 12) h += 12;
+    if (s.toUpperCase().indexOf("AM") !== -1 && h === 12) h = 0;
+    
+    if (!isNaN(h) && !isNaN(m)) {
+      d.setHours(h, m, isNaN(sec) ? 0 : sec, 0);
+      return d.getTime();
+    }
+  }
+  
+  var parsed = new Date(s);
+  return isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+}
+
+
 function extractDateSafe(raw) {
   if (!raw) {
     return null;
@@ -1041,28 +1067,63 @@ function getStaffDashboardData(staffName) {
   var visitSheet = getSheetSafely("Daily Operation");
   if (visitSheet) {
     var vData = visitSheet.getDataRange().getValues();
+    var staffVisitsRaw = [];
+    
     for (var i = 1; i < vData.length; i++) {
       if (String(vData[i][3]).trim() === staffNameClean) {
         var dObj = extractDateSafe(vData[i][1]);
         if (dObj) {
           var dateStr = Utilities.formatDate(dObj, Session.getScriptTimeZone(), "dd/MM/yyyy");
-          var buckets = getBuckets(dObj);
+          var rawTime = vData[i][2];
+          var timeMs = parseTimeToMsSafe(rawTime, dObj);
           
-          var visitItem = {
+          staffVisitsRaw.push({
             id: String(vData[i][0] || ("V" + i)),
+            dateObj: dObj,
             dateStr: dateStr,
-            timeStr: formatTimeSafe(vData[i][2]),
+            timeStr: formatTimeSafe(rawTime),
+            timeMs: timeMs,
             dealer: String(vData[i][5] || "").trim(),
             area: String(vData[i][4] || "").trim(),
             task: String(vData[i][7] || "Store Visit").trim(),
             location: String(vData[i][11] || "").trim()
-          };
-          
-          for (var b = 0; b < buckets.length; b++) {
-            var bucketName = buckets[b];
-            dashboard[bucketName].visitsList.push(visitItem);
+          });
+        }
+      }
+    }
+    
+    // Sort chronologically and deduplicate accidental double punches (same dealer & date within 3 mins)
+    staffVisitsRaw.sort(function(a, b) {
+      var dDiff = a.dateObj.getTime() - b.dateObj.getTime();
+      if (dDiff !== 0) return dDiff;
+      return a.timeMs - b.timeMs;
+    });
+
+    var deduplicatedVisits = [];
+    for (var sv = 0; sv < staffVisitsRaw.length; sv++) {
+      var curr = staffVisitsRaw[sv];
+      var isDup = false;
+      if (deduplicatedVisits.length > 0) {
+        var prev = deduplicatedVisits[deduplicatedVisits.length - 1];
+        if (prev.dealer.toUpperCase() === curr.dealer.toUpperCase() &&
+            prev.dateStr === curr.dateStr) {
+          var diffMs = Math.abs(curr.timeMs - prev.timeMs);
+          if (diffMs < 180000) { // 3 minutes threshold
+            isDup = true;
           }
         }
+      }
+      if (!isDup) {
+        deduplicatedVisits.push(curr);
+      }
+    }
+
+    for (var dv = 0; dv < deduplicatedVisits.length; dv++) {
+      var visitItem = deduplicatedVisits[dv];
+      var buckets = getBuckets(visitItem.dateObj);
+      for (var b = 0; b < buckets.length; b++) {
+        var bucketName = buckets[b];
+        dashboard[bucketName].visitsList.push(visitItem);
       }
     }
   }
@@ -1711,8 +1772,48 @@ function saveFormRecord(formObject) {
     
     throw new Error("⛔ PROXY CHECK-IN REJECTED! Aap dealer '" + formObject.dealerName + "' se " + Math.round(distMeters) + " meters dur hain. Punch sirf 50 meters ke andar hi allowed hai.");
   }
-  var sheet = getSheetSafely("Daily Operation");
-  if (!sheet) throw new Error("Daily Operation missing");
+  // 3. CONCURRENCY SCRIPT LOCK & IDEMPOTENT DUPLICATE PUNCH PROTECTION
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000); // Wait up to 15s to serialize rapid clicks
+  } catch(eLock) {
+    Logger.log("Lock acquisition timeout: " + eLock.message);
+  }
+
+  try {
+    var sheet = getSheetSafely("Daily Operation");
+    if (!sheet) throw new Error("Daily Operation missing");
+    
+    var currentDate = new Date();
+    var dateStr = Utilities.formatDate(currentDate, Session.getScriptTimeZone(), "dd/MM/yyyy");
+    var timeStr = Utilities.formatDate(currentDate, Session.getScriptTimeZone(), "HH:mm:ss");
+    var nowMs = currentDate.getTime();
+    var targetStaff = String(formObject.staffName || "").trim();
+    var lastRow = sheet.getLastRow();
+
+    // Check recent rows to block accidental double uploads (within 3 minutes = 180,000 ms)
+    if (lastRow > 1) {
+      var startRow = Math.max(2, lastRow - 30);
+      var numRows = (lastRow - startRow) + 1;
+      var recentData = sheet.getRange(startRow, 1, numRows, 6).getValues();
+      for (var r = recentData.length - 1; r >= 0; r--) {
+        var rDate = extractDateSafe(recentData[r][1]);
+        var rStaff = String(recentData[r][3] || "").trim();
+        var rDealer = String(recentData[r][5] || "").trim().toUpperCase();
+        var rTime = recentData[r][2];
+        
+        if (rStaff === targetStaff && rDealer === targetDealerName && rDate) {
+          var rDateStr = Utilities.formatDate(rDate, Session.getScriptTimeZone(), "dd/MM/yyyy");
+          if (rDateStr === dateStr) {
+            var rTimeMs = parseTimeToMsSafe(rTime, rDate);
+            if (rTimeMs && Math.abs(nowMs - rTimeMs) < 180000) {
+              Logger.log("Duplicate visit punch intercepted for " + targetStaff + " at " + targetDealerName + ". Skipping second append.");
+              return "Data aur Selfie successfully upload ho gayi! (Duplicate skipped)";
+            }
+          }
+        }
+      }
+    }
   
   var currentDate = new Date();
   var dateStr = Utilities.formatDate(currentDate, Session.getScriptTimeZone(), "dd/MM/yyyy");
@@ -1776,7 +1877,10 @@ function saveFormRecord(formObject) {
   rowData[41] = photoUrl; 
 
   sheet.appendRow(rowData);
-  return "Data aur Selfie successfully upload ho gayi!";
+    return "Data aur Selfie successfully upload ho gayi!";
+  } finally {
+    try { lock.releaseLock(); } catch(eRel) {}
+  }
 }
 
 function forceDrivePermission() {
