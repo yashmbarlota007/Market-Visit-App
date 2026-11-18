@@ -50,6 +50,28 @@ function doGet(e) {
     }
   }
   
+  if (e && e.parameter && e.parameter.testStaff) {
+    try {
+      var t0 = new Date().getTime();
+      var dash = getStaffDashboardData(e.parameter.testStaff);
+      var t1 = new Date().getTime();
+      return ContentService.createTextOutput(JSON.stringify({
+        success: true,
+        staff: e.parameter.testStaff,
+        timeMs: (t1 - t0),
+        todayVisitsCount: dash.today.visitsList.length,
+        todaySales: dash.today.sales,
+        todayCoverage: dash.today.routeCoverage
+      })).setMimeType(ContentService.MimeType.JSON);
+    } catch(errStaff) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: errStaff.message,
+        stack: errStaff.stack
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
   if (e && e.parameter && e.parameter.diag) {
     try {
       var ss = getActiveSpreadsheet();
@@ -1069,8 +1091,10 @@ function getStaffDashboardData(staffName) {
     var vData = visitSheet.getDataRange().getValues();
     var staffVisitsRaw = [];
     
+    var staffLower = staffNameClean.toLowerCase();
     for (var i = 1; i < vData.length; i++) {
-      if (String(vData[i][3]).trim() === staffNameClean) {
+      var rowStaff = String(vData[i][3] || "").trim().toLowerCase();
+      if (rowStaff === staffLower) {
         var dObj = extractDateSafe(vData[i][1]);
         if (dObj) {
           var dateStr = Utilities.formatDate(dObj, Session.getScriptTimeZone(), "dd/MM/yyyy");
@@ -1092,11 +1116,13 @@ function getStaffDashboardData(staffName) {
       }
     }
     
-    // Sort chronologically and deduplicate accidental double punches (same dealer & date within 3 mins)
+    // Safe sort chronologically without NaN
     staffVisitsRaw.sort(function(a, b) {
-      var dDiff = a.dateObj.getTime() - b.dateObj.getTime();
+      var aTime = a.dateObj ? a.dateObj.getTime() : 0;
+      var bTime = b.dateObj ? b.dateObj.getTime() : 0;
+      var dDiff = aTime - bTime;
       if (dDiff !== 0) return dDiff;
-      return a.timeMs - b.timeMs;
+      return (a.timeMs || 0) - (b.timeMs || 0);
     });
 
     var deduplicatedVisits = [];
@@ -1118,12 +1144,22 @@ function getStaffDashboardData(staffName) {
       }
     }
 
+    // Push clean primitive objects (NEVER include native Date objects inside visitsList)
     for (var dv = 0; dv < deduplicatedVisits.length; dv++) {
-      var visitItem = deduplicatedVisits[dv];
-      var buckets = getBuckets(visitItem.dateObj);
+      var vRaw = deduplicatedVisits[dv];
+      var buckets = getBuckets(vRaw.dateObj);
+      var cleanVisitItem = {
+        id: vRaw.id,
+        dateStr: vRaw.dateStr,
+        timeStr: vRaw.timeStr,
+        dealer: vRaw.dealer,
+        area: vRaw.area,
+        task: vRaw.task,
+        location: vRaw.location
+      };
       for (var b = 0; b < buckets.length; b++) {
         var bucketName = buckets[b];
-        dashboard[bucketName].visitsList.push(visitItem);
+        dashboard[bucketName].visitsList.push(cleanVisitItem);
       }
     }
   }
