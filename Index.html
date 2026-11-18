@@ -1715,19 +1715,30 @@ function loadStaffDashboard(name) {
   if (typeof google !== 'undefined' && google.script && google.script.run) {
     google.script.run
       .withSuccessHandler(function(res) {
-        if (!res) return;
-        globalDashboardData = res; 
+        // ALWAYS hide loader and show dashboard immediately
         var loader = document.getElementById('incentiveLoader');
         if (loader) loader.style.display = 'none';
         var dash = document.getElementById('incentiveDashboard');
         if (dash) dash.style.display = 'block';
 
-        renderKpiDashboard(currentKpiPeriod || 'today');
+        if (!res) {
+          console.warn("Staff dashboard fetch returned null or empty response.");
+          return;
+        }
+        globalDashboardData = res; 
+
+        try {
+          renderKpiDashboard(currentKpiPeriod || 'today');
+        } catch(eRender) {
+          console.error("renderKpiDashboard error:", eRender);
+        }
       })
       .withFailureHandler(function(e) {
         console.error("Staff dashboard fetch error:", e);
         var loader = document.getElementById('incentiveLoader');
-        if (loader) loader.innerHTML = '<div class="text-danger fw-bold"><i class="bi bi-exclamation-triangle"></i> Network sync timeout. Please refresh.</div>';
+        if (loader) loader.style.display = 'none';
+        var dash = document.getElementById('incentiveDashboard');
+        if (dash) dash.style.display = 'block';
       })
       .getStaffDashboardData(name);
   }
