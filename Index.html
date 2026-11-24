@@ -891,115 +891,100 @@ window.loadAreasInBackground = function() {
                     <button type="button" class="btn btn-sm btn-outline-secondary fw-semibold px-3" onclick="switchKpiPeriod('thisYear', this)">This Year</button>
                   </div>
 
-                  <!-- 5 KPI Clickable Cards -->
-                  <div class="row g-2">
+                  <!-- 4 Compact KPI Cards Side-by-Side in 1 Single Line -->
+                  <div class="row g-1 mb-2">
                     
-                    <!-- 1. No. of Visits -->
-                    <div class="col-6">
-                      <div class="card h-100 p-2 border-0 shadow-sm clickable-card kpi-card" 
-                           style="background: #f0f7ff; border-left: 4px solid #0d6efd !important; border-radius: 10px; cursor: pointer;"
+                    <!-- 1. Visits -->
+                    <div class="col-3">
+                      <div class="card h-100 p-1.5 border-0 shadow-xs clickable-card kpi-card" 
+                           style="background: #f0f7ff; border-top: 3px solid #0d6efd !important; border-radius: 8px; cursor: pointer; text-align: center;"
                            onclick="openPerfModal('visits')" title="Click to view all visits">
-                        <div class="d-flex justify-content-between align-items-center">
-                          <span class="small fw-bold text-muted text-uppercase" style="font-size: 11px;">1. Visits</span>
-                          <i class="bi bi-shop text-primary fs-5"></i>
+                        <div class="d-flex justify-content-between align-items-center px-1">
+                          <span class="fw-bold text-muted text-uppercase" style="font-size: 9px; letter-spacing: -0.2px;">Visits</span>
+                          <i class="bi bi-shop text-primary" style="font-size: 11px;"></i>
                         </div>
-                        <div class="fs-3 fw-black text-primary mt-1" id="kpiVisitsVal">0</div>
-                        <div class="text-muted d-flex justify-content-between align-items-center mt-1" style="font-size: 11px;">
-                          <span id="kpiVisitsSub">0 dealers</span>
-                          <i class="bi bi-chevron-right text-muted"></i>
-                        </div>
+                        <div class="fw-black text-primary my-0.5" id="kpiVisitsVal" style="font-size: 17px; line-height: 1.15;">0</div>
+                        <div class="text-muted text-truncate px-0.5" id="kpiVisitsSub" style="font-size: 8.5px; line-height: 1.1;">0 dealers</div>
                       </div>
                     </div>
 
-                    <!-- 2. Conversion Ratio -->
-                    <div class="col-6">
-                      <div class="card h-100 p-2 border-0 shadow-sm clickable-card kpi-card" 
-                           style="background: #f0fdf4; border-left: 4px solid #16a34a !important; border-radius: 10px; cursor: pointer;"
+                    <!-- 2. Conversion -->
+                    <div class="col-3">
+                      <div class="card h-100 p-1.5 border-0 shadow-xs clickable-card kpi-card" 
+                           style="background: #f0fdf4; border-top: 3px solid #16a34a !important; border-radius: 8px; cursor: pointer; text-align: center;"
                            onclick="openPerfModal('conversion')" title="Click to view conversion breakdown">
-                        <div class="d-flex justify-content-between align-items-center">
-                          <span class="small fw-bold text-muted text-uppercase" style="font-size: 11px;">2. Conversion</span>
-                          <i class="bi bi-pie-chart-fill text-success fs-5"></i>
+                        <div class="d-flex justify-content-between align-items-center px-1">
+                          <span class="fw-bold text-muted text-uppercase" style="font-size: 9px; letter-spacing: -0.2px;">Conv %</span>
+                          <i class="bi bi-pie-chart-fill text-success" style="font-size: 11px;"></i>
                         </div>
-                        <div class="fs-3 fw-black text-success mt-1" id="kpiConversionVal">0%</div>
-                        <div class="text-muted d-flex justify-content-between align-items-center mt-1" style="font-size: 11px;">
-                          <span id="kpiConversionSub">Strike rate</span>
-                          <i class="bi bi-chevron-right text-muted"></i>
-                        </div>
+                        <div class="fw-black text-success my-0.5" id="kpiConversionVal" style="font-size: 17px; line-height: 1.15;">0%</div>
+                        <div class="text-muted text-truncate px-0.5" id="kpiConversionSub" style="font-size: 8.5px; line-height: 1.1;">Strike rate</div>
                       </div>
                     </div>
 
                     <!-- 3. Avg Rs Sales -->
-                    <div class="col-6">
-                      <div class="card h-100 p-2 border-0 shadow-sm clickable-card kpi-card" 
-                           style="background: #fffbeb; border-left: 4px solid #d97706 !important; border-radius: 10px; cursor: pointer;"
+                    <div class="col-3">
+                      <div class="card h-100 p-1.5 border-0 shadow-xs clickable-card kpi-card" 
+                           style="background: #fffbeb; border-top: 3px solid #d97706 !important; border-radius: 8px; cursor: pointer; text-align: center;"
                            onclick="openPerfModal('avgSales')" title="Click to view avg sales calculation">
-                        <div class="d-flex justify-content-between align-items-center">
-                          <span class="small fw-bold text-muted text-uppercase" style="font-size: 11px;">3. Avg Rs Sales</span>
-                          <i class="bi bi-cash-stack text-warning fs-5"></i>
+                        <div class="d-flex justify-content-between align-items-center px-1">
+                          <span class="fw-bold text-muted text-uppercase" style="font-size: 9px; letter-spacing: -0.2px;">Avg Rs</span>
+                          <i class="bi bi-cash-stack text-warning" style="font-size: 11px;"></i>
                         </div>
-                        <div class="fs-4 fw-black text-warning-emphasis mt-1" id="kpiAvgSalesVal">₹0</div>
-                        <div class="text-muted d-flex justify-content-between align-items-center mt-1" style="font-size: 11px;">
-                          <span id="kpiAvgSalesSub">Per order</span>
-                          <i class="bi bi-chevron-right text-muted"></i>
-                        </div>
+                        <div class="fw-black text-warning-emphasis my-0.5" id="kpiAvgSalesVal" style="font-size: 15px; line-height: 1.15;">₹0</div>
+                        <div class="text-muted text-truncate px-0.5" id="kpiAvgSalesSub" style="font-size: 8.5px; line-height: 1.1;">Per visit</div>
                       </div>
                     </div>
 
-                    <!-- 4. No. of Txn per Dealer -->
-                    <div class="col-6">
-                      <div class="card h-100 p-2 border-0 shadow-sm clickable-card kpi-card" 
-                           style="background: #f5f3ff; border-left: 4px solid #7c3aed !important; border-radius: 10px; cursor: pointer;"
+                    <!-- 4. Txn / Dealer -->
+                    <div class="col-3">
+                      <div class="card h-100 p-1.5 border-0 shadow-xs clickable-card kpi-card" 
+                           style="background: #f5f3ff; border-top: 3px solid #7c3aed !important; border-radius: 8px; cursor: pointer; text-align: center;"
                            onclick="openPerfModal('txnPerDealer')" title="Click to view dealer transactions">
-                        <div class="d-flex justify-content-between align-items-center">
-                          <span class="small fw-bold text-muted text-uppercase" style="font-size: 11px;">4. Txn / Dealer</span>
-                          <i class="bi bi-receipt-cutoff fs-5" style="color: #7c3aed;"></i>
+                        <div class="d-flex justify-content-between align-items-center px-1">
+                          <span class="fw-bold text-muted text-uppercase" style="font-size: 9px; letter-spacing: -0.2px;">Txn/Dlr</span>
+                          <i class="bi bi-receipt-cutoff" style="color: #7c3aed; font-size: 11px;"></i>
                         </div>
-                        <div class="fs-3 fw-black mt-1" style="color: #7c3aed;" id="kpiTxnDealerVal">0.0</div>
-                        <div class="text-muted d-flex justify-content-between align-items-center mt-1" style="font-size: 11px;">
-                          <span id="kpiTxnDealerSub">0 orders</span>
-                          <i class="bi bi-chevron-right text-muted"></i>
-                        </div>
+                        <div class="fw-black my-0.5" style="color: #7c3aed; font-size: 17px; line-height: 1.15;" id="kpiTxnDealerVal">0.0</div>
+                        <div class="text-muted text-truncate px-0.5" id="kpiTxnDealerSub" style="font-size: 8.5px; line-height: 1.1;">0 orders</div>
                       </div>
                     </div>
 
-                    <!-- 5. Revenue (Full Width Card) -->
-                    <div class="col-12">
-                      <div class="card p-3 border-0 shadow-sm clickable-card kpi-card" 
-                           style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: white; border-radius: 10px; cursor: pointer;"
+                  </div>
+
+                  <!-- Revenue & Travel (Side-by-Side Compact Row) -->
+                  <div class="row g-1">
+                    
+                    <!-- 5. Revenue -->
+                    <div class="col-6">
+                      <div class="card p-2 border-0 shadow-xs clickable-card kpi-card h-100" 
+                           style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: white; border-radius: 8px; cursor: pointer;"
                            onclick="openPerfModal('revenue')" title="Click to view all booked orders">
-                        <div class="d-flex justify-content-between align-items-center">
-                          <div>
-                            <span class="text-uppercase text-secondary fw-bold" style="font-size: 11px; letter-spacing: 0.5px;">5. TOTAL REVENUE</span>
-                            <div class="fs-2 fw-black text-warning mt-1" id="kpiRevenueVal">₹0</div>
-                          </div>
-                          <div class="text-end">
-                            <span class="badge bg-warning text-dark px-2 py-1 mb-1" id="kpiRevenueOrdersBadge">0 Orders</span>
-                            <div class="small text-secondary" style="font-size: 11px;">Tap to view orders <i class="bi bi-arrow-right"></i></div>
-                          </div>
+                        <div class="d-flex justify-content-between align-items-center mb-0.5">
+                          <span class="text-uppercase fw-bold text-secondary" style="font-size: 9px; letter-spacing: 0.3px;">5. TOTAL REVENUE</span>
+                          <span class="badge bg-warning text-dark px-1.5 py-0.5" id="kpiRevenueOrdersBadge" style="font-size: 9px;">0 Orders</span>
+                        </div>
+                        <div class="fs-4 fw-black text-warning my-0.5" id="kpiRevenueVal" style="line-height: 1.1;">₹0</div>
+                        <div class="text-secondary d-flex justify-content-between align-items-center" style="font-size: 9px;">
+                          <span>Tap to view orders</span>
+                          <i class="bi bi-chevron-right text-secondary" style="font-size: 9px;"></i>
                         </div>
                       </div>
                     </div>
 
                     <!-- 6. Travel & Petrol Allowance -->
-                    <div class="col-12 mt-2">
-                      <div class="card p-3 border-0 shadow-sm clickable-card kpi-card" 
-                           style="background: linear-gradient(135deg, #064e3b 0%, #065f46 100%); color: white; border-radius: 10px; cursor: pointer;"
+                    <div class="col-6">
+                      <div class="card p-2 border-0 shadow-xs clickable-card kpi-card h-100" 
+                           style="background: linear-gradient(135deg, #064e3b 0%, #065f46 100%); color: white; border-radius: 8px; cursor: pointer;"
                            onclick="openTravelBreakdownModal()" title="Click to view daily travel & petrol allowance breakdown">
-                        <div class="d-flex justify-content-between align-items-center">
-                          <div>
-                            <div class="d-flex align-items-center gap-2">
-                              <i class="bi bi-geo-alt-fill text-warning fs-5"></i>
-                              <span class="text-uppercase fw-bold" style="font-size: 11px; letter-spacing: 0.5px; opacity: 0.9;">6. TRAVEL & PETROL ALLOWANCE</span>
-                            </div>
-                            <div class="d-flex align-items-baseline gap-2 mt-1">
-                              <div class="fs-2 fw-black text-white" id="kpiTravelAllowanceVal">₹0</div>
-                              <span class="badge bg-warning text-dark fw-bold px-2 py-1" id="kpiTravelKmBadge">0.0 KM</span>
-                            </div>
-                          </div>
-                          <div class="text-end">
-                            <span class="badge bg-white text-dark px-2 py-1 mb-1" id="kpiTravelRateBadge">@ ₹3.50 / KM</span>
-                            <div class="small" style="font-size: 11px; opacity: 0.9;" id="kpiTravelSubtitle">Tap for Route Breakdown <i class="bi bi-chevron-right"></i></div>
-                          </div>
+                        <div class="d-flex justify-content-between align-items-center mb-0.5">
+                          <span class="text-uppercase fw-bold text-white-50" style="font-size: 9px; letter-spacing: 0.3px;">6. PETROL / TRAVEL</span>
+                          <span class="badge bg-warning text-dark fw-bold px-1.5 py-0.5" id="kpiTravelKmBadge" style="font-size: 9px;">0.0 KM</span>
+                        </div>
+                        <div class="fs-4 fw-black text-white my-0.5" id="kpiTravelAllowanceVal" style="line-height: 1.1;">₹0</div>
+                        <div class="d-flex justify-content-between align-items-center text-white-50" style="font-size: 9px;">
+                          <span id="kpiTravelRateBadge">@ ₹3.50/KM</span>
+                          <i class="bi bi-chevron-right text-white-50" style="font-size: 9px;"></i>
                         </div>
                       </div>
                     </div>
@@ -2608,7 +2593,7 @@ function renderRouteCoverageCard(dashboardData, activeAreaOverride) {
   if (displayDealers.length === 0) {
     dealersListHtml = '<div class="text-center py-3 text-muted fw-bold"><i class="bi bi-inbox fs-4 d-block mb-1"></i> No dealers found in this category.</div>';
   } else {
-    dealersListHtml += '<div style="max-height: 280px; overflow-y: auto; padding-right: 2px;">';
+    dealersListHtml += '<div style="max-height: 360px; overflow-y: auto; padding-right: 2px;">';
     for (var p = 0; p < displayDealers.length; p++) {
       var dObj = displayDealers[p];
       var pName = dObj.name;
@@ -2752,6 +2737,18 @@ function renderRouteCoverageCard(dashboardData, activeAreaOverride) {
 
       // ACTIVE LIST CONTAINER
       '<div class="mt-3 pt-2 border-top">' +
+        // Staff Callout Banner: Pending Shops Open by Default
+        (currentRouteDealerFilter === 'pending' ? 
+          '<div class="alert alert-warning py-1.5 px-2.5 mb-2 d-flex align-items-center justify-content-between" style="border-radius: 8px; font-size: 11px; border-left: 4px solid #ea580c; background: #fff7ed;">' +
+            '<div class="d-flex align-items-center">' +
+              '<i class="bi bi-hourglass-split text-warning-emphasis fs-6 me-2"></i>' +
+              '<div>' +
+                '<span class="fw-bold text-dark">Beat Pending Shops (Open by Default)</span>' +
+                '<div class="text-muted" style="font-size: 10px;">Niche diye gaye dealers pe visit punch karein aur target complete karein.</div>' +
+              '</div>' +
+            '</div>' +
+            '<span class="badge bg-warning text-dark fw-bold px-2 py-1" style="font-size: 10.5px;">' + pending + ' Baki</span>' +
+          '</div>' : '') +
         '<div class="d-flex justify-content-between align-items-center mb-2">' +
           '<span class="fw-bold text-dark" style="font-size: 12.5px;"><i class="bi bi-list-check text-primary me-1"></i> ' + filterTitleLabel + '</span>' +
           '<span class="badge bg-light text-muted border" style="font-size: 10.5px;">' + displayDealers.length + ' dealers</span>' +
