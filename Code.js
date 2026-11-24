@@ -1770,7 +1770,77 @@ function getStaffDashboardData(staffName) {
         }
       }
     }
-    dashboard.today.routeCoverage = computeRouteCoverageHelper(dashboard.today.visitsList, areaDealersCatalog);
+    // Compute Route Coverage for ALL 9 Timeframe Buckets
+    for (var bk = 0; bk < bucketKeys.length; bk++) {
+      var bKey = bucketKeys[bk];
+      dashboard[bKey].routeCoverage = computeRouteCoverageHelper(dashboard[bKey].visitsList, areaDealersCatalog);
+    }
+
+    // Build Dealer Targets & Achievements Engine for Month & Quarter
+    var allExtOrders = getCachedExternalOrders() || [];
+    var dealerSalesMap = {};
+    for (var oi = 0; oi < allExtOrders.length; oi++) {
+      var oOrd = allExtOrders[oi];
+      var oKey = cleanDealerKey(oOrd.shop);
+      if (!oKey) continue;
+      if (!dealerSalesMap[oKey]) {
+        dealerSalesMap[oKey] = {
+          monthSales: 0,
+          lastMonthSales: 0,
+          quarterSales: 0,
+          lastQuarterSales: 0,
+          yearSales: 0,
+          totalSales: 0
+        };
+      }
+      var ds = dealerSalesMap[oKey];
+      var ordTime = oOrd.timeMs;
+      var ordAmt = Number(oOrd.amount) || 0;
+      ds.totalSales += ordAmt;
+      
+      if (ordTime >= startOfThisMonth && ordTime <= endOfThisMonth) {
+        ds.monthSales += ordAmt;
+      } else if (ordTime >= startOfLastMonth && ordTime <= endOfLastMonth) {
+        ds.lastMonthSales += ordAmt;
+      }
+      if (ordTime >= startOfThisQuarter && ordTime <= endOfThisQuarter) {
+        ds.quarterSales += ordAmt;
+      } else if (ordTime >= startOfLastQuarter && ordTime <= endOfLastQuarter) {
+        ds.lastQuarterSales += ordAmt;
+      }
+      if (ordTime >= startOfThisYear && ordTime <= endOfThisYear) {
+        ds.yearSales += ordAmt;
+      }
+    }
+
+    var dealerTargetsMap = {};
+    for (var aKey in areaDealersCatalog) {
+      var dList = areaDealersCatalog[aKey];
+      for (var di = 0; di < dList.length; di++) {
+        var dName = dList[di];
+        var cKey = cleanDealerKey(dName);
+        var sData = dealerSalesMap[cKey] || { monthSales: 0, lastMonthSales: 0, quarterSales: 0, lastQuarterSales: 0, yearSales: 0, totalSales: 0 };
+        
+        var mTarget = sData.lastMonthSales > 0 ? Math.round(sData.lastMonthSales * 1.1) : 15000;
+        var qTarget = sData.lastQuarterSales > 0 ? Math.round(sData.lastQuarterSales * 1.1) : (mTarget * 3);
+        var mAch = Math.round(sData.monthSales);
+        var qAch = Math.round(sData.quarterSales);
+        var mPct = mTarget > 0 ? Math.round((mAch / mTarget) * 100) : 0;
+        var qPct = qTarget > 0 ? Math.round((qAch / qTarget) * 100) : 0;
+        
+        dealerTargetsMap[cKey] = {
+          dealerName: dName,
+          monthTarget: mTarget,
+          monthAchieved: mAch,
+          monthPct: mPct,
+          quarterTarget: qTarget,
+          quarterAchieved: qAch,
+          quarterPct: qPct,
+          isHighLikelihood: (mPct >= 70 || qPct >= 70)
+        };
+      }
+    }
+    dashboard.dealerTargets = dealerTargetsMap;
   } catch(eRc) {
     Logger.log("Error computing routeCoverage: " + eRc.message);
     dashboard.today.routeCoverage = { hasPunchedToday: false, primaryRoute: null, routes: [] };
