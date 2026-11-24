@@ -2573,16 +2573,17 @@ function openPerfModal(metricType) {
                  '</div>';
       
       visitsList.forEach(function(v, idx) {
+        var dName = v.dealer || v.dealerName || v.shop || 'Store Visit';
         var mapLink = v.location ? '<a href="https://www.google.com/maps?q=' + encodeURIComponent(v.location) + '" target="_blank" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size:11px;"><i class="bi bi-geo-alt-fill"></i> Map</a>' : '';
         html += '<div class="card mb-2 border-0 shadow-sm" style="border-radius:10px;">' +
                   '<div class="card-body p-3">' +
                     '<div class="d-flex justify-content-between align-items-start mb-1">' +
-                      '<h6 class="fw-bold text-dark mb-0">' + (idx + 1) + '. ' + v.dealer + '</h6>' +
+                      '<h6 class="fw-bold text-dark mb-0">' + (idx + 1) + '. ' + escapeHtmlSafe(dName) + '</h6>' +
                       '<span class="badge bg-primary-subtle text-primary border border-primary-subtle fw-semibold" style="font-size:11.5px;"><i class="bi bi-clock-history me-1"></i>' + formatVisitDateTime(v.dateStr, v.timeStr) + '</span>' +
                     '</div>' +
-                    '<div class="text-muted small mb-2"><i class="bi bi-pin-map"></i> ' + (v.area || '') + '</div>' +
+                    '<div class="text-muted small mb-2"><i class="bi bi-pin-map"></i> ' + escapeHtmlSafe(v.area || '') + '</div>' +
                     '<div class="d-flex justify-content-between align-items-center pt-2 border-top">' +
-                      '<span class="badge bg-secondary-subtle text-secondary">' + (v.task || 'Store Visit') + '</span>' +
+                      '<span class="badge bg-secondary-subtle text-secondary">' + escapeHtmlSafe(v.task || 'Store Visit') + '</span>' +
                       mapLink +
                     '</div>' +
                   '</div>' +
@@ -2609,22 +2610,26 @@ function openPerfModal(metricType) {
       html += '<div class="text-center p-4 text-muted fw-bold">No visit or sales activity recorded for ' + periodLabel + '.</div>';
     } else {
       breakdown.forEach(function(b, idx) {
-        var isConv = b.isConverted;
-        var badge = isConv ? '<span class="badge bg-success">Converted (₹' + (b.sales || 0).toLocaleString('en-IN') + ')</span>' : '<span class="badge bg-secondary">Visit Only (���0)</span>';
+        var dName = b.dealer || b.dealerName || b.shop || 'Dealer';
+        var vCount = (typeof b.visitsCount === 'number') ? b.visitsCount : (Array.isArray(b.visits) ? b.visits.length : (parseInt(b.visits) || 0));
+        var oCount = (typeof b.ordersCount === 'number') ? b.ordersCount : (Array.isArray(b.orders) ? b.orders.length : (parseInt(b.orders) || 0));
+        var oSales = b.totalRevenue || b.sameDayRevenue || b.sales || (b.totalAmount || 0);
+        var isConv = b.isConverted || (oSales > 0);
+        var badge = isConv ? '<span class="badge bg-success">Converted (₹' + oSales.toLocaleString('en-IN') + ')</span>' : '<span class="badge bg-secondary">Visit Only (₹0)</span>';
         var borderLeft = isConv ? 'border-left: 4px solid #16a34a !important;' : 'border-left: 4px solid #6c757d !important;';
         
         html += '<div class="card mb-2 border-0 shadow-sm" style="border-radius:10px; ' + borderLeft + '">' +
                   '<div class="card-body p-3">' +
                     '<div class="d-flex justify-content-between align-items-start">' +
                       '<div>' +
-                        '<h6 class="fw-bold text-dark mb-1">' + (idx + 1) + '. ' + b.dealer + '</h6>' +
-                        '<div class="text-muted small"><i class="bi bi-pin-map"></i> ' + (b.area || '') + '</div>' +
+                        '<h6 class="fw-bold text-dark mb-1">' + (idx + 1) + '. ' + escapeHtmlSafe(dName) + '</h6>' +
+                        '<div class="text-muted small"><i class="bi bi-pin-map"></i> ' + escapeHtmlSafe(b.area || '') + '</div>' +
                       '</div>' +
                       '<div>' + badge + '</div>' +
                     '</div>' +
                     '<div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top small text-muted">' +
-                      '<span>Visits: ' + b.visits + '</span>' +
-                      '<span>Orders: ' + b.ordersCount + '</span>' +
+                      '<span>Visits: ' + vCount + '</span>' +
+                      '<span>Orders: ' + oCount + '</span>' +
                     '</div>' +
                   '</div>' +
                 '</div>';
@@ -2645,14 +2650,16 @@ function openPerfModal(metricType) {
       html += '<div class="text-center p-4 text-muted fw-bold">No orders recorded for ' + periodLabel + '.</div>';
     } else {
       ordersList.forEach(function(o, idx) {
+        var dName = o.shop || o.dealer || o.dealerName || 'Dealer';
+        var oAmt = parseFloat(o.amount || o.sales || 0) || 0;
         html += '<div class="card mb-2 border-0 shadow-sm" style="border-radius:10px;">' +
                   '<div class="card-body p-3">' +
                     '<div class="d-flex justify-content-between align-items-center mb-1">' +
-                      '<h6 class="fw-bold text-dark mb-0">' + (idx + 1) + '. ' + o.dealer + '</h6>' +
-                      '<h5 class="fw-bold text-success mb-0">₹' + (o.amount || 0).toLocaleString('en-IN') + '</h5>' +
+                      '<h6 class="fw-bold text-dark mb-0">' + (idx + 1) + '. ' + escapeHtmlSafe(dName) + '</h6>' +
+                      '<h5 class="fw-bold text-success mb-0">₹' + oAmt.toLocaleString('en-IN') + '</h5>' +
                     '</div>' +
                     '<div class="text-muted small d-flex justify-content-between">' +
-                      '<span><i class="bi bi-pin-map"></i> ' + (o.area || '') + '</span>' +
+                      '<span><i class="bi bi-pin-map"></i> ' + escapeHtmlSafe(o.area || '') + '</span>' +
                       '<span><i class="bi bi-clock-history"></i> ' + formatVisitDateTime(o.dateStr, o.timeStr) + '</span>' +
                     '</div>' +
                   '</div>' +
@@ -2674,17 +2681,24 @@ function openPerfModal(metricType) {
     if (breakdown.length === 0) {
       html += '<div class="text-center p-4 text-muted fw-bold">No dealer transactions for ' + periodLabel + '.</div>';
     } else {
-      var sortedByTxn = breakdown.slice().sort(function(a, b) { return b.ordersCount - a.ordersCount; });
+      var sortedByTxn = breakdown.slice().sort(function(a, b) { 
+        var aCount = (typeof a.ordersCount === 'number') ? a.ordersCount : (Array.isArray(a.orders) ? a.orders.length : (parseInt(a.orders) || 0));
+        var bCount = (typeof b.ordersCount === 'number') ? b.ordersCount : (Array.isArray(b.orders) ? b.orders.length : (parseInt(b.orders) || 0));
+        return bCount - aCount; 
+      });
       sortedByTxn.forEach(function(b, idx) {
+        var dName = b.dealer || b.dealerName || b.shop || 'Dealer';
+        var oCount = (typeof b.ordersCount === 'number') ? b.ordersCount : (Array.isArray(b.orders) ? b.orders.length : (parseInt(b.orders) || 0));
+        var oSales = b.totalRevenue || b.sameDayRevenue || b.sales || (b.totalAmount || 0);
         html += '<div class="card mb-2 border-0 shadow-sm" style="border-radius:10px;">' +
                   '<div class="card-body p-3">' +
                     '<div class="d-flex justify-content-between align-items-center mb-1">' +
-                      '<h6 class="fw-bold text-dark mb-0">' + (idx + 1) + '. ' + b.dealer + '</h6>' +
-                      '<span class="badge bg-purple text-white px-2 py-1" style="background:#7c3aed;">' + b.ordersCount + (b.ordersCount === 1 ? ' Order' : ' Orders') + '</span>' +
+                      '<h6 class="fw-bold text-dark mb-0">' + (idx + 1) + '. ' + escapeHtmlSafe(dName) + '</h6>' +
+                      '<span class="badge bg-purple text-white px-2 py-1" style="background:#7c3aed;">' + oCount + (oCount === 1 ? ' Order' : ' Orders') + '</span>' +
                     '</div>' +
                     '<div class="text-muted small d-flex justify-content-between mt-2 pt-2 border-top">' +
-                      '<span><i class="bi bi-pin-map"></i> ' + (b.area || '') + '</span>' +
-                      '<span class="fw-bold text-success">Total: ₹' + (b.sales || 0).toLocaleString('en-IN') + '</span>' +
+                      '<span><i class="bi bi-pin-map"></i> ' + escapeHtmlSafe(b.area || '') + '</span>' +
+                      '<span class="fw-bold text-success">Total: ₹' + oSales.toLocaleString('en-IN') + '</span>' +
                     '</div>' +
                   '</div>' +
                 '</div>';
@@ -2705,14 +2719,16 @@ function openPerfModal(metricType) {
       html += '<div class="text-center p-4 text-muted fw-bold">No sales revenue for ' + periodLabel + '.</div>';
     } else {
       ordersList.forEach(function(o, idx) {
+        var dName = o.shop || o.dealer || o.dealerName || 'Dealer';
+        var oAmt = parseFloat(o.amount || o.sales || 0) || 0;
         html += '<div class="card mb-2 border-0 shadow-sm" style="border-radius:10px;">' +
                   '<div class="card-body p-3">' +
                     '<div class="d-flex justify-content-between align-items-center mb-1">' +
-                      '<h6 class="fw-bold text-dark mb-0">' + (idx + 1) + '. ' + o.dealer + '</h6>' +
-                      '<h5 class="fw-bold text-success mb-0">₹' + (o.amount || 0).toLocaleString('en-IN') + '</h5>' +
+                      '<h6 class="fw-bold text-dark mb-0">' + (idx + 1) + '. ' + escapeHtmlSafe(dName) + '</h6>' +
+                      '<h5 class="fw-bold text-success mb-0">₹' + oAmt.toLocaleString('en-IN') + '</h5>' +
                     '</div>' +
                     '<div class="text-muted small d-flex justify-content-between mt-1">' +
-                      '<span><i class="bi bi-pin-map"></i> ' + (o.area || '') + '</span>' +
+                      '<span><i class="bi bi-pin-map"></i> ' + escapeHtmlSafe(o.area || '') + '</span>' +
                       '<span><i class="bi bi-clock-history"></i> ' + formatVisitDateTime(o.dateStr, o.timeStr) + '</span>' +
                     '</div>' +
                   '</div>' +
@@ -3078,7 +3094,7 @@ function openCeoPerfModal(metricType, filterStaff) {
       ordersList.forEach(function(o, idx) {
         var amt = Number(o.amount || o.sales || 0);
         tot += amt;
-        html += '<tr><td>' + (idx + 1) + '</td><td><b>' + (o.dealer || '--') + '</b></td><td>' + (o.staff || '--') + '</td><td>' + (o.area || '--') + '</td><td class="fw-bold text-success">₹' + amt.toLocaleString('en-IN') + '</td></tr>';
+        html += '<tr><td>' + (idx + 1) + '</td><td><b>' + (o.shop || o.dealer || '--') + '</b></td><td>' + (o.staff || '--') + '</td><td>' + (o.area || '--') + '</td><td class="fw-bold text-success">₹' + amt.toLocaleString('en-IN') + '</td></tr>';
       });
       html += '<tr class="table-light fw-bold"><td colspan="4" class="text-end">Total:</td><td class="text-success">₹' + tot.toLocaleString('en-IN') + '</td></tr>';
       html += '</tbody></table></div>';
@@ -4029,7 +4045,7 @@ function submitData() {
   }
   
   if (!document.getElementById('location').value) { 
-    alert("❌ GPS location fetch karna mandatory hai! Phone ka Location on karein."); 
+    alert("��� GPS location fetch karna mandatory hai! Phone ka Location on karein."); 
     return; 
   }
   
