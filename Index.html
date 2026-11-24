@@ -1540,7 +1540,7 @@ function openVisitForm() {
 function backToDashboard() {
   showScreen('dashboardScreen');
   if (currentUser && typeof loadStaffDashboard === 'function') {
-    loadStaffDashboard(currentUser);
+    if (!isLoadingStaffDashboard) loadStaffDashboard(currentUser);
   }
 }
 
@@ -1708,6 +1708,7 @@ function doLogin() {
     .verifyLogin(empId, pass);
 }
 
+var isLoadingStaffDashboard = false;
 function loadStaffDashboard(name) {
   if (!name) name = currentUser || "Staff";
   tryAutoSyncStaffGps();
@@ -1721,10 +1722,34 @@ function loadStaffDashboard(name) {
   if (ceoBtn) {
     ceoBtn.style.display = isCeoOrAdmin(role) ? "inline-block" : "none";
   }
+
+  // Instant Stale-While-Revalidate Hydration from localStorage
+  var staffCacheKey = "yashApp_staffCache_" + String(name).trim().toLowerCase();
+  try {
+    var cachedStaffStr = localStorage.getItem(staffCacheKey);
+    if (cachedStaffStr) {
+      var parsedStaffCache = JSON.parse(cachedStaffStr);
+      if (parsedStaffCache && (parsedStaffCache.today || parsedStaffCache.rules)) {
+        globalDashboardData = parsedStaffCache;
+        var loaderEl = document.getElementById('incentiveLoader');
+        if (loaderEl) loaderEl.style.display = 'none';
+        var dashEl = document.getElementById('incentiveDashboard');
+        if (dashEl) dashEl.style.display = 'block';
+        renderKpiDashboard(currentKpiPeriod || 'today');
+      }
+    }
+  } catch(eStaffPreload) {
+    console.warn("Staff cache preload warning:", eStaffPreload);
+  }
+
+  // In-flight guard: prevent duplicate concurrent server calls
+  if (isLoadingStaffDashboard) return;
+  isLoadingStaffDashboard = true;
   
   if (typeof google !== 'undefined' && google.script && google.script.run) {
     google.script.run
       .withSuccessHandler(function(res) {
+        isLoadingStaffDashboard = false;
         // ALWAYS hide loader and show dashboard immediately
         var loader = document.getElementById('incentiveLoader');
         if (loader) loader.style.display = 'none';
@@ -1737,6 +1762,11 @@ function loadStaffDashboard(name) {
         }
         globalDashboardData = res; 
 
+        // Update local cache for instant future loads
+        try {
+          localStorage.setItem(staffCacheKey, JSON.stringify(res));
+        } catch(eCacheSave) {}
+
         try {
           renderKpiDashboard(currentKpiPeriod || 'today');
         } catch(eRender) {
@@ -1744,6 +1774,7 @@ function loadStaffDashboard(name) {
         }
       })
       .withFailureHandler(function(e) {
+        isLoadingStaffDashboard = false;
         console.error("Staff dashboard fetch error:", e);
         var loader = document.getElementById('incentiveLoader');
         if (loader) loader.style.display = 'none';
@@ -1751,6 +1782,8 @@ function loadStaffDashboard(name) {
         if (dash) dash.style.display = 'block';
       })
       .getStaffDashboardData(name);
+  } else {
+    isLoadingStaffDashboard = false;
   }
 }
 
