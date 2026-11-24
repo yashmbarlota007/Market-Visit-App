@@ -1239,6 +1239,7 @@ function getCEOStats(filter, customStartStr, customEndStr) {
 // -------------------------------------------------------------
 function getStaffDashboardData(staffName) {
   var staffNameClean = String(staffName || "").trim();
+  var staffLower = staffNameClean.toLowerCase();
   
   var bucketKeys = ['today', 'yesterday', 'thisWeek', 'lastWeek', 'thisMonth', 'lastMonth', 'thisQuarter', 'lastQuarter', 'thisYear'];
   var rules = getIncentiveRules();
@@ -1271,36 +1272,28 @@ function getStaffDashboardData(staffName) {
   
   var todayTime = now.getTime();
   var todayEndTime = todayTime + 86399999;
-  
   var yesterdayTime = new Date(now).setDate(now.getDate() - 1);
   var yesterdayEndTime = yesterdayTime + 86399999;
-  
   var dayOfWeek = now.getDay();
   var diffToMonday = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
   var startOfThisWeek = new Date(now).setDate(diffToMonday);
-  
   var startOfLastWeek = new Date(startOfThisWeek).setDate(new Date(startOfThisWeek).getDate() - 7);
   var endOfLastWeek = new Date(startOfThisWeek).setDate(new Date(startOfThisWeek).getDate() - 1) + 86399999;
-  
   var startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
   var endOfThisMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).getTime();
-  
   var startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime();
   var endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999).getTime();
-
   var currentQuarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
   var startOfThisQuarter = new Date(now.getFullYear(), currentQuarterStartMonth, 1).getTime();
   var endOfThisQuarter = new Date(now.getFullYear(), currentQuarterStartMonth + 3, 0, 23, 59, 59, 999).getTime();
-
   var startOfLastQuarter = new Date(now.getFullYear(), currentQuarterStartMonth - 3, 1).getTime();
   var endOfLastQuarter = new Date(now.getFullYear(), currentQuarterStartMonth, 0, 23, 59, 59, 999).getTime();
-
   var startOfThisYear = new Date(now.getFullYear(), 0, 1).getTime();
   var endOfThisYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999).getTime();
 
-  function getBuckets(dateObj) {
-    if (!dateObj) return [];
-    var t = dateObj.getTime();
+  function getBuckets(d) {
+    if (!d) return [];
+    var t = d.getTime();
     var buckets = [];
     if (t >= todayTime && t <= todayEndTime) buckets.push('today');
     if (t >= yesterdayTime && t <= yesterdayEndTime) buckets.push('yesterday');
@@ -1314,18 +1307,18 @@ function getStaffDashboardData(staffName) {
     return buckets;
   }
 
+  // 1. Process staff visits
   var visitSheet = getSheetSafely("Daily Operation");
   if (visitSheet) {
     var vData = visitSheet.getDataRange().getValues();
     var staffVisitsRaw = [];
     
-    var staffLower = staffNameClean.toLowerCase();
     for (var i = 1; i < vData.length; i++) {
       var rowStaff = String(vData[i][3] || "").trim().toLowerCase();
       if (rowStaff === staffLower) {
         var dObj = extractDateSafe(vData[i][1]);
         if (dObj) {
-          var dateStr = Utilities.formatDate(dObj, Session.getScriptTimeZone(), "dd/MM/yyyy");
+          var dateStr = fastFormatDate(dObj);
           var rawTime = vData[i][2];
           var timeMs = parseTimeToMsSafe(rawTime, dObj);
           
@@ -1392,14 +1385,16 @@ function getStaffDashboardData(staffName) {
     }
   }
 
+  // 2. Process staff orders
   var allOrders = fetchAndMapOrders(); 
   for (var o = 0; o < allOrders.length; o++) {
     var ord = allOrders[o];
-    if (String(ord.staff).trim() === staffNameClean) {
-      var buckets = getBuckets(ord.date);
-      if (buckets.length === 0) continue; 
+    var ordStaffLower = String(ord.staff || "").trim().toLowerCase();
+    if (ordStaffLower === staffLower) {
+      var buckets2 = getBuckets(ord.date);
+      if (buckets2.length === 0) continue; 
       
-      var orderDateStr = Utilities.formatDate(ord.date, Session.getScriptTimeZone(), "dd/MM/yyyy");
+      var orderDateStr = fastFormatDate(ord.date);
       var orderItem = {
         shop: ord.shop,
         area: ord.area,
@@ -1409,18 +1404,18 @@ function getStaffDashboardData(staffName) {
         timeMs: ord.timeMs
       };
       
-      for (var b = 0; b < buckets.length; b++) {
-        var bName = buckets[b];
-        dashboard[bName].ordersList.push(orderItem);
-        dashboard[bName].sales += ord.amount;
+      for (var b2 = 0; b2 < buckets2.length; b2++) {
+        var bName2 = buckets2[b2];
+        dashboard[bName2].ordersList.push(orderItem);
+        dashboard[bName2].sales += ord.amount;
       }
     }
   }
 
-  // Compute 5 KPI Metrics for Each Time Bucket
-  for (var bk = 0; bk < bucketKeys.length; bk++) {
-    var bName = bucketKeys[bk];
-    var bObj = dashboard[bName];
+  // 3. Compute 5 KPI Metrics for Each Time Bucket
+  for (var bk2 = 0; bk2 < bucketKeys.length; bk2++) {
+    var bNameFinal = bucketKeys[bk2];
+    var bObj = dashboard[bNameFinal];
     var computed = computeEntityMetrics(bObj.visitsList, bObj.ordersList);
     bObj.visits = computed.metrics.visits;
     bObj.sales = computed.metrics.revenue;
@@ -1430,7 +1425,7 @@ function getStaffDashboardData(staffName) {
     bObj.unvisitedOrdersList = computed.unvisitedOrdersList;
   }
 
-  // Compute Live Route Market Coverage for Today
+  // 4. Compute Live Route Market Coverage for Today
   try {
     var areaDealersCatalog = {};
     var dMaster = getSheetSafely("Dealer Master");
@@ -1776,7 +1771,7 @@ function generateWhatsAppEOD(staffName) {
   report += "*📈 5. GROWTH TRACKER*" + nl;
   report += "• Today: *₹ " + Math.round(todaySales).toLocaleString('en-IN') + "*" + nl;
   report += "• Yesterday: *₹ " + Math.round((dash.yesterday && dash.yesterday.sales) ? dash.yesterday.sales : 0).toLocaleString('en-IN') + "*" + nl;
-  report += "• This Week: *₹ " + Math.round(thisWeekSales).toLocaleString('en-IN') + "* " + (paceWeek > 0 ? "(_Need ₹" + Math.round(paceWeek).toLocaleString('en-IN') + " for Target_)" : "(_Target Hit! 🎯_)") + nl;
+  report += "• This Week: *��� " + Math.round(thisWeekSales).toLocaleString('en-IN') + "* " + (paceWeek > 0 ? "(_Need ₹" + Math.round(paceWeek).toLocaleString('en-IN') + " for Target_)" : "(_Target Hit! 🎯_)") + nl;
   report += "• This Month: *₹ " + Math.round(thisMonthSales).toLocaleString('en-IN') + "* " + (paceMonth > 0 ? "(_Need ₹" + Math.round(paceMonth).toLocaleString('en-IN') + " for Target_)" : "(_Target Hit! 🎯_)") + nl;
 
   return report;
