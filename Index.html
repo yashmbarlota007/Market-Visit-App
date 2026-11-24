@@ -4033,6 +4033,9 @@ function checkDealerDetails() {
         
         // Verify Geofence
         verifyCurrentGeofence();
+        if (!document.getElementById('location').value && navigator.geolocation) {
+          getLocation();
+        }
       } else {
         // NOT LOCKED: Visit punch is strictly blocked until staff locks dealer GPS!
         lockCard.innerHTML = '<div class="alert alert-warning p-3 small mb-0 border-warning shadow-sm" style="border-radius: 10px; border-left: 5px solid #d97706 !important; background-color: #fffbeb;">' +
@@ -4184,17 +4187,15 @@ function verifyCurrentGeofence() {
     return;
   }
   
-  // Dealer IS locked. Now verify staff location:
+  // Dealer IS locked: Hide redundant pending box completely
   if (!locVal) {
     if (geofenceBox) {
-      geofenceBox.className = "alert alert-warning mt-2 py-2 px-3 small fw-bold mb-0 border-warning shadow-sm";
-      geofenceBox.innerHTML = '📍 <b>GPS Verification Pending:</b> Kripya neeche "Fetch GPS" dabayein ya photo lein taaki 50m geofence verify ho sake.';
-      geofenceBox.style.display = 'block';
+      geofenceBox.style.display = 'none';
     }
     if (submitBtn) {
       submitBtn.disabled = true;
       submitBtn.className = "btn btn-secondary w-100 py-3 fw-bold";
-      submitBtn.innerHTML = '<b><i class="bi bi-geo-alt-fill"></i> GPS Fetch Required to Punch</b>';
+      submitBtn.innerHTML = '<b><i class="bi bi-geo-alt-fill"></i> Fetch GPS to Punch</b>';
     }
     return;
   }
@@ -4214,10 +4215,9 @@ function verifyCurrentGeofence() {
   var allowedRadius = dealer.radius || 50;
   
   if (distMeters <= allowedRadius) {
+    // INSIDE SHOP GEOFENCE: Clean UI - hide warning box completely!
     if (geofenceBox) {
-      geofenceBox.className = "alert alert-success mt-2 py-2 px-3 small fw-bold mb-0 border-success shadow-sm";
-      geofenceBox.innerHTML = '✅ <b>Inside Shop Geofence:</b> Aap dukan se ' + distMeters + 'm dur hain (Limit: ' + allowedRadius + 'm). Visit punch allowed!';
-      geofenceBox.style.display = 'block';
+      geofenceBox.style.display = 'none';
     }
     if (submitBtn) {
       submitBtn.disabled = false;
@@ -4225,6 +4225,7 @@ function verifyCurrentGeofence() {
       submitBtn.innerHTML = '<b><i class="bi bi-cloud-arrow-up"></i> Submit & Upload</b>';
     }
   } else {
+    // OUTSIDE SHOP GEOFENCE: Anti-Proxy Breach Block
     if (geofenceBox) {
       geofenceBox.className = "alert alert-danger mt-2 py-2 px-3 small fw-bold mb-0 border-danger shadow-sm";
       geofenceBox.innerHTML = '⛔ <b>Anti-Proxy Breach Block:</b> Aap dealer se ' + distMeters + ' meters dur hain! Punch sirf 50m ke andar allowed hai.';
