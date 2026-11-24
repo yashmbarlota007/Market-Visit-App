@@ -984,6 +984,30 @@ window.loadAreasInBackground = function() {
                       </div>
                     </div>
 
+                    <!-- 6. Travel & Petrol Allowance -->
+                    <div class="col-12 mt-2">
+                      <div class="card p-3 border-0 shadow-sm clickable-card kpi-card" 
+                           style="background: linear-gradient(135deg, #064e3b 0%, #065f46 100%); color: white; border-radius: 10px; cursor: pointer;"
+                           onclick="openTravelBreakdownModal()" title="Click to view daily travel & petrol allowance breakdown">
+                        <div class="d-flex justify-content-between align-items-center">
+                          <div>
+                            <div class="d-flex align-items-center gap-2">
+                              <i class="bi bi-geo-alt-fill text-warning fs-5"></i>
+                              <span class="text-uppercase fw-bold" style="font-size: 11px; letter-spacing: 0.5px; opacity: 0.9;">6. TRAVEL & PETROL ALLOWANCE</span>
+                            </div>
+                            <div class="d-flex align-items-baseline gap-2 mt-1">
+                              <div class="fs-2 fw-black text-white" id="kpiTravelAllowanceVal">₹0</div>
+                              <span class="badge bg-warning text-dark fw-bold px-2 py-1" id="kpiTravelKmBadge">0.0 KM</span>
+                            </div>
+                          </div>
+                          <div class="text-end">
+                            <span class="badge bg-white text-dark px-2 py-1 mb-1" id="kpiTravelRateBadge">@ ₹3.50 / KM</span>
+                            <div class="small" style="font-size: 11px; opacity: 0.9;" id="kpiTravelSubtitle">Tap for Route Breakdown <i class="bi bi-chevron-right"></i></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
                   </div>
 
                 </div>
@@ -1969,6 +1993,23 @@ function renderKpiDashboard(periodKey) {
   if (elAvgSub) elAvgSub.innerText = avgPerVisit + ' / visit';
   if (elTxnSub) elTxnSub.innerText = txns + (txns === 1 ? ' order' : ' orders');
   if (elRevBadge) elRevBadge.innerText = txns + (txns === 1 ? ' Order' : ' Orders');
+
+  var travel = data.travel || { totalKm: 0, allowance: 0, ratePerKm: (globalDashboardData.rules && globalDashboardData.rules.kmRate) || 3.5, daysCount: 0, stopsCount: 0 };
+  var elTravelAllowance = document.getElementById('kpiTravelAllowanceVal');
+  var elTravelKm = document.getElementById('kpiTravelKmBadge');
+  var elTravelRate = document.getElementById('kpiTravelRateBadge');
+  var elTravelSub = document.getElementById('kpiTravelSubtitle');
+
+  if (elTravelAllowance) elTravelAllowance.innerText = '₹' + (travel.allowance || 0).toLocaleString('en-IN');
+  if (elTravelKm) elTravelKm.innerText = (travel.totalKm || 0).toFixed(1) + ' KM';
+  if (elTravelRate) elTravelRate.innerText = '@ ₹' + (travel.ratePerKm || 3.5).toFixed(2) + ' / KM';
+  if (elTravelSub) {
+    if (periodKey === 'today' || periodKey === 'yesterday') {
+      elTravelSub.innerHTML = (travel.stopsCount ? (travel.stopsCount + ' stops • HQ Round Trip') : '0 stops tracked') + ' <i class="bi bi-chevron-right"></i>';
+    } else {
+      elTravelSub.innerHTML = (travel.daysCount ? (travel.daysCount + ' days • ~' + (travel.avgKmPerDay || 0) + ' km/d') : '0 active days') + ' <i class="bi bi-chevron-right"></i>';
+    }
+  }
   
   // Trigger live route market coverage render
   try {
@@ -2112,6 +2153,137 @@ function escapeHtmlAttr(str) {
 function escapeHtmlText(str) {
   return String(str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
+
+
+function escapeHtmlSafe(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function openTravelBreakdownModal() {
+  if (!globalDashboardData) return;
+  var period = currentKpiPeriod || 'today';
+  var data = globalDashboardData[period] || {};
+  var travel = data.travel || { totalKm: 0, allowance: 0, ratePerKm: 3.5, stopsCount: 0, waypoints: [], dailyBreakdown: [] };
+  
+  var periodLabels = {
+    today: 'Today (Roz ka)',
+    yesterday: 'Yesterday (Kal ka)',
+    thisWeek: 'This Week (Current Week)',
+    lastWeek: 'Last Week (Pichla Hafta)',
+    thisMonth: 'This Month (Current Month)',
+    lastMonth: 'Last Month (Pichla Mahina)',
+    thisQuarter: 'This Quarter',
+    lastQuarter: 'Last Quarter',
+    thisYear: 'This Year'
+  };
+
+  var titleEl = document.getElementById('travelModalPeriodTitle');
+  if (titleEl) titleEl.innerText = periodLabels[period] || period;
+
+  var distEl = document.getElementById('travelModalTotalKm');
+  if (distEl) distEl.innerText = (travel.totalKm || 0).toFixed(1) + ' KM';
+
+  var rateEl = document.getElementById('travelModalRate');
+  if (rateEl) rateEl.innerText = '₹' + (travel.ratePerKm || 3.5).toFixed(2) + ' / KM';
+
+  var allwEl = document.getElementById('travelModalAllowance');
+  if (allwEl) allwEl.innerText = '₹' + (travel.allowance || 0).toLocaleString('en-IN');
+
+  var contentEl = document.getElementById('travelModalBodyContent');
+  if (!contentEl) return;
+
+  var html = '';
+
+  if (period === 'today' || period === 'yesterday') {
+    var waypoints = travel.waypoints || [];
+    if (waypoints.length === 0) {
+      html += '<div class="text-center py-4 text-muted"><i class="bi bi-geo-alt fs-1 d-block mb-2 text-secondary"></i>No store visit GPS punches recorded for this day yet.</div>';
+    } else {
+      html += '<div class="timeline p-2" style="position: relative;">';
+      for (var w = 0; w < waypoints.length; w++) {
+        var wp = waypoints[w];
+        var isHq = wp.isReturn;
+        var iconClass = isHq ? 'bi-building-check text-success' : (w === 0 ? 'bi-geo-alt-fill text-primary' : 'bi-shop text-dark');
+        var badgeBg = isHq ? 'bg-success text-white' : 'bg-light text-dark border';
+        
+        html += '<div class="d-flex align-items-start mb-3" style="position: relative;">';
+        html += '  <div class="me-3 text-center" style="width: 32px;">';
+        html += '    <i class="bi ' + iconClass + ' fs-4"></i>';
+        if (w < waypoints.length - 1) {
+          html += '    <div style="width: 2px; height: 35px; background: #cbd5e1; margin: 4px auto 0 auto;"></div>';
+        }
+        html += '  </div>';
+        html += '  <div class="flex-grow-1 card p-2 border-0 shadow-sm ' + (isHq ? 'bg-light' : '') + '" style="border-radius: 8px;">';
+        html += '    <div class="d-flex justify-content-between align-items-center">';
+        html += '      <span class="fw-bold" style="font-size: 13px;">' + (w + 1) + '. ' + escapeHtmlSafe(wp.to) + '</span>';
+        html += '      <span class="badge ' + badgeBg + '" style="font-size: 11px;">' + (wp.distKm > 0 ? ('+' + wp.distKm + ' KM') : (wp.noGps ? 'Visit' : '0 KM')) + '</span>';
+        html += '    </div>';
+        if (wp.area && wp.area !== 'HQ') {
+          html += '    <div class="text-muted small mt-1" style="font-size: 11px;"><i class="bi bi-pin-map"></i> ' + escapeHtmlSafe(wp.area) + (wp.time ? (' • <i class="bi bi-clock"></i> ' + wp.time) : '') + '</div>';
+        } else if (wp.isReturn) {
+          html += '    <div class="text-success small mt-1" style="font-size: 11px;"><i class="bi bi-arrow-repeat"></i> Completed Round Trip Return to Yash HQ</div>';
+        }
+        html += '  </div>';
+        html += '</div>';
+      }
+      html += '</div>';
+
+      if (travel.mapsUrl) {
+        html += '<div class="mt-3 text-center">';
+        html += '  <a href="' + travel.mapsUrl + '" target="_blank" class="btn btn-primary btn-sm px-4 py-2 rounded-pill shadow-sm">';
+        html += '    <i class="bi bi-map-fill me-1"></i> Open Complete Route in Google Maps';
+        html += '  </a>';
+        html += '</div>';
+      }
+    }
+  } else {
+    var breakdown = travel.dailyBreakdown || [];
+    if (breakdown.length === 0) {
+      html += '<div class="text-center py-4 text-muted"><i class="bi bi-calendar-x fs-1 d-block mb-2 text-secondary"></i>No travel activity recorded for this period.</div>';
+    } else {
+      html += '<div class="table-responsive">';
+      html += '<table class="table table-hover align-middle mb-0" style="font-size: 12px;">';
+      html += '<thead class="table-light">';
+      html += '  <tr>';
+      html += '    <th>Date</th>';
+      html += '    <th class="text-center">Visits</th>';
+      html += '    <th class="text-end">Travel (KM)</th>';
+      html += '    <th class="text-end">Allowance (₹)</th>';
+      html += '  </tr>';
+      html += '</thead>';
+      html += '<tbody>';
+      for (var b = 0; b < breakdown.length; b++) {
+        var dayRow = breakdown[b];
+        html += '<tr>';
+        html += '  <td class="fw-bold"><i class="bi bi-calendar-event text-primary me-1"></i> ' + dayRow.dateStr + '</td>';
+        html += '  <td class="text-center"><span class="badge bg-light text-dark border">' + dayRow.stopsCount + ' stops</span></td>';
+        html += '  <td class="text-end fw-semibold text-primary">' + dayRow.totalKm.toFixed(1) + ' KM</td>';
+        html += '  <td class="text-end fw-bold text-success">₹' + dayRow.allowance.toLocaleString('en-IN') + '</td>';
+        html += '</tr>';
+      }
+      html += '</tbody>';
+      html += '<tfoot class="table-light fw-bold">';
+      html += '  <tr>';
+      html += '    <td>Total (' + travel.daysCount + ' Days)</td>';
+      html += '    <td class="text-center">' + travel.stopsCount + ' stops</td>';
+      html += '    <td class="text-end text-primary">' + travel.totalKm.toFixed(1) + ' KM</td>';
+      html += '    <td class="text-end text-success">₹' + travel.allowance.toLocaleString('en-IN') + '</td>';
+      html += '  </tr>';
+      html += '</tfoot>';
+      html += '</table>';
+      html += '</div>';
+    }
+  }
+
+  contentEl.innerHTML = html;
+  var modalEl = document.getElementById('travelBreakdownModal');
+  if (modalEl) {
+    var modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+    modal.show();
+  }
+}
+window.openTravelBreakdownModal = openTravelBreakdownModal;
 
 function renderRouteCoverageCard(dashboardData, activeAreaOverride) {
   var cardContainer = document.getElementById("routeCoverageCard");
@@ -3956,7 +4128,7 @@ function submitData() {
 
     var alertMessage = "✅ " + res;
     if (outOfStockItems.length > 0) {
-      alertMessage += "\n\n⚠️ STOCK OUT REMINDER ⚠️\nDealer ke pass in items ka stock '0' hai. Kripya inki ORDER zaroor nikalein:\n\n👉 " + outOfStockItems.join("\n👉 ");
+      alertMessage += "\n\n���️ STOCK OUT REMINDER ⚠️\nDealer ke pass in items ka stock '0' hai. Kripya inki ORDER zaroor nikalein:\n\n👉 " + outOfStockItems.join("\n👉 ");
     }
     
     alert(alertMessage);
@@ -4138,6 +4310,53 @@ window.computeRouteCoverageHelper = computeRouteCoverageHelper;
     </div>
   </div>
 </div>
+</div>
+
+
+<!-- TRAVEL & PETROL ALLOWANCE BREAKDOWN MODAL -->
+<div class="modal fade" id="travelBreakdownModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+      <div class="modal-header text-white" style="background: linear-gradient(135deg, #064e3b 0%, #047857 100%);">
+        <div>
+          <h5 class="modal-title fw-bold mb-0">
+            <i class="bi bi-geo-alt-fill text-warning me-1"></i> Travel & Route Breakdown
+          </h5>
+          <span class="badge bg-white text-dark mt-1" id="travelModalPeriodTitle" style="font-size: 11px;">Today</span>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-3">
+        <div class="row g-2 mb-3 text-center">
+          <div class="col-4">
+            <div class="p-2 border rounded-3 bg-light">
+              <div class="small text-muted" style="font-size: 10px;">TOTAL KM</div>
+              <div class="fw-black text-primary fs-5" id="travelModalTotalKm">0.0 KM</div>
+            </div>
+          </div>
+          <div class="col-4">
+            <div class="p-2 border rounded-3 bg-light">
+              <div class="small text-muted" style="font-size: 10px;">RATE / KM</div>
+              <div class="fw-black text-secondary fs-5" id="travelModalRate">₹3.50</div>
+            </div>
+          </div>
+          <div class="col-4">
+            <div class="p-2 border rounded-3 bg-light">
+              <div class="small text-muted" style="font-size: 10px;">ALLOWANCE</div>
+              <div class="fw-black text-success fs-5" id="travelModalAllowance">₹0</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="travelModalBodyContent">
+          <!-- Dynamic Content -->
+        </div>
+      </div>
+      <div class="modal-footer p-2 bg-light border-0">
+        <button type="button" class="btn btn-secondary btn-sm px-4 w-100" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 </body>
