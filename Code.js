@@ -729,7 +729,9 @@ function computeEntityMetrics(visits, orders) {
     
     if (!dealersMap[dClean]) {
       dealersMap[dClean] = {
+        dealer: vItem.dealer,
         dealerName: vItem.dealer,
+        shop: vItem.dealer,
         area: vItem.area || "",
         staff: vItem.staff || "",
         visitsCount: 0,
@@ -739,6 +741,7 @@ function computeEntityMetrics(visits, orders) {
         sameDayRevenue: 0,
         totalRevenue: 0,
         totalAmount: 0,
+        sales: 0,
         isConverted: false,
         tasks: [],
         visits: [],
@@ -802,6 +805,7 @@ function computeEntityMetrics(visits, orders) {
       dEntry2.ordersCount++;
       dEntry2.totalRevenue += oAmt;
       dEntry2.totalAmount += oAmt;
+      dEntry2.sales = dEntry2.totalRevenue;
       
       var visitedOrdRecord = {
         shop: oItem.shop,
@@ -1654,8 +1658,10 @@ function getStaffDashboardData(staffName) {
       var orderDateStr = fastFormatDate(ord.date);
       var orderItem = {
         shop: ord.shop,
+        dealer: ord.shop,
         area: ord.area,
         amount: ord.amount,
+        sales: ord.amount,
         items: ord.items,
         dateStr: orderDateStr,
         timeMs: ord.timeMs
