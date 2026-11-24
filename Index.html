@@ -1589,6 +1589,16 @@ document.addEventListener("DOMContentLoaded", function() {
       var inpStaff = document.getElementById('staffName');
       if (inpStaff) inpStaff.value = currentUser;
       showScreen('ceoScreen');
+      try {
+        var cachedCeoStr = localStorage.getItem("yashApp_ceoCache");
+        if (cachedCeoStr) {
+          var parsedCeoCache = JSON.parse(cachedCeoStr);
+          if (parsedCeoCache && (parsedCeoCache.buckets || parsedCeoCache.allBuckets)) {
+            cachedCeoServerData = parsedCeoCache;
+            renderCeoDashboard(ceoSelectedTimeframe || 'today');
+          }
+        }
+      } catch(ePreload) {}
       refreshCEOStats();
       if (portalEmpId && portalEmpId.trim() !== "") doLogin();
       return;
@@ -1649,7 +1659,7 @@ function doLogin() {
         
         if (isCeoOrAdmin(activeRole) || isCeoOrAdmin(res.role)) { 
           showScreen('ceoScreen'); 
-          refreshCEOStats(); 
+          if (!isSyncingCeo) refreshCEOStats(); 
         } else { 
           loadStaffDashboard(currentUser); 
         }
@@ -2746,7 +2756,11 @@ function renderCeoDashboard(timeframeKey) {
   }
 }
 
+var isSyncingCeo = false;
 function refreshCEOStatsFromServer(callback, manual, customStartStr, customEndStr) {
+  if (isSyncingCeo && !manual && !customStartStr) return;
+  isSyncingCeo = true;
+
   var spin = document.getElementById('ceoSyncSpinner');
   if (spin) spin.style.display = 'inline-block';
   var btn = document.getElementById('btnRefreshCEO');
@@ -2758,6 +2772,7 @@ function refreshCEOStatsFromServer(callback, manual, customStartStr, customEndSt
   if (typeof google !== 'undefined' && google.script && google.script.run) {
     var runner = google.script.run
       .withSuccessHandler(function(res) {
+        isSyncingCeo = false;
         if (spin) spin.style.display = 'none';
         if (btn) {
           btn.innerHTML = '<b><i class="bi bi-arrow-clockwise"></i> Force Sync Data</b>';
@@ -2765,11 +2780,15 @@ function refreshCEOStatsFromServer(callback, manual, customStartStr, customEndSt
         }
         if (res && !res.error) {
           cachedCeoServerData = res;
+          try {
+            localStorage.setItem("yashApp_ceoCache", JSON.stringify(res));
+          } catch(eCache) {}
           renderCeoDashboard(ceoSelectedTimeframe);
           if (callback) callback(res);
         }
       })
       .withFailureHandler(function(err) {
+        isSyncingCeo = false;
         if (spin) spin.style.display = 'none';
         if (btn) {
           btn.innerHTML = '<b><i class="bi bi-arrow-clockwise"></i> Force Sync Data</b>';
@@ -2783,6 +2802,8 @@ function refreshCEOStatsFromServer(callback, manual, customStartStr, customEndSt
     } else {
       runner.getCEOStats();
     }
+  } else {
+    isSyncingCeo = false;
   }
 }
 
@@ -2904,7 +2925,7 @@ function fetchStaffRadarTelemetry(callback) {
         }
       })
       .withFailureHandler(function() { callback([]); })
-      .getLiveStaffRadar();
+      .getLiveStaffRadar(portalRole || "CEO");
   }
 }
 
