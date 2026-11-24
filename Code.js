@@ -23,6 +23,17 @@ function onOpen() {
 }
 
 function doGet(e) {
+  if (e && e.parameter && e.parameter.setKmRate) {
+    try {
+      var nRate = parseFloat(e.parameter.setKmRate);
+      if (!isNaN(nRate) && nRate > 0) {
+        PropertiesService.getScriptProperties().setProperty("YASH_TRAVEL_KM_RATE", String(nRate));
+        return ContentService.createTextOutput(JSON.stringify({ success: true, updatedKmRate: nRate })).setMimeType(ContentService.MimeType.JSON);
+      }
+    } catch(errKm) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: errKm.message })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
   if (e && e.parameter && e.parameter.getStaffRadar) {
     try {
       var trackSheet = getOrCreateLiveTrackingSheet();
@@ -83,6 +94,7 @@ function doGet(e) {
         timeMs: (t1 - t0),
         todayVisitsCount: dash.today.visitsList.length,
         todaySales: dash.today.sales,
+        todayTravel: dash.today.travel,
         todayCoverage: dash.today.routeCoverage
       })).setMimeType(ContentService.MimeType.JSON);
     } catch(errStaff) {
@@ -167,18 +179,19 @@ function testDriveUpload() {
   }
 }
 
+var _executionSheetCache = {};
 function getSheetSafely(targetName) {
+  var key = String(targetName || "").trim().toLowerCase();
+  if (_executionSheetCache[key]) return _executionSheetCache[key];
   var ss = getActiveSpreadsheet();
   if (!ss) return null;
   var sheets = ss.getSheets();
-  
   for (var i = 0; i < sheets.length; i++) {
-    if (sheets[i].getName().trim().toLowerCase() === targetName.trim().toLowerCase()) {
-      return sheets[i];
-    }
+    var s = sheets[i];
+    var sKey = s.getName().trim().toLowerCase();
+    _executionSheetCache[sKey] = s;
   }
-  
-  return null; 
+  return _executionSheetCache[key] || null;
 }
 
 function verifyLogin(empId, password) {
@@ -219,7 +232,8 @@ function getIncentiveRules() {
     visitRate: 0, 
     pcRate: 0, 
     thousandRate: 0, 
-    brandRates: {} 
+    brandRates: {},
+    kmRate: 3.50
   };
   
   var sheet = getSheetSafely("Incentive Master");
@@ -234,6 +248,7 @@ function getIncentiveRules() {
       var colFocusRate = -1;
       var colGenRate = -1;
       var colThousand = -1;
+      var colKm = -1;
       
       for (var j = 0; j < headers.length; j++) {
         var h = String(headers[j]).toLowerCase().replace(/\s+/g, '');
@@ -253,6 +268,9 @@ function getIncentiveRules() {
         if (h.includes("per1000")) {
           colThousand = j;
         }
+        if (h.includes("perkm") || h.includes("kmrate") || h.includes("petrol") || h.includes("travel")) {
+          colKm = j;
+        }
       }
 
       if (colVisit !== -1) {
@@ -266,6 +284,18 @@ function getIncentiveRules() {
       if (colThousand !== -1) {
         rules.thousandRate = parseFloat(data[1][colThousand]) || 0;
       }
+
+      if (colKm !== -1) {
+        var pKm = parseFloat(data[1][colKm]);
+        if (!isNaN(pKm) && pKm > 0) rules.kmRate = pKm;
+      }
+      try {
+        var propKm = PropertiesService.getScriptProperties().getProperty("YASH_TRAVEL_KM_RATE");
+        if (propKm) {
+          var pRate = parseFloat(propKm);
+          if (!isNaN(pRate) && pRate > 0) rules.kmRate = pRate;
+        }
+      } catch(eProp) {}
 
       if (colBrand !== -1 && colFocusRate !== -1) {
         for (var i = 1; i < data.length; i++) {
@@ -520,8 +550,76 @@ function fetchAndMapOrders() {
   return orderList;
 }
 
+function cachePutChunked(key, str, expirationSec) {
+  try {
+    var cache = CacheService.getScriptCache();
+    var chunkSize = 90000;
+    var count = Math.ceil(str.length / chunkSize);
+    var entries = {};
+    entries[key + "_count"] = String(count);
+    for (var i = 0; i < count; i++) {
+      entries[key + "_" + i] = str.substring(i * chunkSize, (i + 1) * chunkSize);
+    }
+    cache.putAll(entries, expirationSec || 900);
+  } catch(eCachePut) {
+    Logger.log("cachePutChunked error: " + eCachePut.message);
+  }
+}
+
+function cacheGetChunked(key) {
+  try {
+    var cache = CacheService.getScriptCache();
+    var countStr = cache.get(key + "_count");
+    if (!countStr) return null;
+    var count = parseInt(countStr, 10);
+    var fullStr = "";
+    for (var i = 0; i < count; i++) {
+      var chunk = cache.get(key + "_" + i);
+      if (!chunk) return null;
+      fullStr += chunk;
+    }
+    return fullStr;
+  } catch(eCacheGet) {
+    Logger.log("cacheGetChunked error: " + eCacheGet.message);
+    return null;
+  }
+}
+
 function getCachedExternalOrders() {
-  return fetchAndMapOrders();
+  try {
+    var cached = cacheGetChunked("yash_cached_orders_v116");
+    if (cached) {
+      var parsed = JSON.parse(cached);
+      if (parsed && Array.isArray(parsed) && parsed.length > 0) {
+        for (var i = 0; i < parsed.length; i++) {
+          parsed[i].date = new Date(parsed[i].timeMs);
+        }
+        return parsed;
+      }
+    }
+  } catch(eCache) {
+    Logger.log("Order cache read warning: " + eCache.message);
+  }
+
+  var freshOrders = fetchAndMapOrders();
+  try {
+    if (freshOrders && freshOrders.length > 0) {
+      var serializeList = freshOrders.map(function(o) {
+        return {
+          timeMs: o.timeMs,
+          shop: o.shop,
+          area: o.area,
+          amount: o.amount,
+          items: o.items,
+          staff: o.staff
+        };
+      });
+      cachePutChunked("yash_cached_orders_v116", JSON.stringify(serializeList), 900);
+    }
+  } catch(eCacheSave) {
+    Logger.log("Order cache save warning: " + eCacheSave.message);
+  }
+  return freshOrders;
 }
 
 function fetchExternalOrdersData() {
@@ -973,7 +1071,7 @@ function getCEOAllBuckets() {
   if (visitSheet) {
     vData = visitSheet.getDataRange().getValues();
   }
-  var allOrders = fetchAndMapOrders();
+  var allOrders = getCachedExternalOrders();
 
   var bucketKeys = ['today', 'yesterday', 'thisWeek', 'lastWeek', 'thisMonth', 'lastMonth', 'thisQuarter', 'lastQuarter', 'thisYear'];
 
@@ -1237,6 +1335,165 @@ function getCEOStats(filter, customStartStr, customEndStr) {
 // -------------------------------------------------------------
 // STAFF DASHBOARD MULTI-TIMEFRAME PRECOMPUTATION ENGINE
 // -------------------------------------------------------------
+
+function parseLocationCoordsSafe(locStr) {
+  if (!locStr) return null;
+  var s = String(locStr).trim().replace(/[()[\]]/g, '');
+  var parts = s.split(',');
+  if (parts.length >= 2) {
+    var lat = parseFloat(parts[0].trim());
+    var lon = parseFloat(parts[1].trim());
+    if (!isNaN(lat) && !isNaN(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180 && (Math.abs(lat) > 0.001 || Math.abs(lon) > 0.001)) {
+      return { lat: lat, lon: lon };
+    }
+  }
+  return null;
+}
+
+function getDealerGpsLookupMap() {
+  var lookup = {};
+  try {
+    var gpsSheet = getSheetSafely("Dealer Location GPS");
+    if (gpsSheet) {
+      var gData = gpsSheet.getDataRange().getValues();
+      for (var r = 1; r < gData.length; r++) {
+        var dName = String(gData[r][0] || "").trim().toUpperCase();
+        var lat = parseFloat(gData[r][3]);
+        var lon = parseFloat(gData[r][4]);
+        if (dName && !isNaN(lat) && !isNaN(lon) && lat !== 0) {
+          lookup[dName] = { lat: lat, lon: lon };
+        }
+      }
+    }
+  } catch(eGps) {}
+
+  try {
+    var dMaster = getSheetSafely("Dealer Master");
+    if (dMaster) {
+      var dmData = dMaster.getDataRange().getValues();
+      for (var m = 1; m < dmData.length; m++) {
+        var mName = String(dmData[m][1] || "").trim().toUpperCase();
+        if (mName && !lookup[mName]) {
+          var coords = parseLocationCoordsSafe(dmData[m][7]);
+          if (coords) lookup[mName] = coords;
+        }
+      }
+    }
+  } catch(eDm) {}
+
+  return lookup;
+}
+
+function calculateDailyRouteDistance(dayVisits, dealerGpsLookup, kmRate) {
+  dayVisits = dayVisits || [];
+  kmRate = kmRate || 3.50;
+  if (dayVisits.length === 0) {
+    return {
+      totalKm: 0,
+      allowance: 0,
+      ratePerKm: kmRate,
+      stopsCount: 0,
+      waypoints: [],
+      mapsUrl: ""
+    };
+  }
+
+  var waypoints = [];
+  var currentPoint = {
+    lat: HQ_COORDS.lat,
+    lon: HQ_COORDS.lon,
+    label: "Yash Marketing HQ",
+    time: "Start",
+    isHq: true
+  };
+
+  var totalMeters = 0;
+  var stopsCount = 0;
+  var mapCoords = [HQ_COORDS.lat + "," + HQ_COORDS.lon];
+
+  for (var i = 0; i < dayVisits.length; i++) {
+    var v = dayVisits[i];
+    var coords = parseLocationCoordsSafe(v.location);
+    if (!coords && dealerGpsLookup && v.dealer) {
+      coords = dealerGpsLookup[v.dealer.toUpperCase()];
+    }
+
+    var dealerLabel = v.dealer || "Store Visit " + (i + 1);
+    var visitTime = v.timeStr || "";
+
+    if (coords) {
+      var legMeters = calculateHaversineDistanceMeters(currentPoint.lat, currentPoint.lon, coords.lat, coords.lon);
+      if (legMeters < 20) legMeters = 0;
+      var legKm = Math.round((legMeters / 1000) * 10) / 10;
+      totalMeters += legMeters;
+      stopsCount++;
+
+      waypoints.push({
+        from: currentPoint.label,
+        to: dealerLabel,
+        area: v.area || "",
+        distKm: legKm,
+        time: visitTime,
+        lat: coords.lat,
+        lon: coords.lon,
+        isReturn: false
+      });
+
+      mapCoords.push(coords.lat + "," + coords.lon);
+      currentPoint = {
+        lat: coords.lat,
+        lon: coords.lon,
+        label: dealerLabel,
+        time: visitTime,
+        isHq: false
+      };
+    } else {
+      stopsCount++;
+      waypoints.push({
+        from: currentPoint.label,
+        to: dealerLabel,
+        area: v.area || "",
+        distKm: 0,
+        time: visitTime,
+        isReturn: false,
+        noGps: true
+      });
+    }
+  }
+
+  // Return leg to HQ from the last visit stop
+  if (stopsCount > 0 && !currentPoint.isHq) {
+    var returnMeters = calculateHaversineDistanceMeters(currentPoint.lat, currentPoint.lon, HQ_COORDS.lat, HQ_COORDS.lon);
+    var returnKm = Math.round((returnMeters / 1000) * 10) / 10;
+    totalMeters += returnMeters;
+
+    waypoints.push({
+      from: currentPoint.label,
+      to: "Return to Yash Marketing HQ",
+      area: "HQ",
+      distKm: returnKm,
+      time: "EOD Return",
+      lat: HQ_COORDS.lat,
+      lon: HQ_COORDS.lon,
+      isReturn: true
+    });
+    mapCoords.push(HQ_COORDS.lat + "," + HQ_COORDS.lon);
+  }
+
+  var totalKm = Math.round((totalMeters / 1000) * 10) / 10;
+  var allowance = Math.round(totalKm * kmRate);
+  var mapsUrl = mapCoords.length > 1 ? ("https://www.google.com/maps/dir/" + mapCoords.slice(0, 10).join("/")) : "";
+
+  return {
+    totalKm: totalKm,
+    allowance: allowance,
+    ratePerKm: kmRate,
+    stopsCount: stopsCount,
+    waypoints: waypoints,
+    mapsUrl: mapsUrl
+  };
+}
+
 function getStaffDashboardData(staffName) {
   var staffNameClean = String(staffName || "").trim();
   var staffLower = staffNameClean.toLowerCase();
@@ -1386,7 +1643,7 @@ function getStaffDashboardData(staffName) {
   }
 
   // 2. Process staff orders
-  var allOrders = fetchAndMapOrders(); 
+  var allOrders = getCachedExternalOrders(); 
   for (var o = 0; o < allOrders.length; o++) {
     var ord = allOrders[o];
     var ordStaffLower = String(ord.staff || "").trim().toLowerCase();
@@ -1412,7 +1669,29 @@ function getStaffDashboardData(staffName) {
     }
   }
 
-  // 3. Compute 5 KPI Metrics for Each Time Bucket
+  // 3. Compute 5 KPI Metrics & Travel Allowance for Each Time Bucket
+  var dealerGpsLookup = getDealerGpsLookupMap();
+  var visitsByDate = {};
+  var datesList = [];
+  for (var sv2 = 0; sv2 < deduplicatedVisits.length; sv2++) {
+    var vItem = deduplicatedVisits[sv2];
+    var dKey = vItem.dateStr;
+    if (!visitsByDate[dKey]) {
+      visitsByDate[dKey] = {
+        dateStr: dKey,
+        dateObj: vItem.dateObj,
+        visits: []
+      };
+      datesList.push(dKey);
+    }
+    visitsByDate[dKey].visits.push(vItem);
+  }
+
+  for (var dk = 0; dk < datesList.length; dk++) {
+    var dayEntry = visitsByDate[datesList[dk]];
+    dayEntry.travel = calculateDailyRouteDistance(dayEntry.visits, dealerGpsLookup, rules.kmRate);
+  }
+
   for (var bk2 = 0; bk2 < bucketKeys.length; bk2++) {
     var bNameFinal = bucketKeys[bk2];
     var bObj = dashboard[bNameFinal];
@@ -1423,6 +1702,51 @@ function getStaffDashboardData(staffName) {
     bObj.dealerBreakdown = computed.dealerBreakdown;
     bObj.ordersList = computed.ordersList;
     bObj.unvisitedOrdersList = computed.unvisitedOrdersList;
+
+    var bucketTotalKm = 0;
+    var bucketTotalAllowance = 0;
+    var bucketActiveDays = 0;
+    var bucketStops = 0;
+    var dailyBreakdownList = [];
+    var singleDayWaypoints = [];
+    var bucketMapsUrl = "";
+
+    for (var dl2 = 0; dl2 < datesList.length; dl2++) {
+      var dKey2 = datesList[dl2];
+      var dEntry = visitsByDate[dKey2];
+      var bMatch = getBuckets(dEntry.dateObj);
+      if (bMatch.indexOf(bNameFinal) !== -1) {
+        var dt = dEntry.travel;
+        bucketTotalKm += dt.totalKm;
+        bucketTotalAllowance += dt.allowance;
+        bucketActiveDays++;
+        bucketStops += dt.stopsCount;
+        dailyBreakdownList.push({
+          dateStr: dKey2,
+          stopsCount: dt.stopsCount,
+          totalKm: dt.totalKm,
+          allowance: dt.allowance,
+          dealers: dEntry.visits.map(function(v){ return v.dealer; }),
+          mapsUrl: dt.mapsUrl
+        });
+        if (bNameFinal === 'today' || bNameFinal === 'yesterday') {
+          singleDayWaypoints = dt.waypoints;
+          bucketMapsUrl = dt.mapsUrl;
+        }
+      }
+    }
+
+    bObj.travel = {
+      totalKm: Math.round(bucketTotalKm * 10) / 10,
+      ratePerKm: rules.kmRate,
+      allowance: Math.round(bucketTotalKm * rules.kmRate),
+      daysCount: bucketActiveDays,
+      avgKmPerDay: bucketActiveDays > 0 ? Math.round((bucketTotalKm / bucketActiveDays) * 10) / 10 : 0,
+      stopsCount: bucketStops,
+      waypoints: singleDayWaypoints,
+      dailyBreakdown: dailyBreakdownList,
+      mapsUrl: bucketMapsUrl
+    };
   }
 
   // 4. Compute Live Route Market Coverage for Today
@@ -1751,6 +2075,9 @@ function generateWhatsAppEOD(staffName) {
   report += "• Last Punch: *" + lastVisitStr + "*" + nl;
   report += "• Avg Time/Store: *" + avgMinsPerStore + " mins*" + nl;
   report += "• Route Efficiency: *" + (avgMinsPerStore > 40 ? "Needs Improvement ⚠️" : "Optimal ✅") + "*" + nl;
+  var todayTravel = (dash && dash.today && dash.today.travel) ? dash.today.travel : { totalKm: 0, allowance: 0, ratePerKm: 3.5, stopsCount: 0 };
+  report += "• Field Travel: *" + (todayTravel.totalKm || 0) + " KM* (Petrol Allowance: *₹" + (todayTravel.allowance || 0) + "* @ ₹" + (todayTravel.ratePerKm || 3.5).toFixed(2) + "/km)*" + nl;
+  report += "• Route Stops: *" + (todayTravel.stopsCount || 0) + " Counters* (HQ Round Trip)*" + nl;
   report += nl;
   
   report += "*📦 3. MARKET INTELLIGENCE*" + nl;
@@ -2502,7 +2829,7 @@ function generateMorningBriefing(areaName) {
 
   report += "🎯 *TARGET vs ACHIEVEMENT*" + nl;
   report += "• *MTD (Is Mahine):* ₹" + (mtdSales/100000).toFixed(2) + "L / ₹10L (" + targetPct + "%)" + nl;
-  report += "• *WTD (Is Hafte):* ₹" + (wtdSales/100000).toFixed(2) + "L / ₹2.5L (" + wtdPct + "%)" + nl + nl;
+  report += "• *WTD (Is Hafte):* ₹" + (wtdSales/100000).toFixed(2) + "L / ���2.5L (" + wtdPct + "%)" + nl + nl;
   
   report += "📊 *BRAND TARGETS (MTD)*" + nl;
   report += "• *boAt:* ₹" + (brandSales["BOAT"]/1000).toFixed(1) + "k / ₹2.5L" + nl;
