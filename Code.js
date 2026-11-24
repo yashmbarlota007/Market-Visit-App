@@ -2174,7 +2174,7 @@ function generateWhatsAppEOD(staffName) {
   report += "*📈 5. GROWTH TRACKER*" + nl;
   report += "• Today: *₹ " + Math.round(todaySales).toLocaleString('en-IN') + "*" + nl;
   report += "• Yesterday: *₹ " + Math.round((dash.yesterday && dash.yesterday.sales) ? dash.yesterday.sales : 0).toLocaleString('en-IN') + "*" + nl;
-  report += "• This Week: *��� " + Math.round(thisWeekSales).toLocaleString('en-IN') + "* " + (paceWeek > 0 ? "(_Need ₹" + Math.round(paceWeek).toLocaleString('en-IN') + " for Target_)" : "(_Target Hit! 🎯_)") + nl;
+  report += "• This Week: *₹ " + Math.round(thisWeekSales).toLocaleString('en-IN') + "* " + (paceWeek > 0 ? "(_Need ₹" + Math.round(paceWeek).toLocaleString('en-IN') + " for Target_)" : "(_Target Hit! 🎯_)") + nl;
   report += "• This Month: *₹ " + Math.round(thisMonthSales).toLocaleString('en-IN') + "* " + (paceMonth > 0 ? "(_Need ₹" + Math.round(paceMonth).toLocaleString('en-IN') + " for Target_)" : "(_Target Hit! 🎯_)") + nl;
 
   return report;
@@ -2905,12 +2905,12 @@ function generateMorningBriefing(areaName) {
 
   report += "🎯 *TARGET vs ACHIEVEMENT*" + nl;
   report += "• *MTD (Is Mahine):* ₹" + (mtdSales/100000).toFixed(2) + "L / ₹10L (" + targetPct + "%)" + nl;
-  report += "• *WTD (Is Hafte):* ₹" + (wtdSales/100000).toFixed(2) + "L / ���2.5L (" + wtdPct + "%)" + nl + nl;
+  report += "• *WTD (Is Hafte):* ₹" + (wtdSales/100000).toFixed(2) + "L / ₹2.5L (" + wtdPct + "%)" + nl + nl;
   
   report += "📊 *BRAND TARGETS (MTD)*" + nl;
   report += "• *boAt:* ₹" + (brandSales["BOAT"]/1000).toFixed(1) + "k / ₹2.5L" + nl;
   report += "• *Portronics:* ₹" + (brandSales["PORTRONICS"]/1000).toFixed(1) + "k / ₹2.5L" + nl;
-  report += "• *GoBoult:* ₹" + (brandSales["GOBOULT"]/1000).toFixed(1) + "k / ��2.5L" + nl;
+  report += "• *GoBoult:* ₹" + (brandSales["GOBOULT"]/1000).toFixed(1) + "k / ₹2.5L" + nl;
   report += "• *Velocity:* ₹" + (brandSales["VELOCITY"]/1000).toFixed(1) + "k / ₹2.5L" + nl;
   report += "• *Hikvision:* ₹" + (brandSales["HIKVISION"]/1000).toFixed(1) + "k / ₹1.0L" + nl;
   
@@ -2967,7 +2967,7 @@ function generateMorningBriefing(areaName) {
      report += "No stock outs reported." + nl; 
   }
   
-  report += "━━━━━━━━━━━��━━━━•━━" + nl;
+  report += "━━━━━━━━━━━━━━━━━━━━" + nl;
   report += "🔥 *Faad do aaj market!* 🔥";
   
   return encodeURIComponent(report);
