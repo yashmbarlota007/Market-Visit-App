@@ -1038,7 +1038,7 @@ window.loadAreasInBackground = function() {
                   <option value="">Select Area First</option>
                 </select>
                 
-                <!-- DEALER LOCATION GPS & 50m GEOFENCE CARD -->
+                <!-- DEALER LOCATION GPS & 100m GEOFENCE CARD -->
                 <div id="dealerGpsLockCard" class="mt-2" style="display:none;"></div>
                 <div id="geofenceAlertBox" class="mt-2 py-2 px-3 rounded small fw-bold" style="display:none;"></div>
                 <div class="alert alert-danger mt-2 py-1" id="duesAlert" style="display:none; font-size:14px;"></div>
@@ -2908,7 +2908,7 @@ function openPerfModal(metricType) {
     
     var html = '<div class="alert alert-warning py-2 px-3 mb-3 d-flex justify-content-between align-items-center" style="font-size:13px;">' +
                  '<span><b>Avg Rs / Order:</b> ₹' + (m.avgRsSales || 0).toLocaleString('en-IN') + '</span>' +
-                 '<span><b>Avg Rs / Visit:</b> ₹' + (m.avgRsSalesPerVisit || 0).toLocaleString('en-IN') + '</span>' +
+                 '<span><b>Avg Rs / Visit:</b> ���' + (m.avgRsSalesPerVisit || 0).toLocaleString('en-IN') + '</span>' +
                '</div>';
                
     if (ordersList.length === 0) {
@@ -4026,7 +4026,7 @@ function checkDealerDetails() {
       if (isLocked) {
         // PERMANENT LOCK: 'Lock Dealer GPS' button is COMPLETELY REMOVED!
         lockCard.innerHTML = '<div class="alert alert-info py-2 px-3 small d-flex justify-content-between align-items-center mb-0 border-info shadow-sm" style="border-radius: 8px;">' +
-          '<div><i class="bi bi-shield-lock-fill text-success fs-6"></i> <b>Shop GPS Locked:</b> 50m Geofence Active</div>' +
+          '<div><i class="bi bi-shield-lock-fill text-success fs-6"></i> <b>Shop GPS Locked:</b> 100m Geofence Active</div>' +
           '<a href="https://www.google.com/maps?q=' + dealer.lat + ',' + dealer.lng + '" target="_blank" class="badge bg-primary text-decoration-none py-1 px-2"><i class="bi bi-map"></i> View Shop</a>' +
         '</div>';
         lockCard.style.display = 'block';
@@ -4074,7 +4074,7 @@ function triggerLockDealerGPS() {
   var staff = document.getElementById('staffName').value || currentUser || "Staff";
   if (!dealerName) { alert("Please select a dealer first!"); return; }
   
-  if (!confirm("Kya aap abhi '" + dealerName + "' ki dukan par khade hain?\n\nYaha ka GPS lock karne ke baad, yeh location permanent ho jayegi aur agle visits me sirf yahi 50 meters ke andar se visit punch ho payegi.")) {
+  if (!confirm("Kya aap abhi '" + dealerName + "' ki dukan par khade hain?\n\nYaha ka GPS lock karne ke baad, yeh location permanent ho jayegi aur agle visits me sirf yahi 100 meters ke andar se visit punch ho payegi.")) {
     return;
   }
   
@@ -4102,7 +4102,7 @@ function triggerLockDealerGPS() {
               d.gps = res.gps;
               d.lat = res.lat;
               d.lng = res.lng;
-              d.radius = res.radius || 50;
+              d.radius = res.radius || 100;
             }
           }
           if (window.cachedAreasData && window.cachedAreasData.grouped && window.cachedAreasData.grouped[area]) {
@@ -4112,7 +4112,7 @@ function triggerLockDealerGPS() {
               d2.gps = res.gps;
               d2.lat = res.lat;
               d2.lng = res.lng;
-              d2.radius = res.radius || 50;
+              d2.radius = res.radius || 100;
             }
           }
           
@@ -4212,7 +4212,7 @@ function verifyCurrentGeofence() {
           Math.cos(staffLat * Math.PI / 180) * Math.cos(dealer.lat * Math.PI / 180) *
           Math.sin(dLon/2) * Math.sin(dLon/2);
   var distMeters = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
-  var allowedRadius = dealer.radius || 50;
+  var allowedRadius = Math.max(100, parseFloat(dealer.radius) || 100);
   
   if (distMeters <= allowedRadius) {
     // INSIDE SHOP GEOFENCE: Clean UI - hide warning box completely!
@@ -4228,7 +4228,7 @@ function verifyCurrentGeofence() {
     // OUTSIDE SHOP GEOFENCE: Anti-Proxy Breach Block
     if (geofenceBox) {
       geofenceBox.className = "alert alert-danger mt-2 py-2 px-3 small fw-bold mb-0 border-danger shadow-sm";
-      geofenceBox.innerHTML = '⛔ <b>Anti-Proxy Breach Block:</b> Aap dealer se ' + distMeters + ' meters dur hain! Punch sirf 50m ke andar allowed hai.';
+      geofenceBox.innerHTML = '⛔ <b>Anti-Proxy Breach Block:</b> Aap dealer se ' + distMeters + ' meters dur hain! Punch sirf 100m ke andar allowed hai.';
       geofenceBox.style.display = 'block';
     }
     if (submitBtn) {
@@ -4327,9 +4327,9 @@ function submitData() {
             Math.cos(staffLat * Math.PI / 180) * Math.cos(dealer.lat * Math.PI / 180) *
             Math.sin(dLon/2) * Math.sin(dLon/2);
     var distMeters = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
-    var allowedRadius = dealer.radius || 50;
+    var allowedRadius = Math.max(100, parseFloat(dealer.radius) || 100);
     if (distMeters > allowedRadius) {
-      alert("⛔ PROXY CHECK-IN REJECTED!\n\nAap dealer '" + dealerName + "' se " + distMeters + " meters dur hain.\n\nVisit punch sirf 50 meters ke andar hi allowed hai.");
+      alert("⛔ PROXY CHECK-IN REJECTED!\n\nAap dealer '" + dealerName + "' se " + distMeters + " meters dur hain.\n\nVisit punch sirf 100 meters ke andar hi allowed hai.");
       return;
     }
   }
